@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
-import { Modal } from '@yggdrasil-lab/ui';
+import { Modal, TactileKeypad, NumberInputDisplay } from '@yggdrasil-lab/ui';
 import { quickLogExpense } from '../services/api';
 
 interface QuickLogModalProps {
@@ -16,16 +16,6 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
   const [merchant, setMerchant] = useState('');
   const [category, setCategory] = useState('Food');
   const [loading, setLoading] = useState(false);
-
-  const handleKeyPress = (val: string) => {
-    if (val === 'C') {
-      setAmountStr('');
-      return;
-    }
-    if (val === '.' && amountStr.includes('.')) return;
-    if (amountStr.length >= 7) return;
-    setAmountStr((prev) => prev + val);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,12 +44,12 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
     <Modal isOpen={isOpen} onClose={onClose} title="Log Quick Expense">
       <div className="space-y-4">
         {/* Amount Display */}
-        <div className="text-center py-3 bg-background rounded-2xl border border-border/80">
-          <span className="text-xs text-slate-400 block mb-1">Expense Amount</span>
-          <div className="text-4xl font-black text-amber-400">
-            ${amountStr || '0'} <span className="text-sm font-normal text-slate-400">NZD</span>
-          </div>
-        </div>
+        <NumberInputDisplay
+          label="Expense Amount"
+          value={amountStr ? `$${amountStr}` : '$0'}
+          unit="NZD"
+          variant="amber"
+        />
 
         {/* Merchant Name */}
         <div>
@@ -92,18 +82,13 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
         </div>
 
         {/* Numeric Keypad */}
-        <div className="grid grid-cols-3 gap-2 pt-2">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'C'].map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => handleKeyPress(k)}
-              className="py-3 bg-background/80 hover:bg-background active:scale-95 border border-border/60 rounded-xl text-lg font-semibold text-slate-100 shadow-sm transition-all"
-            >
-              {k}
-            </button>
-          ))}
-        </div>
+        <TactileKeypad
+          value={amountStr}
+          onChange={setAmountStr}
+          variant="amber"
+          allowDecimals={true}
+          maxDecimalPlaces={2}
+        />
 
         {/* Submit */}
         <button

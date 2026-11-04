@@ -69,6 +69,7 @@ export const App: React.FC = () => {
     <AppShell
       header={
         <AppHeader
+          variant="amber"
           brandInitial="M"
           brandColor="bg-amber-500 text-slate-950"
           title="MIDAS"
@@ -91,6 +92,8 @@ export const App: React.FC = () => {
       }
       bottomNav={
         <BottomNav
+          variant="amber"
+          hideOnDesktop
           tabs={mobileNavTabs}
           activeTab={activeTab}
           onChangeTab={(tabId) => setActiveTab(tabId as MidasTab)}
