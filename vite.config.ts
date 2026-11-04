@@ -9,7 +9,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: [
+        'favicon.svg',
+        'apple-touch-icon.png',
+        'apple-touch-icon-precomposed.png',
+        'apple-touch-icon-180x180.png',
+        'apple-touch-icon-180x180-precomposed.png',
+        'apple-touch-icon-120x120.png',
+      ],
       manifest: {
         name: 'Midas',
         short_name: 'Midas',
