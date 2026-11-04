@@ -135,7 +135,7 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main Content Body */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 flex-1">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 pb-24 lg:pb-8 flex-1">
         {data && (
           <>
             {/* Desktop Full Dashboard (lg: screens) */}

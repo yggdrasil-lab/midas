@@ -81,46 +81,46 @@ export const RunwayClock: React.FC<RunwayClockProps> = ({ data }) => {
       </div>
 
       {/* Tier breakdown cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-border">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-4 border-t border-border">
         {/* Tier 1: Cash floor */}
-        <div className="bg-background/60 p-3 rounded-xl border border-border/60">
-          <div className="flex items-center text-xs text-slate-400 mb-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-sky-400 mr-1.5" />
-            <span>Cash Floor</span>
+        <div className="bg-background/60 p-2 sm:p-3 rounded-xl border border-border/60">
+          <div className="flex items-center text-[10px] sm:text-xs text-slate-400 mb-1 truncate">
+            <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-400 mr-1 shrink-0" />
+            <span className="truncate">Cash Floor</span>
           </div>
-          <div className="text-base font-bold text-slate-200">
-            {breakdown.emergency_weeks} <span className="text-xs font-normal text-slate-400">weeks</span>
+          <div className="text-sm sm:text-base font-bold text-slate-200">
+            {breakdown.emergency_weeks} <span className="text-[10px] sm:text-xs font-normal text-slate-400">w</span>
           </div>
-          <div className="text-xs text-slate-400">
-            ${breakdown.cash_balance.toLocaleString('en-NZ')} NZD
+          <div className="text-[10px] sm:text-xs text-slate-400 truncate">
+            ${Math.round(breakdown.cash_balance).toLocaleString('en-NZ')}
           </div>
         </div>
 
         {/* Tier 2: Accessible investments */}
-        <div className="bg-background/60 p-3 rounded-xl border border-border/60">
-          <div className="flex items-center text-xs text-slate-400 mb-1">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-400 mr-1.5" />
-            <span>Growth Portfolio</span>
+        <div className="bg-background/60 p-2 sm:p-3 rounded-xl border border-border/60">
+          <div className="flex items-center text-[10px] sm:text-xs text-slate-400 mb-1 truncate">
+            <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 mr-1 shrink-0" />
+            <span className="truncate">Growth</span>
           </div>
-          <div className="text-base font-bold text-slate-200">
+          <div className="text-sm sm:text-base font-bold text-slate-200">
             {breakdown.is_perpetual ? 'Perpetual' : breakdown.growth_weeks ? `${breakdown.growth_weeks} w` : 'N/A'}
           </div>
-          <div className="text-xs text-slate-400">
-            ${breakdown.growth_balance.toLocaleString('en-NZ')} NZD
+          <div className="text-[10px] sm:text-xs text-slate-400 truncate">
+            ${Math.round(breakdown.growth_balance).toLocaleString('en-NZ')}
           </div>
         </div>
 
         {/* Tier 3: KiwiSaver / locked */}
-        <div className="bg-background/60 p-3 rounded-xl border border-border/60">
-          <div className="flex items-center text-xs text-slate-400 mb-1">
-            <Lock className="w-3.5 h-3.5 text-amber-400 mr-1.5" />
-            <span>KiwiSaver (Locked)</span>
+        <div className="bg-background/60 p-2 sm:p-3 rounded-xl border border-border/60">
+          <div className="flex items-center text-[10px] sm:text-xs text-slate-400 mb-1 truncate">
+            <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 mr-1 shrink-0" />
+            <span className="truncate">KiwiSaver</span>
           </div>
-          <div className="text-base font-bold text-slate-200">
-            Retirement
+          <div className="text-sm sm:text-base font-bold text-slate-200">
+            Locked
           </div>
-          <div className="text-xs text-slate-400">
-            ${breakdown.locked_balance.toLocaleString('en-NZ')} NZD
+          <div className="text-[10px] sm:text-xs text-slate-400 truncate">
+            ${Math.round(breakdown.locked_balance).toLocaleString('en-NZ')}
           </div>
         </div>
       </div>
