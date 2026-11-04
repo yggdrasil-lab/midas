@@ -70,8 +70,14 @@ export const App: React.FC = () => {
       header={
         <AppHeader
           variant="amber"
-          brandInitial="M"
-          brandColor="bg-amber-500 text-slate-950"
+          brandIcon={
+            <img
+              src="/favicon.svg"
+              alt="Midas"
+              className="w-full h-full object-contain rounded-xl"
+            />
+          }
+          brandColor="overflow-hidden p-0 border border-amber-500/30"
           title="MIDAS"
           subtitle="Freedom Clock"
           tabs={desktopTabs}
