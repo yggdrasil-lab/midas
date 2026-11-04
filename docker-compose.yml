@@ -1,0 +1,36 @@
+services:
+  midas-web:
+    image: ${REGISTRY_PREFIX}midas-web:${IMAGE_TAG}
+    build: .
+    environment:
+      - TZ=Pacific/Auckland
+    networks:
+      - aether-net
+    labels:
+      - "com.docker.compose.project=${STACK_NAME}"
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.midas-web.rule=Host(`midas.${DOMAIN_NAME}`)"
+        - "traefik.http.routers.midas-web.entrypoints=websecure"
+        - "traefik.http.routers.midas-web.tls=true"
+        - "traefik.http.routers.midas-web.tls.certresolver=cloudflare"
+        - "traefik.http.routers.midas-web.middlewares=authentik@docker"
+        - "traefik.http.services.midas-web.loadbalancer.server.port=8080"
+        - "traefik.docker.network=aether-net"
+
+networks:
+  aether-net:
+    external: true
