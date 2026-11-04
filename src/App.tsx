@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Sliders, UploadCloud, RefreshCw, PlusCircle, LayoutDashboard } from 'lucide-react';
+import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock } from 'lucide-react';
+import { AppShell, AppHeader, BottomNav } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
@@ -7,7 +8,7 @@ import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
 import { ScenarioSimulator } from './components/ScenarioSimulator';
 import { StatementDropzone } from './components/StatementDropzone';
 import { QuickLogModal } from './components/QuickLogModal';
-import { BottomNav, MidasTab } from './components/BottomNav';
+import { MidasTab } from './components/BottomNav';
 
 export const App: React.FC = () => {
   const [data, setData] = useState<RunwayData | null>(null);
@@ -52,70 +53,32 @@ export const App: React.FC = () => {
     loadData();
   }, []);
 
+  const desktopTabs = [
+    { id: 'overview', label: 'Full Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+    { id: 'simulator', label: 'Time Machine', icon: <Sliders className="w-3.5 h-3.5" /> },
+    { id: 'statement', label: 'Statement Hub', icon: <UploadCloud className="w-3.5 h-3.5" /> },
+  ];
+
+  const mobileNavTabs = [
+    { id: 'overview', label: 'Freedom', icon: <Clock className="w-4 h-4" /> },
+    { id: 'simulator', label: 'Simulator', icon: <Sliders className="w-4 h-4" /> },
+    { id: 'statement', label: 'Statement', icon: <UploadCloud className="w-4 h-4" /> },
+  ];
+
   return (
-    <div className="min-h-screen bg-background text-slate-100 flex flex-col justify-between w-full selection:bg-amber-500 selection:text-black">
-      {/* Top App Bar (Responsive for Mobile and Desktop) */}
-      <header className="border-b border-border/60 bg-card/60 backdrop-blur sticky top-0 z-40 w-full">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-          {/* Logo & Brand */}
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-base shadow-md">
-              M
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-base font-bold tracking-tight text-slate-100">MIDAS</h1>
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                  Freedom Clock
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium tracking-wider uppercase sm:hidden">
-                Freedom Clock
-              </p>
-            </div>
-          </div>
-
-          {/* Desktop Navigation Tabs (Hidden on mobile) */}
-          <nav className="hidden lg:flex items-center space-x-1 bg-background/80 p-1 rounded-xl border border-border/80">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                activeTab === 'overview'
-                  ? 'bg-amber-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Full Dashboard</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('simulator')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                activeTab === 'simulator'
-                  ? 'bg-amber-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Time Machine</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('statement')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                activeTab === 'statement'
-                  ? 'bg-amber-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <UploadCloud className="w-3.5 h-3.5" />
-              <span>Statement Hub</span>
-            </button>
-          </nav>
-
-          {/* Right Action Icons: Quick Log + Subtle Refresh Button */}
-          <div className="flex items-center space-x-2">
+    <AppShell
+      header={
+        <AppHeader
+          brandInitial="M"
+          brandColor="bg-amber-500 text-slate-950"
+          title="MIDAS"
+          subtitle="Freedom Clock"
+          tabs={desktopTabs}
+          activeTab={activeTab}
+          onChangeTab={(tabId) => setActiveTab(tabId as MidasTab)}
+          onRefresh={loadData}
+          isRefreshing={loading}
+          actions={
             <button
               onClick={() => setIsQuickLogOpen(true)}
               className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-semibold shadow transition-all duration-150"
@@ -123,76 +86,69 @@ export const App: React.FC = () => {
               <PlusCircle className="w-3.5 h-3.5" />
               <span>Log Expense</span>
             </button>
-
-            <button
-              onClick={loadData}
-              className="p-2 rounded-xl bg-background/80 hover:bg-background border border-border text-slate-400 hover:text-slate-200 active:scale-95 transition-all"
-              title="Refresh metrics"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Body */}
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 pb-24 lg:pb-8 flex-1">
-        {data && (
-          <>
-            {/* Desktop Full Dashboard (lg: screens) */}
-            <div className="hidden lg:block">
-              {activeTab === 'overview' && (
-                <div className="grid grid-cols-12 gap-6 items-start">
-                  {/* Left Column: Clock + Burn + Ingestion */}
-                  <div className="col-span-7 space-y-6">
-                    <RunwayClock data={data} />
-                    <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
-                    <StatementDropzone onSuccess={loadData} />
-                  </div>
-
-                  {/* Right Column: Time Machine Simulator */}
-                  <div className="col-span-5 space-y-6 sticky top-20">
-                    <ScenarioSimulator baselineBurn={data.breakdown.weekly_burn_rate} />
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'simulator' && (
-                <div className="max-w-2xl mx-auto">
-                  <ScenarioSimulator baselineBurn={data.breakdown.weekly_burn_rate} />
-                </div>
-              )}
-
-              {activeTab === 'statement' && (
-                <div className="max-w-2xl mx-auto">
-                  <StatementDropzone onSuccess={loadData} />
-                </div>
-              )}
-            </div>
-
-            {/* Mobile / Tablet View (< lg: screens) */}
-            <div className="block lg:hidden space-y-4 max-w-lg mx-auto">
-              {activeTab === 'overview' && (
-                <>
+          }
+        />
+      }
+      bottomNav={
+        <BottomNav
+          tabs={mobileNavTabs}
+          activeTab={activeTab}
+          onChangeTab={(tabId) => setActiveTab(tabId as MidasTab)}
+        />
+      }
+    >
+      {data && (
+        <>
+          {/* Desktop Full Dashboard (lg: screens) */}
+          <div className="hidden lg:block">
+            {activeTab === 'overview' && (
+              <div className="grid grid-cols-12 gap-6 items-start">
+                {/* Left Column: Clock + Burn + Ingestion */}
+                <div className="col-span-7 space-y-6">
                   <RunwayClock data={data} />
                   <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
-                </>
-              )}
+                  <StatementDropzone onSuccess={loadData} />
+                </div>
 
-              {activeTab === 'simulator' && (
+                {/* Right Column: Time Machine Simulator */}
+                <div className="col-span-5 space-y-6 sticky top-20">
+                  <ScenarioSimulator baselineBurn={data.breakdown.weekly_burn_rate} />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'simulator' && (
+              <div className="max-w-2xl mx-auto">
                 <ScenarioSimulator baselineBurn={data.breakdown.weekly_burn_rate} />
-              )}
+              </div>
+            )}
 
-              {activeTab === 'statement' && (
+            {activeTab === 'statement' && (
+              <div className="max-w-2xl mx-auto">
                 <StatementDropzone onSuccess={loadData} />
-              )}
-            </div>
-          </>
-        )}
-      </main>
+              </div>
+            )}
+          </div>
 
-      {/* Bottom Mobile Tab Bar (Visible only on mobile/tablet screens < lg, viewport fixed) */}
-      <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
+          {/* Mobile / Tablet View (< lg: screens) */}
+          <div className="block lg:hidden space-y-4 max-w-lg mx-auto">
+            {activeTab === 'overview' && (
+              <>
+                <RunwayClock data={data} />
+                <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
+              </>
+            )}
+
+            {activeTab === 'simulator' && (
+              <ScenarioSimulator baselineBurn={data.breakdown.weekly_burn_rate} />
+            )}
+
+            {activeTab === 'statement' && (
+              <StatementDropzone onSuccess={loadData} />
+            )}
+          </div>
+        </>
+      )}
 
       {/* Quick Log Modal */}
       <QuickLogModal
@@ -200,6 +156,6 @@ export const App: React.FC = () => {
         onClose={() => setIsQuickLogOpen(false)}
         onSuccess={loadData}
       />
-    </div>
+    </AppShell>
   );
 };

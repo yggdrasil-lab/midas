@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { Modal } from '@yggdrasil-lab/ui';
 import { quickLogExpense } from '../services/api';
 
 interface QuickLogModalProps {
@@ -15,8 +16,6 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
   const [merchant, setMerchant] = useState('');
   const [category, setCategory] = useState('Food');
   const [loading, setLoading] = useState(false);
-
-  if (!isOpen) return null;
 
   const handleKeyPress = (val: string) => {
     if (val === 'C') {
@@ -52,16 +51,8 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-background/80 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-card border border-border rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 pb-safe">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-border">
-          <h3 className="text-base font-semibold text-slate-100">Log Quick Expense</h3>
-          <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:text-slate-200">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
+    <Modal isOpen={isOpen} onClose={onClose} title="Log Quick Expense">
+      <div className="space-y-4">
         {/* Amount Display */}
         <div className="text-center py-3 bg-background rounded-2xl border border-border/80">
           <span className="text-xs text-slate-400 block mb-1">Expense Amount</span>
@@ -124,6 +115,6 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
           <span>{loading ? 'Logging...' : 'Confirm & Log Expense'}</span>
         </button>
       </div>
-    </div>
+    </Modal>
   );
 };

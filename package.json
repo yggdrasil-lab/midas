@@ -11,6 +11,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@yggdrasil-lab/ui": "github:yggdrasil-lab/ui",
     "clsx": "^2.1.1",
     "dexie": "^4.0.10",
     "lucide-react": "^0.454.0",
