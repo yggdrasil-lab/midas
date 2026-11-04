@@ -86,4 +86,25 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.locator('text=228 Weeks >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=+44 weeks >> visible=true').first()).toBeVisible();
   });
+
+  test('displays SessionExpiredBanner when Authentik session expires without falling back to mock data', async ({ page }) => {
+    // Intercept /api/runway with 401 Authentik redirect
+    await page.route(/\/api\/runway(\?.*)?$/, async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'text/html',
+        body: '<html><title>Authentik Login</title></html>',
+      });
+    });
+
+    await page.goto('/');
+
+    // SessionExpiredBanner must be visible
+    const banner = page.locator('[data-testid="session-expired-banner"]');
+    await expect(banner).toBeVisible();
+    await expect(page.locator('text=Authentik session expired - tap to re-authenticate')).toBeVisible();
+
+    // Mock data should NOT be displayed
+    await expect(page.locator('text=Financial Freedom Clock')).not.toBeVisible();
+  });
 });
