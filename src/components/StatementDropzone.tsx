@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UploadCloud, FileText, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
 import { StatementParseResult } from '../types';
 import { uploadStatement } from '../services/api';
 

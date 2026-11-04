@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, Shield, Sliders, UploadCloud, RefreshCw } from 'lucide-react';
+import { Clock, Sliders, UploadCloud, RefreshCw } from 'lucide-react';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
