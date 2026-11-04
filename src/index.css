@@ -6,11 +6,17 @@
   color-scheme: dark;
 }
 
+html {
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
 body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
+  overscroll-behavior-y: none;
   background-color: #090d16;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -19,7 +25,7 @@ body {
 
 /* Safe area insets for iOS devices */
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 1rem);
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 1rem));
 }
 .pt-safe {
   padding-top: env(safe-area-inset-top, 1rem);

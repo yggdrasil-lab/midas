@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, Sliders, UploadCloud, RefreshCw, PlusCircle, LayoutDashboard } from 'lucide-react';
+import { Sliders, UploadCloud, RefreshCw, PlusCircle, LayoutDashboard } from 'lucide-react';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
@@ -7,11 +7,12 @@ import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
 import { ScenarioSimulator } from './components/ScenarioSimulator';
 import { StatementDropzone } from './components/StatementDropzone';
 import { QuickLogModal } from './components/QuickLogModal';
+import { BottomNav, MidasTab } from './components/BottomNav';
 
 export const App: React.FC = () => {
   const [data, setData] = useState<RunwayData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'simulator' | 'statement'>('overview');
+  const [activeTab, setActiveTab] = useState<MidasTab>('overview');
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
   const loadData = async () => {
@@ -190,46 +191,8 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Bottom Mobile Tab Bar (Visible only on mobile/tablet screens < lg) */}
-      <nav className="block lg:hidden p-2 border-t border-border bg-card/80 backdrop-blur sticky bottom-0 z-40 pb-safe">
-        <div className="max-w-lg mx-auto grid grid-cols-3 gap-1">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`py-2 px-3 rounded-xl flex flex-col items-center space-y-1 transition-all ${
-              activeTab === 'overview'
-                ? 'text-amber-400 bg-amber-500/10 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span className="text-[10px]">Freedom</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('simulator')}
-            className={`py-2 px-3 rounded-xl flex flex-col items-center space-y-1 transition-all ${
-              activeTab === 'simulator'
-                ? 'text-amber-400 bg-amber-500/10 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span className="text-[10px]">Simulator</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('statement')}
-            className={`py-2 px-3 rounded-xl flex flex-col items-center space-y-1 transition-all ${
-              activeTab === 'statement'
-                ? 'text-amber-400 bg-amber-500/10 font-semibold'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <UploadCloud className="w-4 h-4" />
-            <span className="text-[10px]">Statement</span>
-          </button>
-        </div>
-      </nav>
+      {/* Bottom Mobile Tab Bar (Visible only on mobile/tablet screens < lg, viewport fixed) */}
+      <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
 
       {/* Quick Log Modal */}
       <QuickLogModal
