@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sliders, RefreshCw, Zap } from 'lucide-react';
+import { Button } from '@yggdrasil-lab/ui';
 import { RunwayScenarioResult } from '../types';
 import { simulateScenario } from '../services/api';
 
@@ -14,6 +15,8 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RunwayScenarioResult | null>(null);
+
+  const maxDelta = Math.max(500, Math.round(baselineBurn || 1000));
 
   const handleSimulate = async () => {
     setLoading(true);
@@ -60,13 +63,14 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
           </div>
         </div>
 
-        <button
+        <Button
+          variant="ghost"
+          size="xs"
+          icon={<RefreshCw className="w-3 h-3" />}
           onClick={handleReset}
-          className="text-xs text-slate-400 hover:text-slate-200 flex items-center space-x-1"
         >
-          <RefreshCw className="w-3 h-3" />
-          <span>Reset</span>
-        </button>
+          Reset
+        </Button>
       </div>
 
       {/* Sliders */}
@@ -81,17 +85,17 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
           </div>
           <input
             type="range"
-            min="-500"
-            max="500"
+            min={-maxDelta}
+            max={maxDelta}
             step="25"
             value={burnDelta}
             onChange={(e) => setBurnDelta(Number(e.target.value))}
             className="w-full accent-amber-500 cursor-pointer h-1.5 bg-background rounded-lg appearance-none"
           />
           <div className="flex justify-between text-[10px] text-slate-500">
-            <span>-$500/w (Frugal)</span>
+            <span>-${maxDelta}/w (Frugal)</span>
             <span>Current: ${Math.round(baselineBurn)}/w</span>
-            <span>+$500/w (High Burn)</span>
+            <span>+${maxDelta}/w (High Burn)</span>
           </div>
         </div>
 
@@ -120,14 +124,17 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
         </div>
 
         {/* Action Button */}
-        <button
+        <Button
+          variant="secondary"
+          size="md"
+          fullWidth
+          loading={loading}
+          loadingText="Simulating..."
+          icon={<Zap className="w-3.5 h-3.5 text-amber-400" />}
           onClick={handleSimulate}
-          disabled={loading}
-          className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-[0.99] border border-border rounded-xl text-xs font-semibold text-slate-200 flex items-center justify-center space-x-2 transition-all"
         >
-          <Zap className="w-3.5 h-3.5 text-amber-400" />
-          <span>{loading ? 'Simulating...' : 'Recalculate Freedom Horizon'}</span>
-        </button>
+          Recalculate Freedom Horizon
+        </Button>
       </div>
 
       {/* Simulation Result */}
