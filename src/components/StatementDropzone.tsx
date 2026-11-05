@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { UploadCloud, FileText, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
+import { UploadCloud, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
+import { FileDropzone } from '@yggdrasil-lab/ui';
 import { Account, StatementParseResult } from '../types';
 import { fetchAccounts, uploadStatement } from '../services/api';
 
@@ -8,7 +9,6 @@ interface StatementDropzoneProps {
 }
 
 export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess }) => {
-  const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [institution, setInstitution] = useState('ASB');
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -29,31 +29,6 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       })
       .catch((err) => console.warn('Could not pre-load accounts:', err));
   }, [institution]);
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
 
   const handleLoadSampleStatement = () => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -160,41 +135,15 @@ ${todayStr},MERCURY ENERGY,-130.00`;
       )}
 
       {!parseResult ? (
-        /* Upload Drag and Drop Zone */
-        <div
-          onDragEnter={handleDrag}
-          onDragOver={handleDrag}
-          onDragLeave={handleDrag}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-            dragActive ? 'border-amber-500 bg-amber-500/5' : 'border-border hover:border-slate-600 bg-background/50'
-          }`}
+        <FileDropzone
+          file={file}
+          onFileChange={setFile}
+          acceptedFormats=".pdf,.csv"
+          title="Drop your PDF/CSV statement here, or browse"
+          description="Extracts official closing balances and deduplicated transactions"
+          variant="amber"
         >
-          <input
-            type="file"
-            accept=".pdf,.csv"
-            id="statement-upload"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <label htmlFor="statement-upload" className="cursor-pointer space-y-2 block">
-            <FileText className="w-8 h-8 text-slate-400 mx-auto" />
-            <div className="text-xs text-slate-300 font-medium">
-              {file ? (
-                <span className="text-amber-400 font-semibold">{file.name}</span>
-              ) : (
-                <>
-                  <span>Drop your PDF/CSV statement here, or </span>
-                  <span className="text-amber-400 underline">browse</span>
-                </>
-              )}
-            </div>
-            <p className="text-[10px] text-slate-500">
-              Extracts official closing balances and deduplicated transactions
-            </p>
-          </label>
-
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             {file ? (
               <button
                 onClick={handleParse}
@@ -215,7 +164,7 @@ ${todayStr},MERCURY ENERGY,-130.00`;
               </button>
             )}
           </div>
-        </div>
+        </FileDropzone>
       ) : (
         /* Extraction Preview Drawer */
         <div className="bg-background rounded-xl p-4 border border-border space-y-3">

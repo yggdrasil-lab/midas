@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
-import { Modal, TactileKeypad, NumberInputDisplay } from '@yggdrasil-lab/ui';
+import { Modal, TactileKeypad, NumberInputDisplay, ChipSelector } from '@yggdrasil-lab/ui';
 import { quickLogExpense } from '../services/api';
 
 interface QuickLogModalProps {
@@ -73,22 +73,12 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
         </div>
 
         {/* Category Chips */}
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                category === cat
-                  ? 'bg-amber-500 text-slate-950 font-semibold'
-                  : 'bg-background text-slate-400 hover:text-slate-200 border border-border'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        <ChipSelector
+          options={CATEGORIES}
+          selected={category}
+          onChange={setCategory}
+          variant="amber"
+        />
 
         {/* Numeric Keypad */}
         <TactileKeypad
