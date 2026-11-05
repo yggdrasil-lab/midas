@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock } from 'lucide-react';
+import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database } from 'lucide-react';
 import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
@@ -8,6 +8,7 @@ import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
 import { ScenarioSimulator } from './components/ScenarioSimulator';
 import { StatementDropzone } from './components/StatementDropzone';
 import { QuickLogModal } from './components/QuickLogModal';
+import { DataManagementModal } from './components/DataManagementModal';
 import { MidasTab } from './components/BottomNav';
 
 export const App: React.FC = () => {
@@ -17,6 +18,7 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<MidasTab>('overview');
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
+  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -75,13 +77,23 @@ export const App: React.FC = () => {
           onRefresh={loadData}
           isRefreshing={loading}
           actions={
-            <button
-              onClick={() => setIsQuickLogOpen(true)}
-              className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-semibold shadow transition-all duration-150"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Log Expense</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setIsDataModalOpen(true)}
+                title="Data & Ledger Controls"
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-card hover:bg-slate-800 active:scale-95 text-slate-300 border border-border rounded-xl text-xs font-semibold shadow-sm transition-all duration-150"
+              >
+                <Database className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Data</span>
+              </button>
+              <button
+                onClick={() => setIsQuickLogOpen(true)}
+                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-semibold shadow transition-all duration-150"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>Log Expense</span>
+              </button>
+            </div>
           }
         />
       }
@@ -127,6 +139,21 @@ export const App: React.FC = () => {
 
       {data && (
         <>
+          {data.breakdown.total_liquid_balance === 0 && (
+            <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow">
+              <div className="space-y-0.5">
+                <div className="font-semibold text-amber-300">Clean Ledger Ready</div>
+                <p className="text-amber-400/80">Your ledger has zero balances. Ingest bank statements below or seed test data to explore.</p>
+              </div>
+              <button
+                onClick={() => setIsDataModalOpen(true)}
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-bold text-xs shadow transition-all shrink-0"
+              >
+                Data Controls
+              </button>
+            </div>
+          )}
+
           {/* Desktop Full Dashboard (lg: screens) */}
           <div className="hidden lg:block">
             {activeTab === 'overview' && (
@@ -182,6 +209,13 @@ export const App: React.FC = () => {
       <QuickLogModal
         isOpen={isQuickLogOpen}
         onClose={() => setIsQuickLogOpen(false)}
+        onSuccess={loadData}
+      />
+
+      {/* Data Management Modal */}
+      <DataManagementModal
+        isOpen={isDataModalOpen}
+        onClose={() => setIsDataModalOpen(false)}
         onSuccess={loadData}
       />
     </AppShell>

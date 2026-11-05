@@ -12,10 +12,12 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
   const [returnRate, setReturnRate] = useState(0.05);
   const [lumpSum, setLumpSum] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RunwayScenarioResult | null>(null);
 
   const handleSimulate = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await simulateScenario({
         weekly_burn_adjustment: burnDelta,
@@ -23,8 +25,10 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
         lump_sum_adjustment: lumpSum,
       });
       setResult(res);
+      setError(null);
     } catch (err) {
       console.error(err);
+      setError(err instanceof Error ? err.message : 'Scenario simulation failed');
     } finally {
       setLoading(false);
     }
@@ -35,10 +39,16 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
     setReturnRate(0.05);
     setLumpSum(0);
     setResult(null);
+    setError(null);
   };
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 shadow-lg space-y-4">
+      {error && (
+        <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">

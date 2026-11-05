@@ -16,6 +16,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
   const [merchant, setMerchant] = useState('');
   const [category, setCategory] = useState('Food');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +24,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !merchant.trim()) return;
 
     setLoading(true);
+    setError(null);
     try {
       await quickLogExpense({
         amount: parsedAmount,
@@ -31,10 +33,12 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
       });
       setAmountStr('');
       setMerchant('');
+      setError(null);
       onSuccess();
       onClose();
     } catch (err) {
       console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to log expense');
     } finally {
       setLoading(false);
     }
@@ -43,6 +47,11 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Log Quick Expense">
       <div className="space-y-4">
+        {error && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs">
+            {error}
+          </div>
+        )}
         {/* Amount Display */}
         <NumberInputDisplay
           label="Expense Amount"

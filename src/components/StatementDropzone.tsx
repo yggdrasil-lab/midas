@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { UploadCloud, FileText, CheckCircle2, ArrowRight } from 'lucide-react';
-import { StatementParseResult } from '../types';
-import { uploadStatement } from '../services/api';
+import React, { useEffect, useState } from 'react';
+import { UploadCloud, FileText, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
+import { Account, StatementParseResult } from '../types';
+import { fetchAccounts, uploadStatement } from '../services/api';
 
 interface StatementDropzoneProps {
   onSuccess: () => void;
@@ -11,9 +11,24 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [institution, setInstitution] = useState('ASB');
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<StatementParseResult | null>(null);
   const [committed, setCommitted] = useState(false);
+
+  useEffect(() => {
+    fetchAccounts()
+      .then((accs) => {
+        setAccounts(accs);
+        if (accs.length > 0) {
+          const matched = accs.find((a) => a.institution.toLowerCase().includes(institution.toLowerCase()));
+          setSelectedAccountId(matched ? matched.id : accs[0].id);
+        }
+      })
+      .catch((err) => console.warn('Could not pre-load accounts:', err));
+  }, [institution]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -40,15 +55,33 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     }
   };
 
+  const handleLoadSampleStatement = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const csvContent = `Date,Payee,Amount
+${todayStr},PAK N SAVE ALBANY,-185.50
+${todayStr},BP TAKAPUNA,-75.00
+${todayStr},COLUMBUS COFFEE,-14.50
+${todayStr},MERCURY ENERGY,-130.00`;
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const sampleFile = new File([blob], 'asb-sample-statement.csv', { type: 'text/csv' });
+    setFile(sampleFile);
+    setInstitution('ASB');
+    setParseResult(null);
+    setCommitted(false);
+    setError(null);
+  };
+
   const handleParse = async () => {
     if (!file) return;
     setLoading(true);
     setCommitted(false);
+    setError(null);
     try {
       const res = await uploadStatement(file, institution, false);
       setParseResult(res);
     } catch (err) {
       console.error(err);
+      setError(err instanceof Error ? err.message : 'Statement parsing failed');
     } finally {
       setLoading(false);
     }
@@ -57,12 +90,14 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
   const handleConfirmAndSync = async () => {
     if (!file) return;
     setLoading(true);
+    setError(null);
     try {
-      await uploadStatement(file, institution, true, 1);
+      await uploadStatement(file, institution, true, selectedAccountId);
       setCommitted(true);
       onSuccess();
     } catch (err) {
       console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to commit statement to ledger');
     } finally {
       setLoading(false);
     }
@@ -72,6 +107,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setFile(null);
     setParseResult(null);
     setCommitted(false);
+    setError(null);
   };
 
   return (
@@ -87,19 +123,41 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           </div>
         </div>
 
-        <select
-          value={institution}
-          onChange={(e) => setInstitution(e.target.value)}
-          className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1 focus:outline-none"
-        >
-          <option value="ASB">ASB Bank</option>
-          <option value="ANZ">ANZ NZ</option>
-          <option value="BNZ">BNZ</option>
-          <option value="Sharesies">Sharesies</option>
-          <option value="Simplicity">Simplicity KiwiSaver</option>
-          <option value="Kernel">Kernel Wealth</option>
-        </select>
+        <div className="flex items-center space-x-2">
+          {accounts.length > 0 && (
+            <select
+              value={selectedAccountId || ''}
+              onChange={(e) => setSelectedAccountId(Number(e.target.value) || undefined)}
+              className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1 focus:outline-none"
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({acc.institution})
+                </option>
+              ))}
+            </select>
+          )}
+
+          <select
+            value={institution}
+            onChange={(e) => setInstitution(e.target.value)}
+            className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1 focus:outline-none"
+          >
+            <option value="ASB">ASB Bank</option>
+            <option value="ANZ">ANZ NZ</option>
+            <option value="BNZ">BNZ</option>
+            <option value="Sharesies">Sharesies</option>
+            <option value="Simplicity">Simplicity KiwiSaver</option>
+            <option value="Kernel">Kernel Wealth</option>
+          </select>
+        </div>
       </div>
+
+      {error && (
+        <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs">
+          {error}
+        </div>
+      )}
 
       {!parseResult ? (
         /* Upload Drag and Drop Zone */
@@ -136,16 +194,27 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
             </p>
           </label>
 
-          {file && (
-            <button
-              onClick={handleParse}
-              disabled={loading}
-              className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-xl border border-border inline-flex items-center space-x-1.5 transition-all"
-            >
-              <span>{loading ? 'Parsing Statement...' : 'Inspect Statement'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {file ? (
+              <button
+                onClick={handleParse}
+                disabled={loading}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-xl border border-border inline-flex items-center space-x-1.5 transition-all"
+              >
+                <span>{loading ? 'Parsing Statement...' : 'Inspect Statement'}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleLoadSampleStatement}
+                className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-xl border border-amber-500/30 inline-flex items-center space-x-1.5 transition-all"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Try Sample ASB Statement</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         /* Extraction Preview Drawer */
