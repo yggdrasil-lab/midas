@@ -16,9 +16,11 @@ export interface RunwayTierBreakdown {
   total_liquid_balance: number;
   emergency_weeks: number;
   growth_weeks: number | null;
+  locked_weeks?: number | null;
   is_perpetual: boolean;
   perpetual_threshold_weekly_income: number;
   weekly_burn_rate: number;
+  tier_labels?: Record<string, string>;
 }
 
 export interface RunwayData {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Flame, PlusCircle } from 'lucide-react';
-import { AllowanceProgressBar } from '@yggdrasil-lab/ui';
+import { AllowanceProgressBar, Button } from '@yggdrasil-lab/ui';
 import { RunwayData } from '../types';
 
 interface WeeklyBurnTrackerProps {
@@ -26,13 +26,14 @@ export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({ data, onQu
         isPositive: isBankedPositive,
       }}
       action={
-        <button
+        <Button
+          variant="amber"
+          size="sm"
+          icon={<PlusCircle className="w-3.5 h-3.5" />}
           onClick={onQuickLogClick}
-          className="flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-semibold shadow transition-all duration-150"
         >
-          <PlusCircle className="w-3.5 h-3.5" />
-          <span>Quick Log</span>
-        </button>
+          Quick Log
+        </Button>
       }
     />
   );

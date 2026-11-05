@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { UploadCloud, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
-import { FileDropzone } from '@yggdrasil-lab/ui';
+import { FileDropzone, Button, StatCard } from '@yggdrasil-lab/ui';
 import { Account, StatementParseResult } from '../types';
 import { fetchAccounts, fetchSampleStatement, uploadStatement } from '../services/api';
 
@@ -87,6 +87,18 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setError(null);
   };
 
+  const availableInstitutions = Array.from(
+    new Set([
+      ...accounts.map((a) => a.institution),
+      'ASB',
+      'ANZ',
+      'BNZ',
+      'Sharesies',
+      'Simplicity',
+      'Kernel',
+    ])
+  ).filter(Boolean);
+
   return (
     <div className="bg-card border border-border rounded-2xl p-5 shadow-lg space-y-4">
       <div className="flex items-center justify-between">
@@ -120,12 +132,11 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
             onChange={(e) => setInstitution(e.target.value)}
             className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1 focus:outline-none"
           >
-            <option value="ASB">ASB Bank</option>
-            <option value="ANZ">ANZ NZ</option>
-            <option value="BNZ">BNZ</option>
-            <option value="Sharesies">Sharesies</option>
-            <option value="Simplicity">Simplicity KiwiSaver</option>
-            <option value="Kernel">Kernel Wealth</option>
+            {availableInstitutions.map((inst) => (
+              <option key={inst} value={inst}>
+                {inst}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -147,23 +158,28 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         >
           <div className="flex flex-wrap items-center justify-center gap-2">
             {file ? (
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={loading}
+                loadingText="Parsing Statement..."
+                icon={<ArrowRight className="w-3.5 h-3.5" />}
+                iconPosition="right"
                 onClick={handleParse}
-                disabled={loading}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-xl border border-border inline-flex items-center space-x-1.5 transition-all"
               >
-                <span>{loading ? 'Parsing Statement...' : 'Inspect Statement'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+                Inspect Statement
+              </Button>
             ) : (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
+                loading={loading}
+                icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
                 onClick={handleLoadSampleStatement}
-                className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-xl border border-amber-500/30 inline-flex items-center space-x-1.5 transition-all"
+                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Try Sample ASB Statement</span>
-              </button>
+                {`Try Sample ${institution} Statement`}
+              </Button>
             )}
           </div>
         </FileDropzone>
@@ -172,27 +188,30 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         <div className="bg-background rounded-xl p-4 border border-border space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
             <span className="text-slate-400 font-medium">Detected from {file?.name}</span>
-            <button onClick={handleReset} className="text-slate-400 hover:text-slate-200 text-xs">
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={handleReset}
+            >
               Upload Different
-            </button>
+            </Button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-2.5 bg-card rounded-lg border border-border/80">
-              <span className="text-[10px] uppercase text-slate-500 font-semibold">Official Closing Balance</span>
-              <div className="text-lg font-bold text-emerald-400">
-                {parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
+            <StatCard
+              title="Official Closing Balance"
+              value={
+                parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
                   ? `$${parseResult.closing_balance.toLocaleString('en-NZ')} NZD`
-                  : 'N/A'}
-              </div>
-            </div>
-
-            <div className="p-2.5 bg-card rounded-lg border border-border/80">
-              <span className="text-[10px] uppercase text-slate-500 font-semibold">Transactions Found</span>
-              <div className="text-lg font-bold text-slate-200">
-                {parseResult.transaction_count} <span className="text-xs font-normal text-slate-400">items</span>
-              </div>
-            </div>
+                  : 'N/A'
+              }
+              variant="emerald"
+            />
+            <StatCard
+              title="Transactions Found"
+              value={`${parseResult.transaction_count} items`}
+              variant="card"
+            />
           </div>
 
           {parseResult.transactions.length > 0 && (
@@ -214,14 +233,17 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           )}
 
           {!committed ? (
-            <button
+            <Button
+              variant="emerald"
+              size="md"
+              fullWidth
+              loading={loading}
+              loadingText="Synchronizing..."
+              icon={<CheckCircle2 className="w-3.5 h-3.5" />}
               onClick={handleConfirmAndSync}
-              disabled={loading}
-              className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5 shadow transition-all"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{loading ? 'Synchronizing...' : 'Confirm & Anchor Balances in Plutus'}</span>
-            </button>
+              Confirm & Anchor Balances in Plutus
+            </Button>
           ) : (
             <div className="flex items-center justify-center space-x-2 text-xs font-semibold text-emerald-400 py-2">
               <CheckCircle2 className="w-4 h-4" />
