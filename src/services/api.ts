@@ -1,9 +1,10 @@
+import { authFetch } from '@yggdrasil-lab/ui';
 import { Account, RunwayData, RunwayScenarioResult, StatementParseResult } from '../types';
 
 const API_BASE = '/api';
 
 export async function fetchRunway(annualReturn = 0.05): Promise<RunwayData> {
-  const res = await fetch(`${API_BASE}/runway?annual_return=${annualReturn}`);
+  const res = await authFetch(`${API_BASE}/runway?annual_return=${annualReturn}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch runway metrics: ${res.statusText}`);
   }
@@ -15,7 +16,7 @@ export async function simulateScenario(params: {
   custom_annual_return?: number;
   lump_sum_adjustment?: number;
 }): Promise<RunwayScenarioResult> {
-  const res = await fetch(`${API_BASE}/runway/simulate`, {
+  const res = await authFetch(`${API_BASE}/runway/simulate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -32,7 +33,7 @@ export async function quickLogExpense(payload: {
   category?: string;
   notes?: string;
 }) {
-  const res = await fetch(`${API_BASE}/integrations/quick-log`, {
+  const res = await authFetch(`${API_BASE}/integrations/quick-log`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -57,7 +58,7 @@ export async function uploadStatement(
     url += `&account_id=${accountId}`;
   }
 
-  const res = await fetch(url, {
+  const res = await authFetch(url, {
     method: 'POST',
     body: formData,
   });
@@ -69,7 +70,7 @@ export async function uploadStatement(
 }
 
 export async function fetchAccounts(): Promise<Account[]> {
-  const res = await fetch(`${API_BASE}/accounts`);
+  const res = await authFetch(`${API_BASE}/accounts`);
   if (!res.ok) {
     throw new Error(`Failed to fetch accounts: ${res.statusText}`);
   }

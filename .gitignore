@@ -31,5 +31,7 @@ screenshots.local/
 # Editor / OS
 .DS_Store
 *.pem
+*.bak
+*.bak/
 .idea/
 .vscode/

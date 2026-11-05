@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock } from 'lucide-react';
-import { AppShell, AppHeader, BottomNav } from '@yggdrasil-lab/ui';
+import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
@@ -13,37 +13,26 @@ import { MidasTab } from './components/BottomNav';
 export const App: React.FC = () => {
   const [data, setData] = useState<RunwayData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<MidasTab>('overview');
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetchRunway();
       setData(res);
+      setSessionExpired(false);
     } catch (err) {
       console.error(err);
-      // Fallback mock baseline for offline preview / fresh setup
-      setData({
-        as_of_date: new Date().toISOString().split('T')[0],
-        primary_runway_weeks: 184,
-        primary_runway_years: 3.5,
-        is_perpetual: false,
-        time_banked_this_week: 0.25,
-        weekly_spend_this_week: 750,
-        weekly_budget_target: 1000,
-        breakdown: {
-          cash_balance: 24000,
-          growth_balance: 160000,
-          locked_balance: 85000,
-          total_liquid_balance: 184000,
-          emergency_weeks: 24,
-          growth_weeks: 184,
-          is_perpetual: false,
-          perpetual_threshold_weekly_income: 173,
-          weekly_burn_rate: 1000,
-        },
-      });
+      if (isSessionExpiredError(err)) {
+        setSessionExpired(true);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load runway metrics');
+      }
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -106,6 +95,36 @@ export const App: React.FC = () => {
         />
       }
     >
+      {sessionExpired && (
+        <div className="mb-6">
+          <SessionExpiredBanner />
+        </div>
+      )}
+
+      {error && !sessionExpired && (
+        <div
+          role="alert"
+          className="mb-6 p-4 rounded-xl border border-rose-500/50 bg-rose-950/30 text-rose-200 shadow-lg flex items-center justify-between"
+        >
+          <div className="space-y-1">
+            <h3 className="font-semibold text-rose-300">Failed to load financial metrics</h3>
+            <p className="text-xs text-rose-400/90">{error}</p>
+          </div>
+          <button
+            onClick={loadData}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-semibold shrink-0 transition-all"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {loading && !data && (
+        <div className="flex items-center justify-center py-24 text-slate-400">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+        </div>
+      )}
+
       {data && (
         <>
           {/* Desktop Full Dashboard (lg: screens) */}
