@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Database, RefreshCw, Trash2, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { Modal } from '@yggdrasil-lab/ui';
+import { Modal, Button } from '@yggdrasil-lab/ui';
 import { resetDatabase, seedTestData } from '../services/api';
 
 interface DataManagementModalProps {
@@ -84,14 +84,17 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
             </div>
           </div>
 
-          <button
+          <Button
+            variant="amber"
+            size="md"
+            fullWidth
+            loading={loading}
+            loadingText="Populating..."
+            icon={<RefreshCw className="w-3.5 h-3.5" />}
             onClick={handleSeed}
-            disabled={loading}
-            className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all shadow"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Populating...' : 'Seed Test Baseline'}</span>
-          </button>
+            Seed Test Baseline
+          </Button>
         </div>
 
         {/* Option 2: Clear Data (Fresh Slate) */}
@@ -110,14 +113,15 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
           </div>
 
           {!showConfirmClear ? (
-            <button
+            <Button
+              variant="danger"
+              size="md"
+              fullWidth
+              icon={<Trash2 className="w-3.5 h-3.5 text-rose-400" />}
               onClick={() => setShowConfirmClear(true)}
-              disabled={loading}
-              className="w-full py-2.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 text-rose-200 font-semibold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all"
             >
-              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-              <span>Clear Ledger for Real Data</span>
-            </button>
+              Clear Ledger for Real Data
+            </Button>
           ) : (
             <div className="p-3 bg-rose-950/50 border border-rose-500/50 rounded-xl space-y-3">
               <div className="text-xs text-rose-200 font-medium">
@@ -135,20 +139,25 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
               </label>
 
               <div className="flex space-x-2">
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
                   onClick={() => setShowConfirmClear(false)}
-                  className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="rose"
+                  size="sm"
+                  className="flex-1"
+                  loading={loading}
+                  loadingText="Clearing..."
+                  icon={<ShieldCheck className="w-3.5 h-3.5" />}
                   onClick={handleClear}
-                  disabled={loading}
-                  className="flex-1 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg shadow flex items-center justify-center space-x-1"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>{loading ? 'Clearing...' : 'Confirm Clear'}</span>
-                </button>
+                  Confirm Clear
+                </Button>
               </div>
             </div>
           )}

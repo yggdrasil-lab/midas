@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
-import { Modal, TactileKeypad, NumberInputDisplay, ChipSelector } from '@yggdrasil-lab/ui';
+import { Modal, TactileKeypad, NumberInputDisplay, ChipSelector, Button } from '@yggdrasil-lab/ui';
 import { quickLogExpense } from '../services/api';
 
 interface QuickLogModalProps {
@@ -97,14 +97,18 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({
         />
 
         {/* Submit */}
-        <button
+        <Button
+          variant="amber"
+          size="lg"
+          fullWidth
+          loading={loading}
+          loadingText="Logging..."
+          icon={<Check className="w-4 h-4" />}
+          disabled={!amountStr || parseFloat(amountStr) <= 0 || !merchant.trim()}
           onClick={handleSubmit}
-          disabled={loading || !amountStr || parseFloat(amountStr) <= 0 || !merchant.trim()}
-          className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 active:scale-[0.99] text-slate-950 rounded-xl text-sm font-bold shadow-lg flex items-center justify-center space-x-2 transition-all"
         >
-          <Check className="w-4 h-4" />
-          <span>{loading ? 'Logging...' : 'Confirm & Log Expense'}</span>
-        </button>
+          Confirm & Log Expense
+        </Button>
       </div>
     </Modal>
   );

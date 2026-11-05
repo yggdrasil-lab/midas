@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database } from 'lucide-react';
-import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError } from '@yggdrasil-lab/ui';
+import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError, Button } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
@@ -78,21 +78,24 @@ export const App: React.FC = () => {
           isRefreshing={loading}
           actions={
             <div className="flex items-center space-x-2">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Database className="w-3.5 h-3.5 text-amber-400" />}
                 onClick={() => setIsDataModalOpen(true)}
                 title="Data & Ledger Controls"
-                className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-card hover:bg-slate-800 active:scale-95 text-slate-300 border border-border rounded-xl text-xs font-semibold shadow-sm transition-all duration-150"
               >
-                <Database className="w-3.5 h-3.5 text-amber-400" />
                 <span className="hidden sm:inline">Data</span>
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="amber"
+                size="sm"
+                icon={<PlusCircle className="w-3.5 h-3.5" />}
                 onClick={() => setIsQuickLogOpen(true)}
-                className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 rounded-xl text-xs font-semibold shadow transition-all duration-150"
+                className="hidden sm:inline-flex"
               >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>Log Expense</span>
-              </button>
+                Log Expense
+              </Button>
             </div>
           }
         />
@@ -122,12 +125,14 @@ export const App: React.FC = () => {
             <h3 className="font-semibold text-rose-300">Failed to load financial metrics</h3>
             <p className="text-xs text-rose-400/90">{error}</p>
           </div>
-          <button
+          <Button
+            variant="rose"
+            size="sm"
             onClick={loadData}
-            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-lg text-xs font-semibold shrink-0 transition-all"
+            className="shrink-0"
           >
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
@@ -145,12 +150,14 @@ export const App: React.FC = () => {
                 <div className="font-semibold text-amber-300">Clean Ledger Ready</div>
                 <p className="text-amber-400/80">Your ledger has zero balances. Ingest bank statements below or seed test data to explore.</p>
               </div>
-              <button
+              <Button
+                variant="amber"
+                size="sm"
                 onClick={() => setIsDataModalOpen(true)}
-                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-bold text-xs shadow transition-all shrink-0"
+                className="shrink-0"
               >
                 Data Controls
-              </button>
+              </Button>
             </div>
           )}
 
