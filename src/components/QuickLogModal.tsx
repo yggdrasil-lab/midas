@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
-import { Modal, TactileKeypad, NumberInputDisplay } from '@yggdrasil-lab/ui';
+import { Modal, TactileKeypad, NumberInputDisplay, ChipSelector } from '@yggdrasil-lab/ui';
 import { quickLogExpense } from '../services/api';
 
 interface QuickLogModalProps {
@@ -16,6 +16,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
   const [merchant, setMerchant] = useState('');
   const [category, setCategory] = useState('Food');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +24,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
     if (isNaN(parsedAmount) || parsedAmount <= 0 || !merchant.trim()) return;
 
     setLoading(true);
+    setError(null);
     try {
       await quickLogExpense({
         amount: parsedAmount,
@@ -31,10 +33,12 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
       });
       setAmountStr('');
       setMerchant('');
+      setError(null);
       onSuccess();
       onClose();
     } catch (err) {
       console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to log expense');
     } finally {
       setLoading(false);
     }
@@ -43,6 +47,11 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Log Quick Expense">
       <div className="space-y-4">
+        {error && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs">
+            {error}
+          </div>
+        )}
         {/* Amount Display */}
         <NumberInputDisplay
           label="Expense Amount"
@@ -64,22 +73,12 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
         </div>
 
         {/* Category Chips */}
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                category === cat
-                  ? 'bg-amber-500 text-slate-950 font-semibold'
-                  : 'bg-background text-slate-400 hover:text-slate-200 border border-border'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        <ChipSelector
+          options={CATEGORIES}
+          selected={category}
+          onChange={setCategory}
+          variant="amber"
+        />
 
         {/* Numeric Keypad */}
         <TactileKeypad

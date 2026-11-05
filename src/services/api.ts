@@ -76,3 +76,36 @@ export async function fetchAccounts(): Promise<Account[]> {
   }
   return res.json();
 }
+
+export async function seedTestData(): Promise<{
+  status: string;
+  message: string;
+  cash_balance: number;
+  growth_balance: number;
+  locked_balance: number;
+  total_liquid: number;
+}> {
+  const res = await authFetch(`${API_BASE}/admin/seed`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to seed test data: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function resetDatabase(clearAccounts = false): Promise<{
+  status: string;
+  message: string;
+  cleared_transactions: number;
+  cleared_snapshots: number;
+  cleared_accounts: number;
+}> {
+  const res = await authFetch(`${API_BASE}/admin/reset?clear_accounts=${clearAccounts}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to reset data: ${res.statusText}`);
+  }
+  return res.json();
+}
