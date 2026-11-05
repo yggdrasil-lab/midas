@@ -30,6 +30,7 @@ export interface RunwayData {
   weekly_spend_this_week: number;
   weekly_budget_target: number;
   breakdown: RunwayTierBreakdown;
+  categories?: string[];
 }
 
 export interface RunwayScenarioResult {

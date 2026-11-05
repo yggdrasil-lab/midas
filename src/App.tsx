@@ -210,6 +210,7 @@ export const App: React.FC = () => {
         isOpen={isQuickLogOpen}
         onClose={() => setIsQuickLogOpen(false)}
         onSuccess={loadData}
+        categories={data?.categories}
       />
 
       {/* Data Management Modal */}

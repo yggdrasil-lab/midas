@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { UploadCloud, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
 import { FileDropzone } from '@yggdrasil-lab/ui';
 import { Account, StatementParseResult } from '../types';
-import { fetchAccounts, uploadStatement } from '../services/api';
+import { fetchAccounts, fetchSampleStatement, uploadStatement } from '../services/api';
 
 interface StatementDropzoneProps {
   onSuccess: () => void;
@@ -30,20 +30,22 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       .catch((err) => console.warn('Could not pre-load accounts:', err));
   }, [institution]);
 
-  const handleLoadSampleStatement = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const csvContent = `Date,Payee,Amount
-${todayStr},PAK N SAVE ALBANY,-185.50
-${todayStr},BP TAKAPUNA,-75.00
-${todayStr},COLUMBUS COFFEE,-14.50
-${todayStr},MERCURY ENERGY,-130.00`;
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const sampleFile = new File([blob], 'asb-sample-statement.csv', { type: 'text/csv' });
-    setFile(sampleFile);
-    setInstitution('ASB');
-    setParseResult(null);
-    setCommitted(false);
+  const handleLoadSampleStatement = async () => {
+    setLoading(true);
     setError(null);
+    try {
+      const csvText = await fetchSampleStatement(institution);
+      const blob = new Blob([csvText], { type: 'text/csv' });
+      const sampleFile = new File([blob], `${institution.toLowerCase()}-sample-statement.csv`, { type: 'text/csv' });
+      setFile(sampleFile);
+      setParseResult(null);
+      setCommitted(false);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to load sample statement from Plutus');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleParse = async () => {

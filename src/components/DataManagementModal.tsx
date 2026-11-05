@@ -79,8 +79,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
             <div className="space-y-1">
               <h4 className="text-xs font-semibold text-slate-200">Seed Realistic Test Dataset</h4>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Populates 4 test accounts (ASB Cash $24k, Sharesies Growth $160k, Simplicity KiwiSaver $85k),
-                a $1,000/week budget target, and trailing expenses so all charts, HUD stats, and sliders are interactive.
+                Populates test accounts (cash, growth, locked), a weekly budget target, and trailing transactions from Plutus so all metrics, HUD clocks, and scenario sliders are interactive.
               </p>
             </div>
           </div>

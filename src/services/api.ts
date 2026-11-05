@@ -69,6 +69,14 @@ export async function uploadStatement(
   return res.json();
 }
 
+export async function fetchSampleStatement(institution = 'ASB'): Promise<string> {
+  const res = await authFetch(`${API_BASE}/integrations/sample-statement?institution=${encodeURIComponent(institution)}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch sample statement: ${res.statusText}`);
+  }
+  return res.text();
+}
+
 export async function fetchAccounts(): Promise<Account[]> {
   const res = await authFetch(`${API_BASE}/accounts`);
   if (!res.ok) {
