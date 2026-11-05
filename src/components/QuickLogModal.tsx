@@ -7,14 +7,21 @@ interface QuickLogModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  categories?: string[];
 }
 
-const CATEGORIES = ['Food', 'Coffee', 'Groceries', 'Transport', 'Tech', 'Health', 'Leisure', 'Utilities'];
+const DEFAULT_CATEGORIES = ['Food', 'Coffee', 'Groceries', 'Transport', 'Tech', 'Health', 'Leisure', 'Utilities'];
 
-export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, onSuccess }) => {
+export const QuickLogModal: React.FC<QuickLogModalProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  categories,
+}) => {
+  const activeCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
   const [amountStr, setAmountStr] = useState('');
   const [merchant, setMerchant] = useState('');
-  const [category, setCategory] = useState('Food');
+  const [category, setCategory] = useState(activeCategories[0] || 'Food');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +81,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose, o
 
         {/* Category Chips */}
         <ChipSelector
-          options={CATEGORIES}
+          options={activeCategories}
           selected={category}
           onChange={setCategory}
           variant="amber"
