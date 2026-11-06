@@ -103,6 +103,26 @@ for (const { name: platform, options } of PLATFORMS) {
         path: `screenshots/${platform}/04-statement-dropzone.png`,
         fullPage: true,
       });
+
+      // 5. AI Freedom Advisor Modal
+      if (await simTab.isVisible()) {
+        await simTab.click();
+      }
+      const aiAdvisorBtn = page.locator('button:has-text("AI Freedom Advisor") >> visible=true').first();
+      if (await aiAdvisorBtn.isVisible()) {
+        await aiAdvisorBtn.click();
+        await expect(page.getByRole('heading', { name: 'AI Freedom Runway Advisor' })).toBeVisible();
+        await page.waitForTimeout(300);
+        await page.screenshot({
+          path: `screenshots/${platform}/05-ai-freedom-advisor-modal.png`,
+        });
+        const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+        if (await modalClose.isVisible()) {
+          await modalClose.click();
+        } else {
+          await page.keyboard.press('Escape');
+        }
+      }
     });
   });
 }

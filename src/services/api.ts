@@ -1,5 +1,5 @@
 import { authFetch } from '@yggdrasil-lab/ui';
-import { Account, RunwayData, RunwayScenarioResult, StatementParseResult } from '../types';
+import { Account, RunwayAiSynthesisResult, RunwayData, RunwayScenarioResult, StatementParseResult } from '../types';
 
 const API_BASE = '/api';
 
@@ -23,6 +23,23 @@ export async function simulateScenario(params: {
   });
   if (!res.ok) {
     throw new Error(`Scenario simulation failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function synthesizeRunway(params: {
+  weekly_burn_adjustment?: number;
+  custom_annual_return?: number;
+  lump_sum_adjustment?: number;
+  custom_context?: string;
+}): Promise<RunwayAiSynthesisResult> {
+  const res = await authFetch(`${API_BASE}/runway/synthesize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    throw new Error(`AI runway synthesis failed: ${res.statusText}`);
   }
   return res.json();
 }
