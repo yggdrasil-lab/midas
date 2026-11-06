@@ -42,6 +42,19 @@ export interface RunwayScenarioResult {
   delta_weeks_compared_to_baseline: number | null;
 }
 
+export interface RunwayAiSynthesisResult {
+  headline: string;
+  recommendations: string[];
+  rationale: string;
+  research_citation: string;
+  impact_summary: string;
+  is_llm_generated: boolean;
+  simulated_runway_weeks?: number | null;
+  simulated_runway_years?: number | null;
+  is_perpetual: boolean;
+  delta_weeks_compared_to_baseline?: number | null;
+}
+
 export interface ParsedTransaction {
   transaction_date: string;
   amount: number;
