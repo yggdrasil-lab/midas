@@ -16,6 +16,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<StatementParseResult | null>(null);
+  const [closingBalanceInput, setClosingBalanceInput] = useState<string>('');
   const [committed, setCommitted] = useState(false);
 
   useEffect(() => {
@@ -56,6 +57,11 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     try {
       const res = await uploadStatement(file, institution, false);
       setParseResult(res);
+      if (res.closing_balance !== null && res.closing_balance !== undefined) {
+        setClosingBalanceInput(String(res.closing_balance));
+      } else {
+        setClosingBalanceInput('');
+      }
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Statement parsing failed');
@@ -69,7 +75,8 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setLoading(true);
     setError(null);
     try {
-      await uploadStatement(file, institution, true, selectedAccountId);
+      const balanceToCommit = closingBalanceInput.trim() !== '' ? parseFloat(closingBalanceInput) : undefined;
+      await uploadStatement(file, institution, true, selectedAccountId, balanceToCommit);
       setCommitted(true);
       onSuccess();
     } catch (err) {
@@ -83,6 +90,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
   const handleReset = () => {
     setFile(null);
     setParseResult(null);
+    setClosingBalanceInput('');
     setCommitted(false);
     setError(null);
   };
@@ -93,6 +101,8 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       'ASB',
       'ANZ',
       'BNZ',
+      'Westpac',
+      'Kiwibank',
       'Sharesies',
       'Simplicity',
       'Kernel',
@@ -101,9 +111,9 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
 
   return (
     <GlassCard className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center space-x-2">
-          <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+          <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
             <UploadCloud className="w-4 h-4" />
           </div>
           <div>
@@ -112,12 +122,12 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           {accounts.length > 0 && (
             <select
               value={selectedAccountId || ''}
               onChange={(e) => setSelectedAccountId(Number(e.target.value) || undefined)}
-              className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1 focus:outline-none"
+              className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none flex-1 sm:flex-none"
             >
               {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
@@ -130,7 +140,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           <select
             value={institution}
             onChange={(e) => setInstitution(e.target.value)}
-            className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1 focus:outline-none"
+            className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none flex-1 sm:flex-none"
           >
             {availableInstitutions.map((inst) => (
               <option key={inst} value={inst}>
@@ -201,7 +211,9 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
             <StatCard
               title="Official Closing Balance"
               value={
-                parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
+                closingBalanceInput.trim() !== ''
+                  ? `$${parseFloat(closingBalanceInput || '0').toLocaleString('en-NZ')} NZD`
+                  : parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
                   ? `$${parseResult.closing_balance.toLocaleString('en-NZ')} NZD`
                   : 'N/A'
               }
@@ -212,6 +224,29 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
               value={`${parseResult.transaction_count} items`}
               variant="card"
             />
+          </div>
+
+          <div className="p-3 bg-card/60 rounded-xl border border-border flex items-center justify-between gap-3">
+            <div className="text-xs text-slate-300">
+              <span className="font-medium text-slate-200">Account Closing Balance:</span>
+              <p className="text-[11px] text-slate-400">
+                {parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
+                  ? 'Detected from statement. Anchors your live balance in Plutus.'
+                  : 'Enter ending statement balance to anchor in Plutus.'}
+              </p>
+            </div>
+            <div className="flex items-center space-x-1.5 shrink-0">
+              <span className="text-xs text-slate-400">$</span>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={closingBalanceInput}
+                onChange={(e) => setClosingBalanceInput(e.target.value)}
+                className="w-28 px-2 py-1 bg-background border border-border rounded text-xs text-slate-100 font-mono text-right focus:outline-none focus:border-amber-500"
+              />
+              <span className="text-[10px] text-slate-400">NZD</span>
+            </div>
           </div>
 
           {parseResult.transactions.length > 0 && (

@@ -65,7 +65,8 @@ export async function uploadStatement(
   file: File,
   institution = 'Unknown',
   commit = false,
-  accountId?: number
+  accountId?: number,
+  closingBalance?: number
 ): Promise<StatementParseResult> {
   const formData = new FormData();
   formData.append('file', file);
@@ -73,6 +74,9 @@ export async function uploadStatement(
   let url = `${API_BASE}/integrations/statement?institution=${encodeURIComponent(institution)}&commit=${commit}`;
   if (accountId) {
     url += `&account_id=${accountId}`;
+  }
+  if (closingBalance !== undefined && !isNaN(closingBalance)) {
+    url += `&closing_balance=${closingBalance}`;
   }
 
   const res = await authFetch(url, {
