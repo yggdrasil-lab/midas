@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Sliders, RefreshCw, Zap } from 'lucide-react';
-import { Button } from '@yggdrasil-lab/ui';
+import { Button, RangeSlider, AlertBanner, GlassCard } from '@yggdrasil-lab/ui';
 import { RunwayScenarioResult } from '../types';
 import { simulateScenario } from '../services/api';
 
@@ -46,11 +46,11 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
   };
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 shadow-lg space-y-4">
+    <GlassCard className="space-y-4">
       {error && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs">
+        <AlertBanner variant="error">
           {error}
-        </div>
+        </AlertBanner>
       )}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -76,52 +76,35 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
       {/* Sliders */}
       <div className="space-y-4 pt-1">
         {/* Weekly Burn Slider */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-slate-400">Weekly Spend Adjustment</span>
-            <span className={`font-semibold ${burnDelta < 0 ? 'text-emerald-400' : burnDelta > 0 ? 'text-rose-400' : 'text-slate-200'}`}>
-              {burnDelta > 0 ? `+$${burnDelta}` : burnDelta < 0 ? `-$${Math.abs(burnDelta)}` : '$0'} /week
-            </span>
-          </div>
-          <input
-            type="range"
-            min={-maxDelta}
-            max={maxDelta}
-            step="25"
-            value={burnDelta}
-            onChange={(e) => setBurnDelta(Number(e.target.value))}
-            className="w-full accent-amber-500 cursor-pointer h-1.5 bg-background rounded-lg appearance-none"
-          />
-          <div className="flex justify-between text-[10px] text-slate-500">
-            <span>-${maxDelta}/w (Frugal)</span>
-            <span>Current: ${Math.round(baselineBurn)}/w</span>
-            <span>+${maxDelta}/w (High Burn)</span>
-          </div>
-        </div>
+        <RangeSlider
+          label="Weekly Spend Adjustment"
+          valueDisplay={`${burnDelta > 0 ? `+$${burnDelta}` : burnDelta < 0 ? `-$${Math.abs(burnDelta)}` : '$0'} /week`}
+          valueClassName={burnDelta < 0 ? 'text-emerald-400' : burnDelta > 0 ? 'text-rose-400' : 'text-slate-200'}
+          min={-maxDelta}
+          max={maxDelta}
+          step={25}
+          value={burnDelta}
+          onChange={setBurnDelta}
+          minLabel={`-$${maxDelta}/w (Frugal)`}
+          midLabel={`Current: $${Math.round(baselineBurn)}/w`}
+          maxLabel={`+$${maxDelta}/w (High Burn)`}
+          variant="amber"
+        />
 
         {/* Real Return Slider */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-slate-400">Expected Real Portfolio Return</span>
-            <span className="font-semibold text-slate-200">
-              {(returnRate * 100).toFixed(1)}% /yr
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.0"
-            max="0.12"
-            step="0.005"
-            value={returnRate}
-            onChange={(e) => setReturnRate(Number(e.target.value))}
-            className="w-full accent-sky-400 cursor-pointer h-1.5 bg-background rounded-lg appearance-none"
-          />
-          <div className="flex justify-between text-[10px] text-slate-500">
-            <span>0% (Cash only)</span>
-            <span>5% (Balanced)</span>
-            <span>12% (Bull Market)</span>
-          </div>
-        </div>
+        <RangeSlider
+          label="Expected Real Portfolio Return"
+          valueDisplay={`${(returnRate * 100).toFixed(1)}% /yr`}
+          min={0.0}
+          max={0.12}
+          step={0.005}
+          value={returnRate}
+          onChange={setReturnRate}
+          minLabel="0% (Cash only)"
+          midLabel="5% (Balanced)"
+          maxLabel="12% (Bull Market)"
+          variant="sky"
+        />
 
         {/* Action Button */}
         <Button
@@ -173,6 +156,6 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
           )}
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 };

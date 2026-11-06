@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database } from 'lucide-react';
-import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError, Button } from '@yggdrasil-lab/ui';
+import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
@@ -117,23 +117,23 @@ export const App: React.FC = () => {
       )}
 
       {error && !sessionExpired && (
-        <div
-          role="alert"
-          className="mb-6 p-4 rounded-xl border border-rose-500/50 bg-rose-950/30 text-rose-200 shadow-lg flex items-center justify-between"
+        <AlertBanner
+          variant="error"
+          title="Failed to load financial metrics"
+          className="mb-6 p-4 shadow-lg"
+          action={
+            <Button
+              variant="rose"
+              size="sm"
+              onClick={loadData}
+              className="shrink-0"
+            >
+              Retry
+            </Button>
+          }
         >
-          <div className="space-y-1">
-            <h3 className="font-semibold text-rose-300">Failed to load financial metrics</h3>
-            <p className="text-xs text-rose-400/90">{error}</p>
-          </div>
-          <Button
-            variant="rose"
-            size="sm"
-            onClick={loadData}
-            className="shrink-0"
-          >
-            Retry
-          </Button>
-        </div>
+          {error}
+        </AlertBanner>
       )}
 
       {loading && !data && (
@@ -145,20 +145,23 @@ export const App: React.FC = () => {
       {data && (
         <>
           {data.breakdown.total_liquid_balance === 0 && (
-            <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow">
-              <div className="space-y-0.5">
-                <div className="font-semibold text-amber-300">Clean Ledger Ready</div>
-                <p className="text-amber-400/80">Your ledger has zero balances. Ingest bank statements below or seed test data to explore.</p>
-              </div>
-              <Button
-                variant="amber"
-                size="sm"
-                onClick={() => setIsDataModalOpen(true)}
-                className="shrink-0"
-              >
-                Data Controls
-              </Button>
-            </div>
+            <AlertBanner
+              variant="warning"
+              title="Clean Ledger Ready"
+              className="mb-6 p-4 rounded-2xl shadow"
+              action={
+                <Button
+                  variant="amber"
+                  size="sm"
+                  onClick={() => setIsDataModalOpen(true)}
+                  className="shrink-0"
+                >
+                  Data Controls
+                </Button>
+              }
+            >
+              Your ledger has zero balances. Ingest bank statements below or seed test data to explore.
+            </AlertBanner>
           )}
 
           {/* Desktop Full Dashboard (lg: screens) */}

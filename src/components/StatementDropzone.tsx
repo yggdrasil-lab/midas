@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { UploadCloud, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react';
-import { FileDropzone, Button, StatCard } from '@yggdrasil-lab/ui';
+import { FileDropzone, Button, StatCard, GlassCard, AlertBanner } from '@yggdrasil-lab/ui';
 import { Account, StatementParseResult } from '../types';
 import { fetchAccounts, fetchSampleStatement, uploadStatement } from '../services/api';
 
@@ -100,7 +100,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
   ).filter(Boolean);
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 shadow-lg space-y-4">
+    <GlassCard className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -142,9 +142,9 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs">
+        <AlertBanner variant="error">
           {error}
-        </div>
+        </AlertBanner>
       )}
 
       {!parseResult ? (
@@ -252,6 +252,6 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           )}
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 };

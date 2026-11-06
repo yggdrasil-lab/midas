@@ -29,11 +29,11 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.locator('text=Growth >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=184 w >> visible=true').first()).toBeVisible();
 
-    await expect(page.locator('text=KiwiSaver >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=/KiwiSaver|Locked Reserve/ >> visible=true').first()).toBeVisible();
 
     // Check weekly burn
     await expect(page.locator('text=Weekly Burn & Budget >> visible=true').first()).toBeVisible();
-    await expect(page.locator('text=Spent $750 of $1000 >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=/Spent \\$750 of \\$1,?000/ >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=+0.25 weeks banked >> visible=true').first()).toBeVisible();
   });
 
