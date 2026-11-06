@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Database, RefreshCw, Trash2, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { Modal, Button } from '@yggdrasil-lab/ui';
+import { Modal, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { resetDatabase, seedTestData } from '../services/api';
 
 interface DataManagementModalProps {
@@ -57,17 +57,21 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Wealth Data Controls">
       <div className="space-y-4">
         {statusMessage && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-            <span>{statusMessage}</span>
-          </div>
+          <AlertBanner
+            variant="success"
+            icon={<CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />}
+          >
+            {statusMessage}
+          </AlertBanner>
         )}
 
         {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs flex items-center space-x-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{error}</span>
-          </div>
+          <AlertBanner
+            variant="error"
+            icon={<AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />}
+          >
+            {error}
+          </AlertBanner>
         )}
 
         {/* Option 1: Seed Test Baseline */}

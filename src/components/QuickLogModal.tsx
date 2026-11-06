@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
-import { Modal, TactileKeypad, NumberInputDisplay, ChipSelector, Button } from '@yggdrasil-lab/ui';
+import { Modal, TactileKeypad, NumberInputDisplay, ChipSelector, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { quickLogExpense } from '../services/api';
 
 interface QuickLogModalProps {
@@ -55,9 +55,9 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Log Quick Expense">
       <div className="space-y-4">
         {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl text-xs">
+          <AlertBanner variant="error">
             {error}
-          </div>
+          </AlertBanner>
         )}
         {/* Amount Display */}
         <NumberInputDisplay
