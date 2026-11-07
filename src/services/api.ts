@@ -8,6 +8,7 @@ import {
   RunwayScenarioResult,
   SpendingBreakdownResponse,
   StatementParseResult,
+  Transaction,
 } from '../types';
 
 const API_BASE = '/api';
@@ -241,6 +242,38 @@ export async function initDefaultBudgets(): Promise<BudgetRule[]> {
   });
   if (!res.ok) {
     throw new Error(`Failed to initialize default budgets: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchCategoryTransactions(
+  category: string,
+  period?: string
+): Promise<Transaction[]> {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+  if (period) params.set('period', period);
+  params.set('limit', '200');
+  const res = await authFetch(`${API_BASE}/transactions?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch transactions: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function updateTransactionCategory(
+  id: number,
+  category: string
+): Promise<Transaction> {
+  const res = await authFetch(`${API_BASE}/transactions/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ category }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update transaction category: ${res.statusText}`);
   }
   return res.json();
 }

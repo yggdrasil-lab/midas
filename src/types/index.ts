@@ -83,6 +83,21 @@ export interface InstitutionInfo {
   currency: string;
 }
 
+export interface Transaction {
+  id: number;
+  transaction_date: string;
+  account_id: number;
+  account_name?: string | null;
+  amount: number;
+  currency: string;
+  merchant: string;
+  category: string;
+  raw_description?: string | null;
+  notes?: string | null;
+  raw_hash?: string;
+  created_at?: string;
+}
+
 export interface BudgetRule {
   id: number;
   category: string;
@@ -100,6 +115,7 @@ export interface CategorySpendingReport {
   percent_used?: number | null;
   is_over_budget: boolean;
   warning_level: 'normal' | 'warning' | 'danger';
+  is_transfer?: boolean;
 }
 
 export interface SpendingBreakdownResponse {
@@ -108,6 +124,7 @@ export interface SpendingBreakdownResponse {
   end_date?: string | null;
   total_spend: number;
   total_income: number;
+  total_transfers?: number;
   net_savings: number;
   categories: CategorySpendingReport[];
   over_budget_count: number;

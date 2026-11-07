@@ -13,12 +13,14 @@ import {
   Plane,
   Home,
   Package,
-  ChevronRight,
+  ArrowRightLeft,
+  Search,
 } from 'lucide-react';
 import { GlassCard, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { SpendingBreakdownResponse } from '../types';
 import { fetchSpendingBreakdown } from '../services/api';
 import { BudgetConfigModal } from './BudgetConfigModal';
+import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
 
 interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
@@ -33,6 +35,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
   const [error, setError] = useState<string | null>(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [inspectCategory, setInspectCategory] = useState<string | undefined>(undefined);
+  const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
 
   const loadBreakdown = async () => {
     setLoading(true);
@@ -54,6 +58,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
 
   const getCategoryIcon = (category: string) => {
     const c = category.toLowerCase();
+    if (c.includes('transfer') || c.includes('wise')) return <ArrowRightLeft className="w-3.5 h-3.5 text-sky-400" />;
     if (c.includes('grocer') || c.includes('supermarket')) return <ShoppingCart className="w-3.5 h-3.5 text-emerald-400" />;
     if (c.includes('transport') || c.includes('fuel') || c.includes('transit')) return <Car className="w-3.5 h-3.5 text-sky-400" />;
     if (c.includes('food') || c.includes('cafe') || c.includes('restaurant') || c.includes('dining')) return <UtensilsCrossed className="w-3.5 h-3.5 text-amber-400" />;
@@ -66,12 +71,18 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
     return <Package className="w-3.5 h-3.5 text-slate-400" />;
   };
 
-  const handleEditCategory = (cat: string) => {
+  const handleEditBudget = (cat: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setSelectedCategory(cat);
     setIsConfigModalOpen(true);
   };
 
-  const overBudgetCategories = data?.categories.filter((c) => c.is_over_budget) || [];
+  const handleInspectCategory = (cat: string) => {
+    setInspectCategory(cat);
+    setIsInspectModalOpen(true);
+  };
+
+  const overBudgetCategories = data?.categories.filter((c) => c.is_over_budget && !c.is_transfer) || [];
 
   return (
     <GlassCard className="space-y-4">
@@ -164,29 +175,44 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
 
       {/* Summary Chips */}
       {data && (
-        <div className="grid grid-cols-3 gap-2 p-3 bg-card/40 rounded-xl border border-border text-center">
-          <div>
-            <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Outflow</span>
-            <span className="text-sm font-semibold font-mono text-slate-100">
-              ${data.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
-            </span>
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2 p-3 bg-card/40 rounded-xl border border-border text-center">
+            <div>
+              <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Outflow</span>
+              <span className="text-sm font-semibold font-mono text-slate-100">
+                ${data.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Inflow</span>
+              <span className="text-sm font-semibold font-mono text-emerald-400">
+                ${data.total_income.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Net Savings</span>
+              <span
+                className={`text-sm font-semibold font-mono ${
+                  data.net_savings >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                }`}
+              >
+                {data.net_savings >= 0 ? '+' : ''}${data.net_savings.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Inflow</span>
-            <span className="text-sm font-semibold font-mono text-emerald-400">
-              ${data.total_income.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Net Savings</span>
-            <span
-              className={`text-sm font-semibold font-mono ${
-                data.net_savings >= 0 ? 'text-emerald-400' : 'text-rose-400'
-              }`}
-            >
-              {data.net_savings >= 0 ? '+' : ''}${data.net_savings.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
+
+          {/* Transfer volume footnote chip */}
+          {Boolean(data.total_transfers && data.total_transfers > 0) && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-card/30 rounded-lg border border-border/60 text-[11px] text-slate-400">
+              <div className="flex items-center space-x-1.5">
+                <ArrowRightLeft className="w-3 h-3 text-sky-400" />
+                <span>Inter-Account Transfers (Excluded from spending):</span>
+              </div>
+              <span className="font-mono font-medium text-sky-300">
+                ${(data.total_transfers || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -204,8 +230,14 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         </div>
       ) : (
         <div className="space-y-3">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+            <span>Click any category to inspect transactions and re-categorize</span>
+            <span>Target / Spend</span>
+          </div>
+
           {data.categories.map((cat) => {
-            const hasBudget = cat.budget_limit !== null && cat.budget_limit !== undefined && cat.budget_limit > 0;
+            const isTransfer = cat.is_transfer;
+            const hasBudget = !isTransfer && cat.budget_limit !== null && cat.budget_limit !== undefined && cat.budget_limit > 0;
             const percentUsed = cat.percent_used || 0;
             const barWidth = Math.min(percentUsed, 100);
 
@@ -220,30 +252,45 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             return (
               <div
                 key={cat.category}
-                onClick={() => handleEditCategory(cat.category)}
-                className="p-3 bg-card/40 hover:bg-card/70 rounded-xl border border-border hover:border-slate-600 transition-all cursor-pointer space-y-1.5"
+                data-testid={`category-row-${cat.category.toLowerCase()}`}
+                onClick={() => handleInspectCategory(cat.category)}
+                className="p-3 bg-card/40 hover:bg-card/70 rounded-xl border border-border hover:border-slate-600 transition-all cursor-pointer space-y-1.5 group"
+                title={`Click to inspect and correct transactions in ${cat.category}`}
               >
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-2">
                     <div className="p-1 rounded bg-background border border-border">
                       {getCategoryIcon(cat.category)}
                     </div>
-                    <span className="font-medium text-slate-200">{cat.category}</span>
+                    <span className="font-medium text-slate-200 group-hover:text-amber-300 transition-colors">
+                      {cat.category}
+                    </span>
                     <span className="text-[10px] text-slate-500 font-mono">
-                      {cat.transaction_count} {cat.transaction_count === 1 ? 'txn' : 'txns'} · {cat.percentage}% of spend
+                      {cat.transaction_count} {cat.transaction_count === 1 ? 'txn' : 'txns'}
+                      {!isTransfer && ` · ${cat.percentage}% of spend`}
                     </span>
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <span className="font-semibold font-mono text-slate-100">
+                    <span className={`font-semibold font-mono ${isTransfer ? 'text-sky-300' : 'text-slate-100'}`}>
                       ${cat.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
                     </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                    <div className="p-1 rounded bg-card/80 text-slate-400 group-hover:text-slate-200 border border-transparent group-hover:border-border transition-colors">
+                      <Search className="w-3 h-3" />
+                    </div>
                   </div>
                 </div>
 
-                {/* Progress bar container */}
-                {hasBudget ? (
+                {/* Progress bar container or transfer status */}
+                {isTransfer ? (
+                  <div className="flex justify-between items-center text-[10px] text-sky-400/90 pt-0.5">
+                    <span className="flex items-center space-x-1">
+                      <ArrowRightLeft className="w-2.5 h-2.5" />
+                      <span>Internal transfers between accounts · Excluded from spend</span>
+                    </span>
+                    <span className="text-slate-400 hover:text-slate-200">Inspect txns</span>
+                  </div>
+                ) : hasBudget ? (
                   <div className="space-y-1">
                     <div className="w-full bg-background rounded-full h-2 overflow-hidden border border-border">
                       <div
@@ -255,25 +302,39 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                       <span>
                         ${cat.total_spend.toFixed(0)} of ${cat.budget_limit?.toFixed(0)} ({percentUsed.toFixed(0)}%)
                       </span>
-                      {cat.is_over_budget ? (
-                        <span className="text-rose-400 font-semibold flex items-center space-x-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>${(cat.total_spend - (cat.budget_limit || 0)).toFixed(0)} OVER BUDGET</span>
-                        </span>
-                      ) : (
-                        <span className="text-emerald-400">
-                          ${((cat.budget_limit || 0) - cat.total_spend).toFixed(0)} left
-                        </span>
-                      )}
+                      <div className="flex items-center space-x-2">
+                        {cat.is_over_budget ? (
+                          <span className="text-rose-400 font-semibold flex items-center space-x-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>${(cat.total_spend - (cat.budget_limit || 0)).toFixed(0)} OVER BUDGET</span>
+                          </span>
+                        ) : (
+                          <span className="text-emerald-400">
+                            ${((cat.budget_limit || 0) - cat.total_spend).toFixed(0)} left
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => handleEditBudget(cat.category, e)}
+                          title="Edit budget target"
+                          className="text-slate-500 hover:text-amber-400 p-0.5"
+                        >
+                          <Target className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
                   <div className="flex justify-between items-center text-[10px] text-slate-500 pt-0.5">
                     <span>No target budget configured</span>
-                    <span className="text-amber-400/80 hover:text-amber-300 flex items-center space-x-0.5">
+                    <button
+                      type="button"
+                      onClick={(e) => handleEditBudget(cat.category, e)}
+                      className="text-amber-400/80 hover:text-amber-300 flex items-center space-x-0.5"
+                    >
                       <Target className="w-2.5 h-2.5" />
                       <span>Set target</span>
-                    </span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -281,6 +342,18 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
           })}
         </div>
       )}
+
+      {/* Category Transaction Inspection & Correction Modal */}
+      <CategoryTransactionInspectionModal
+        isOpen={isInspectModalOpen}
+        onClose={() => setIsInspectModalOpen(false)}
+        category={inspectCategory}
+        period={period}
+        onCategoryChanged={() => {
+          loadBreakdown();
+          if (onRefreshRunway) onRefreshRunway();
+        }}
+      />
 
       {/* Budget Configuration Modal */}
       <BudgetConfigModal

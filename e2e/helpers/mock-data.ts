@@ -130,6 +130,7 @@ export async function setupMockApi(page: Page) {
         period: 'month',
         total_spend: 750.0,
         total_income: 3200.0,
+        total_transfers: 600.0,
         net_savings: 2450.0,
         over_budget_count: 1,
         categories: [
@@ -142,6 +143,7 @@ export async function setupMockApi(page: Page) {
             percent_used: 116.7,
             is_over_budget: true,
             warning_level: 'danger',
+            is_transfer: false,
           },
           {
             category: 'Transport',
@@ -152,6 +154,7 @@ export async function setupMockApi(page: Page) {
             percent_used: 60.0,
             is_over_budget: false,
             warning_level: 'normal',
+            is_transfer: false,
           },
           {
             category: 'Food',
@@ -162,6 +165,16 @@ export async function setupMockApi(page: Page) {
             percent_used: 85.0,
             is_over_budget: false,
             warning_level: 'warning',
+            is_transfer: false,
+          },
+          {
+            category: 'Transfers',
+            total_spend: 600.0,
+            transaction_count: 2,
+            percentage: 0.0,
+            is_over_budget: false,
+            warning_level: 'normal',
+            is_transfer: true,
           },
         ],
       }),
@@ -177,5 +190,53 @@ export async function setupMockApi(page: Page) {
         { id: 2, category: 'Transport', weekly_limit: 50.0, monthly_limit: 200.0, is_active: true },
       ]),
     });
+  });
+
+  // 7. Mock Transactions Endpoints for Inspection & Category Correction
+  await page.route(/\/api\/transactions(\/.*|\?.*)?$/, async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 101,
+          transaction_date: '2026-11-04',
+          account_id: 1,
+          account_name: 'ANZ Freedom',
+          amount: -120.5,
+          currency: 'NZD',
+          merchant: 'Pak n Save Albany',
+          category: body?.category || 'Food',
+        }),
+      });
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 101,
+            transaction_date: '2026-11-04',
+            account_id: 1,
+            account_name: 'ANZ Freedom',
+            amount: -120.5,
+            currency: 'NZD',
+            merchant: 'Pak n Save Albany',
+            category: 'Groceries',
+          },
+          {
+            id: 102,
+            transaction_date: '2026-11-02',
+            account_id: 1,
+            account_name: 'ANZ Freedom',
+            amount: -85.2,
+            currency: 'NZD',
+            merchant: 'Woolworths Silverdale',
+            category: 'Groceries',
+          },
+        ]),
+      });
+    }
   });
 }
