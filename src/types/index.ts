@@ -74,3 +74,10 @@ export interface StatementParseResult {
   transaction_count: number;
   transactions: ParsedTransaction[];
 }
+
+export interface InstitutionInfo {
+  name: string;
+  default_tier: 'cash' | 'growth' | 'locked';
+  default_type: 'checking' | 'savings' | 'brokerage' | 'kiwisaver' | 'crypto' | 'credit_card';
+  currency: string;
+}
