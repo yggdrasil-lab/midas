@@ -63,7 +63,7 @@ export async function quickLogExpense(payload: {
 
 export async function uploadStatement(
   file: File,
-  institution = 'Unknown',
+  institution = 'auto',
   commit = false,
   accountId?: number,
   closingBalance?: number,
