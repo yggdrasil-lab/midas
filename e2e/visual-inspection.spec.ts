@@ -124,6 +124,35 @@ for (const { name: platform, options } of PLATFORMS) {
         }
       }
 
+      // 5b. Dedicated Per-Account View & Ledger
+      const accountsTab = page.locator('header nav button:has-text("Accounts"), nav button:has-text("Accounts")').locator('visible=true').first();
+      if (await accountsTab.isVisible()) {
+        await accountsTab.click();
+        await expect(page.locator('text=Accounts & Per-Account Ledger >> visible=true').first()).toBeVisible();
+        await page.waitForTimeout(300);
+        await page.screenshot({
+          path: `screenshots/${platform}/05b-per-account-view.png`,
+          fullPage: platform !== 'desktop',
+        });
+
+        // Open Record Balance Valuation Snapshot Modal
+        const recordSnapshotBtn = page.locator('button:has-text("Record Valuation Snapshot"), button:has-text("Record Snapshot")').locator('visible=true').first();
+        if (await recordSnapshotBtn.isVisible()) {
+          await recordSnapshotBtn.click();
+          await expect(page.getByRole('heading', { name: /Record Balance Valuation Snapshot/i })).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/05c-record-snapshot-modal.png`,
+          });
+          const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+          if (await modalClose.isVisible()) {
+            await modalClose.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+        }
+      }
+
       // 6. Budgets & Spending Breakdown
       const budgetTab = page.locator('header nav button:has-text("Spending & Budgets"), nav button:has-text("Budgets")').locator('visible=true').first();
       if (await budgetTab.isVisible()) {

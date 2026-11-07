@@ -1,6 +1,8 @@
 import { authFetch } from '@yggdrasil-lab/ui';
 import {
   Account,
+  AssetSnapshot,
+  AssetSnapshotCreatePayload,
   BudgetRule,
   CategorizationRule,
   CategorizationRuleCreate,
@@ -160,6 +162,51 @@ export async function fetchAccounts(): Promise<Account[]> {
     throw new Error(`Failed to fetch accounts: ${res.statusText}`);
   }
   return res.json();
+}
+
+export async function fetchAccountSnapshots(accountId: number, limit = 30): Promise<AssetSnapshot[]> {
+  const res = await authFetch(`${API_BASE}/accounts/${accountId}/snapshots?limit=${limit}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch snapshots for account ${accountId}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function recordAccountSnapshot(
+  accountId: number,
+  payload: AssetSnapshotCreatePayload
+): Promise<AssetSnapshot> {
+  const res = await authFetch(`${API_BASE}/accounts/${accountId}/snapshots`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to record account snapshot: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchAccountTransactions(params?: {
+  accountId?: number;
+  period?: 'week' | 'month' | 'all';
+  category?: string;
+  limit?: number;
+}): Promise<Transaction[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.period) searchParams.set('period', params.period);
+  if (params?.category) searchParams.set('category', params.category);
+  if (params?.accountId !== undefined) searchParams.set('account_id', String(params.accountId));
+  searchParams.set('limit', String(params?.limit ?? 500));
+  const res = await authFetch(`${API_BASE}/transactions?${searchParams.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch account transactions: ${res.statusText}`);
+  }
+  const txs: Transaction[] = await res.json();
+  if (params?.accountId !== undefined) {
+    return txs.filter((tx) => tx.account_id === params.accountId);
+  }
+  return txs;
 }
 
 export async function seedTestData(): Promise<{

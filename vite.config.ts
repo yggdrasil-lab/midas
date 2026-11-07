@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 const API_TARGET = process.env.PLUTUS_API_TARGET ?? 'http://localhost:8000'
 
 export default defineConfig({
+  cacheDir: 'node_modules/.cache/vite',
   plugins: [
     react(),
     VitePWA({
