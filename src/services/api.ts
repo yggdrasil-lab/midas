@@ -481,5 +481,15 @@ export async function deleteProduct(id: number): Promise<{ status: string; id: n
   return res.json();
 }
 
+export async function triggerReconcileTransfers(): Promise<{ status: string; matched_transfers: number }> {
+  const res = await authFetch(`${API_BASE}/transactions/reconcile-transfers`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to reconcile transfers: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 
 

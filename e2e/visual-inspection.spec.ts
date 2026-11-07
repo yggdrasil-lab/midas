@@ -181,6 +181,33 @@ for (const { name: platform, options } of PLATFORMS) {
           }
         }
 
+        // 8b. Transfers Inspection & Reconcile Now Modal
+        const transfersCategoryCard = page.locator('[data-testid="category-row-transfers"] >> visible=true').first();
+        if (await transfersCategoryCard.isVisible()) {
+          await transfersCategoryCard.click();
+          await expect(page.getByRole('heading', { name: /Inspect Category: Transfers/i })).toBeVisible();
+          await expect(page.locator('text=Wise Transfer to USD >> visible=true').first()).toBeVisible();
+          await expect(page.locator('text=FX (0.6061) >> visible=true').first()).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/08b-transfers-inspection-modal.png`,
+          });
+
+          // Test Reconcile Transfers button
+          const reconcileTransfersBtn = page.locator('button:has-text("Reconcile Transfers Now") >> visible=true').first();
+          if (await reconcileTransfersBtn.isVisible()) {
+            await reconcileTransfersBtn.click();
+            await expect(page.locator('text=reconciled and paired >> visible=true')).toBeVisible();
+          }
+
+          const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+          if (await modalClose.isVisible()) {
+            await modalClose.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+        }
+
         // 9. Outlook-Style Categorization Rules Manager Modal
         const rulesBtn = page.locator('[data-testid="rules-manager-btn"] >> visible=true').first();
         if (await rulesBtn.isVisible()) {
