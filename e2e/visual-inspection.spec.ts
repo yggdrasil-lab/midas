@@ -151,6 +151,32 @@ for (const { name: platform, options } of PLATFORMS) {
             await page.keyboard.press('Escape');
           }
         }
+
+        // 8. Category Transaction Inspection & Re-categorization Modal
+        const groceriesCategoryCard = page.locator('[data-testid="category-row-groceries"] >> visible=true').first();
+        if (await groceriesCategoryCard.isVisible()) {
+          await groceriesCategoryCard.click();
+          await expect(page.getByRole('heading', { name: /Inspect Category: Groceries/i })).toBeVisible();
+          await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/08-category-inspection-modal.png`,
+          });
+
+          // Change category selector to Food
+          const categorySelect = page.locator('select[aria-label="Category for Pak n Save Albany"] >> visible=true').first();
+          if (await categorySelect.isVisible()) {
+            await categorySelect.selectOption('Food');
+            await expect(page.locator('text=Moved transaction to "Food" >> visible=true')).toBeVisible();
+          }
+
+          const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+          if (await modalClose.isVisible()) {
+            await modalClose.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+        }
       }
     });
   });
