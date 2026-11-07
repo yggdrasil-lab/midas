@@ -111,9 +111,13 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         setClosingBalanceInput('');
       }
 
-      if (!accountName) {
+      if (!accountName || accountName === `${activeInst} Checking` || accountName.endsWith('Checking') || accountName.endsWith('Account')) {
         const instLabel = res.institution && res.institution !== 'Unknown' ? res.institution : activeInst;
-        setAccountName(`${instLabel} Account`);
+        if (res.account_name) {
+          setAccountName(`${instLabel} ${res.account_name}`);
+        } else {
+          setAccountName(`${instLabel} Account`);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -285,7 +289,9 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         <div className="bg-background rounded-xl p-4 border border-border space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
             <span className="text-slate-400 font-medium">
-              Detected from {file?.name} ({parseResult.institution || getEffectiveInstitution()})
+              Detected from {file?.name} ({parseResult.institution || getEffectiveInstitution()}
+              {parseResult.account_name ? ` · ${parseResult.account_name}` : ''}
+              {parseResult.account_number_masked ? ` · ${parseResult.account_number_masked}` : ''})
             </span>
             <Button
               variant="ghost"

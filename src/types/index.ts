@@ -66,6 +66,7 @@ export interface ParsedTransaction {
 export interface StatementParseResult {
   institution: string;
   account_number_masked?: string;
+  account_name?: string;
   start_date?: string;
   end_date?: string;
   opening_balance?: number;
