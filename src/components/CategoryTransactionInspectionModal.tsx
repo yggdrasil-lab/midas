@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layers, Check, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Layers, Check, RefreshCw, SlidersHorizontal, Receipt } from 'lucide-react';
 import { Modal, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { CategorizationRuleCreate, Transaction } from '../types';
 import { fetchCategoryTransactions, updateTransactionCategory } from '../services/api';
@@ -170,6 +170,15 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
                       {tx.account_name && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium">
                           {tx.account_name}
+                        </span>
+                      )}
+                      {Boolean(tx.has_receipt) && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium flex items-center space-x-1"
+                          title="Matched Itemized Receipt"
+                        >
+                          <Receipt className="w-2.5 h-2.5" />
+                          <span>Receipt</span>
                         </span>
                       )}
                     </div>

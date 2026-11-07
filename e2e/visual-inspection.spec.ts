@@ -210,6 +210,41 @@ for (const { name: platform, options } of PLATFORMS) {
             await page.keyboard.press('Escape');
           }
         }
+
+        // 10. Receipts & Granular Product Hub Feed Modal
+        const receiptsBtn = page.locator('[data-testid="spending-receipts-btn"], [data-testid="receipts-hub-btn"], [data-testid="header-receipts-btn"]').locator('visible=true').first();
+        if (await receiptsBtn.isVisible()) {
+          await receiptsBtn.click();
+          await expect(page.getByRole('heading', { name: /Receipts & Granular Product Hub/i })).toBeVisible();
+          await expect(page.locator('text=Chemist Warehouse Albany >> visible=true').first()).toBeVisible();
+          // Expand first receipt item
+          const expandBtn = page.locator('button:has-text("Chemist Warehouse Albany") >> visible=true').first();
+          if (await expandBtn.isVisible()) {
+            await expandBtn.click();
+          }
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/11-receipts-hub-feed.png`,
+          });
+
+          // 11. Product Longevity & Cross-Domain Depletion Analytics Tab
+          const longevityTab = page.locator('button:has-text("Product Longevity") >> visible=true').first();
+          if (await longevityTab.isVisible()) {
+            await longevityTab.click();
+            await expect(page.locator('text=Vitamin C Serum 30ml >> visible=true').first()).toBeVisible();
+            await page.waitForTimeout(300);
+            await page.screenshot({
+              path: `screenshots/${platform}/12-product-longevity.png`,
+            });
+          }
+
+          const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+          if (await modalClose.isVisible()) {
+            await modalClose.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+        }
       }
     });
   });

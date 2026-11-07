@@ -16,6 +16,7 @@ import {
   ArrowRightLeft,
   Search,
   SlidersHorizontal,
+  Receipt as ReceiptIcon,
 } from 'lucide-react';
 import { GlassCard, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { SpendingBreakdownResponse } from '../types';
@@ -23,6 +24,7 @@ import { fetchSpendingBreakdown } from '../services/api';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
 import { RulesManagerModal } from './RulesManagerModal';
+import { ReceiptsHubModal } from './ReceiptsHubModal';
 
 interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
@@ -40,6 +42,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
   const [inspectCategory, setInspectCategory] = useState<string | undefined>(undefined);
   const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [isReceiptsModalOpen, setIsReceiptsModalOpen] = useState(false);
 
   const loadBreakdown = async () => {
     setLoading(true);
@@ -160,6 +163,17 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             data-testid="rules-manager-btn"
           >
             Rules
+          </Button>
+
+          <Button
+            variant="outline"
+            size="xs"
+            icon={<ReceiptIcon className="w-3 h-3 text-amber-400" />}
+            onClick={() => setIsReceiptsModalOpen(true)}
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+            data-testid="receipts-hub-btn"
+          >
+            Receipts
           </Button>
         </div>
       </div>
@@ -385,6 +399,16 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         isOpen={isRulesModalOpen}
         onClose={() => setIsRulesModalOpen(false)}
         onRulesApplied={() => {
+          loadBreakdown();
+          if (onRefreshRunway) onRefreshRunway();
+        }}
+      />
+
+      {/* Receipts & Granular Product Hub Modal */}
+      <ReceiptsHubModal
+        isOpen={isReceiptsModalOpen}
+        onClose={() => setIsReceiptsModalOpen(false)}
+        onReceiptLinked={() => {
           loadBreakdown();
           if (onRefreshRunway) onRefreshRunway();
         }}

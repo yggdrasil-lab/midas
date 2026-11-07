@@ -224,6 +224,7 @@ export async function setupMockApi(page: Page) {
             currency: 'NZD',
             merchant: 'Pak n Save Albany',
             category: 'Groceries',
+            has_receipt: true,
           },
           {
             id: 102,
@@ -332,5 +333,173 @@ export async function setupMockApi(page: Page) {
         ]),
       });
     }
+  });
+
+  // 9. Mock Receipts & Product Statistics Endpoints
+  await page.route(/\/api\/receipts\/statistics\/products(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        domain: null,
+        total_products: 2,
+        total_spend: 194.95,
+        products: [
+          {
+            item_name: 'Vitamin C Serum 30ml',
+            brand: 'La Roche-Posay',
+            category: 'Health',
+            domain: '02-skin',
+            product_type: 'serum',
+            volume_ml: '30ml',
+            purchase_count: 3,
+            total_spent: 134.97,
+            unit_price_latest: 44.99,
+            first_purchased: '2026-05-15',
+            last_purchased: '2026-11-03',
+            avg_days_between_purchases: 86.0,
+            estimated_depletion_date: '2027-01-28',
+          },
+          {
+            item_name: 'Vitamin C 1000mg 150 Tablets',
+            brand: 'Blackmores',
+            category: 'Health',
+            domain: '01-health',
+            product_type: 'supplement',
+            volume_ml: null,
+            purchase_count: 2,
+            total_spent: 59.98,
+            unit_price_latest: 29.99,
+            first_purchased: '2026-06-10',
+            last_purchased: '2026-11-03',
+            avg_days_between_purchases: 146.0,
+            estimated_depletion_date: '2027-03-29',
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route(/\/api\/receipts\/reconcile$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'reconciled',
+        matched_count: 1,
+        unmatched_count: 1,
+      }),
+    });
+  });
+
+  await page.route(/\/api\/receipts\/upload$/, async (route) => {
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 10,
+        merchant: 'Chemist Warehouse Albany',
+        receipt_date: '2026-11-04',
+        total_amount: 74.98,
+        currency: 'NZD',
+        status: 'matched',
+        transaction_id: 101,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        items: [
+          {
+            id: 20,
+            receipt_id: 10,
+            item_name: 'Vitamin C Serum 30ml',
+            brand: 'La Roche-Posay',
+            category: 'Health',
+            domain: '02-skin',
+            product_type: 'serum',
+            volume_ml: '30ml',
+            quantity: 1.0,
+            unit_price: 44.99,
+            total_price: 44.99,
+            created_at: new Date().toISOString(),
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route(/\/api\/receipts(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          id: 1,
+          merchant: 'Chemist Warehouse Albany',
+          receipt_date: '2026-11-03',
+          total_amount: 74.98,
+          currency: 'NZD',
+          status: 'matched',
+          transaction_id: 101,
+          created_at: '2026-11-03T10:00:00Z',
+          updated_at: '2026-11-03T10:00:00Z',
+          items: [
+            {
+              id: 1,
+              receipt_id: 1,
+              item_name: 'Vitamin C 1000mg 150 Tablets',
+              brand: 'Blackmores',
+              category: 'Health',
+              domain: '01-health',
+              product_type: 'supplement',
+              volume_ml: null,
+              quantity: 1.0,
+              unit_price: 29.99,
+              total_price: 29.99,
+              created_at: '2026-11-03T10:00:00Z',
+            },
+            {
+              id: 2,
+              receipt_id: 1,
+              item_name: 'Vitamin C Serum 30ml',
+              brand: 'La Roche-Posay',
+              category: 'Health',
+              domain: '02-skin',
+              product_type: 'serum',
+              volume_ml: '30ml',
+              quantity: 1.0,
+              unit_price: 44.99,
+              total_price: 44.99,
+              created_at: '2026-11-03T10:00:00Z',
+            },
+          ],
+        },
+        {
+          id: 2,
+          merchant: 'Bunnings Warehouse',
+          receipt_date: '2026-11-02',
+          total_amount: 32.5,
+          currency: 'NZD',
+          status: 'unlinked',
+          transaction_id: null,
+          created_at: '2026-11-02T14:30:00Z',
+          updated_at: '2026-11-02T14:30:00Z',
+          items: [
+            {
+              id: 3,
+              receipt_id: 2,
+              item_name: 'LED Smart Bulb E27',
+              brand: 'Philips Hue',
+              category: 'Utilities',
+              domain: '20-home',
+              product_type: 'lighting',
+              volume_ml: null,
+              quantity: 1.0,
+              unit_price: 32.5,
+              total_price: 32.5,
+              created_at: '2026-11-02T14:30:00Z',
+            },
+          ],
+        },
+      ]),
+    });
   });
 }

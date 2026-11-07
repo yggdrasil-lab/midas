@@ -5,6 +5,8 @@ import {
   CategorizationRule,
   CategorizationRuleCreate,
   InstitutionInfo,
+  ProductStatisticsResponse,
+  Receipt,
   RunwayAiSynthesisResult,
   RunwayData,
   RunwayScenarioResult,
@@ -344,4 +346,75 @@ export async function applyAllRules(): Promise<{ evaluated: number; updated: num
   }
   return res.json();
 }
+
+export async function fetchReceipts(status?: string): Promise<Receipt[]> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  const url = `${API_BASE}/receipts${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await authFetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch receipts: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchReceipt(id: number): Promise<Receipt> {
+  const res = await authFetch(`${API_BASE}/receipts/${id}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch receipt: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function uploadReceipt(file: File): Promise<Receipt> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await authFetch(`${API_BASE}/receipts/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to upload receipt: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchProductStatistics(
+  domain?: string,
+  productType?: string
+): Promise<ProductStatisticsResponse> {
+  const params = new URLSearchParams();
+  if (domain) params.set('domain', domain);
+  if (productType) params.set('product_type', productType);
+  const url = `${API_BASE}/receipts/statistics/products${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await authFetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch product statistics: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function linkReceipt(
+  receiptId: number,
+  transactionId: number
+): Promise<Receipt> {
+  const res = await authFetch(`${API_BASE}/receipts/${receiptId}/link/${transactionId}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to link receipt: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function reconcileReceipts(): Promise<{ status: string; matched_count: number }> {
+  const res = await authFetch(`${API_BASE}/receipts/reconcile`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to reconcile receipts: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 

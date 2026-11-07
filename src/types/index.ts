@@ -95,6 +95,8 @@ export interface Transaction {
   raw_description?: string | null;
   notes?: string | null;
   raw_hash?: string;
+  has_receipt?: boolean;
+  receipt_id?: number | null;
   created_at?: string;
 }
 
@@ -156,4 +158,61 @@ export interface CategorizationRuleCreate {
   is_active?: boolean;
   apply_retroactively?: boolean;
 }
+
+export interface ReceiptItem {
+  id: number;
+  receipt_id: number;
+  item_name: string;
+  brand?: string | null;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  category: string;
+  domain?: string | null;
+  product_type?: string | null;
+  volume_ml?: string | null;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface Receipt {
+  id: number;
+  transaction_id?: number | null;
+  receipt_date: string;
+  merchant: string;
+  total_amount: number;
+  currency: string;
+  tax_amount?: number | null;
+  status: 'unlinked' | 'matched' | 'verified';
+  image_path?: string | null;
+  raw_text?: string | null;
+  notes?: string | null;
+  items: ReceiptItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductStatisticItem {
+  item_name: string;
+  brand?: string | null;
+  category: string;
+  domain?: string | null;
+  product_type?: string | null;
+  volume_ml?: string | null;
+  purchase_count: number;
+  total_spent: number;
+  unit_price_latest: number;
+  first_purchased: string;
+  last_purchased: string;
+  avg_days_between_purchases?: number | null;
+  estimated_depletion_date?: string | null;
+}
+
+export interface ProductStatisticsResponse {
+  domain?: string | null;
+  total_products: number;
+  total_spend: number;
+  products: ProductStatisticItem[];
+}
+
 
