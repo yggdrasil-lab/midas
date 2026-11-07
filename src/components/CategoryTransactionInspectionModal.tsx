@@ -47,7 +47,7 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
       name: `Rule for ${tx.merchant}`,
       description_pattern: tx.raw_description || tx.merchant,
       match_type: 'contains',
-      amount_equals: Math.abs(Number(tx.amount)),
+      amount_equals: null,
       target_category: tx.category,
       rename_merchant: tx.merchant,
       priority: 10,
