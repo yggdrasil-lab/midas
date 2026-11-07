@@ -222,6 +222,9 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
                       <div
                         className="flex items-center justify-between cursor-pointer"
                         onClick={() => toggleExpand(r.id)}
+                        role="button"
+                        tabIndex={0}
+                        data-testid={`receipt-row-${r.id}`}
                       >
                         <div className="space-y-1 min-w-0">
                           <div className="flex items-center space-x-2">

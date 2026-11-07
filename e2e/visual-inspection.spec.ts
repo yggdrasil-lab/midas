@@ -78,7 +78,7 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(200);
 
       // 3. Time Machine Simulator
-      const simTab = page.locator('button:has-text("Simulator"), button:has-text("Time Machine")').locator('visible=true').first();
+      const simTab = page.locator('header nav button:has-text("Time Machine"), nav button:has-text("Simulator")').locator('visible=true').first();
       if (await simTab.isVisible()) {
         await simTab.click();
       }
@@ -89,11 +89,11 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/03-time-machine-simulator.png`,
-        fullPage: true,
+        fullPage: platform !== 'desktop',
       });
 
       // 4. Statement Ingestion Hub
-      const stmtTab = page.locator('button:has-text("Statement"), button:has-text("Statement Hub")').locator('visible=true').first();
+      const stmtTab = page.locator('header nav button:has-text("Statement Hub"), nav button:has-text("Statement")').locator('visible=true').first();
       if (await stmtTab.isVisible()) {
         await stmtTab.click();
       }
@@ -101,7 +101,7 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/04-statement-dropzone.png`,
-        fullPage: true,
+        fullPage: platform !== 'desktop',
       });
 
       // 5. AI Freedom Advisor Modal
@@ -125,7 +125,7 @@ for (const { name: platform, options } of PLATFORMS) {
       }
 
       // 6. Budgets & Spending Breakdown
-      const budgetTab = page.locator('button:has-text("Spending & Budgets"), button:has-text("Budgets")').locator('visible=true').first();
+      const budgetTab = page.locator('header nav button:has-text("Spending & Budgets"), nav button:has-text("Budgets")').locator('visible=true').first();
       if (await budgetTab.isVisible()) {
         await budgetTab.click();
       }
@@ -135,7 +135,7 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/06-budgets-and-spending-breakdown.png`,
-          fullPage: true,
+          fullPage: platform !== 'desktop',
         });
 
         // 7. Budget Config Modal
@@ -197,6 +197,10 @@ for (const { name: platform, options } of PLATFORMS) {
           if (await newRuleBtn.isVisible()) {
             await newRuleBtn.click();
             await expect(page.locator('text=Create Outlook-Style Rule >> visible=true')).toBeVisible();
+            const saveBtn = page.locator('button:has-text("Save Rule") >> visible=true').first();
+            if (await saveBtn.isVisible()) {
+              await saveBtn.scrollIntoViewIfNeeded();
+            }
             await page.waitForTimeout(300);
             await page.screenshot({
               path: `screenshots/${platform}/10-rules-create-form.png`,
@@ -218,9 +222,10 @@ for (const { name: platform, options } of PLATFORMS) {
           await expect(page.getByRole('heading', { name: /Receipts & Granular Product Hub/i })).toBeVisible();
           await expect(page.locator('text=Chemist Warehouse Albany >> visible=true').first()).toBeVisible();
           // Expand first receipt item
-          const expandBtn = page.locator('button:has-text("Chemist Warehouse Albany") >> visible=true').first();
+          const expandBtn = page.locator('[data-testid="receipt-row-1"] >> visible=true').first();
           if (await expandBtn.isVisible()) {
             await expandBtn.click();
+            await expect(page.locator('text=Itemized Breakdown >> visible=true').first()).toBeVisible();
           }
           await page.waitForTimeout(300);
           await page.screenshot({

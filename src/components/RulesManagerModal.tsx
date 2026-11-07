@@ -263,14 +263,14 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       onClose={onClose}
       title="Outlook-Style Categorization Rules"
     >
-      <div className="space-y-4">
+      <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
         {/* Description & Action Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <p className="text-xs text-slate-300">
-            Define custom pattern and amount rules to automatically categorize transactions and rename merchants.
-          </p>
-          <div className="flex items-center space-x-2 shrink-0">
-            {!isFormOpen && (
+        {!isFormOpen && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <p className="text-xs text-slate-300">
+              Define custom pattern and amount rules to automatically categorize transactions and rename merchants.
+            </p>
+            <div className="flex items-center space-x-2 shrink-0">
               <Button
                 variant="primary"
                 size="xs"
@@ -279,22 +279,22 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
               >
                 New Rule
               </Button>
-            )}
-            <Button
-              variant="outline"
-              size="xs"
-              icon={
-                <Play
-                  className={`w-3.5 h-3.5 text-amber-400 ${isApplyingAll ? 'animate-spin' : ''}`}
-                />
-              }
-              onClick={handleApplyAll}
-              disabled={isApplyingAll || rules.length === 0}
-            >
-              Run Rules
-            </Button>
+              <Button
+                variant="outline"
+                size="xs"
+                icon={
+                  <Play
+                    className={`w-3.5 h-3.5 text-amber-400 ${isApplyingAll ? 'animate-spin' : ''}`}
+                  />
+                }
+                onClick={handleApplyAll}
+                disabled={isApplyingAll || rules.length === 0}
+              >
+                Run Rules
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         {error && <AlertBanner variant="error">{error}</AlertBanner>}
         {statusMsg && (
@@ -359,7 +359,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 12-0323-0895056 or WISE TFR"
+                  placeholder="e.g. 12-0323 or WISE"
                   value={formPattern}
                   onChange={(e) => setFormPattern(e.target.value)}
                   className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
@@ -376,8 +376,8 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
                   }
                   className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
                 >
-                  <option value="contains">Contains (substring anywhere)</option>
-                  <option value="starts_with">Starts with (begins with)</option>
+                  <option value="contains">Contains</option>
+                  <option value="starts_with">Starts with</option>
                   <option value="exact">Exact match</option>
                 </select>
               </div>
@@ -385,7 +385,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
               {/* Optional Amount condition */}
               <div>
                 <label className="text-[11px] text-slate-300 block mb-1">
-                  Exact Amount Match <span className="text-slate-400">(optional)</span>
+                  Exact Amount <span className="text-slate-400">(optional)</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1.5 text-xs text-slate-400">$</span>
@@ -393,7 +393,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="e.g. 400.00 (leave empty for any amount)"
+                    placeholder="e.g. 400.00"
                     value={formAmountEquals}
                     onChange={(e) => setFormAmountEquals(e.target.value)}
                     className="w-full text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
@@ -420,11 +420,11 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
               {/* Rename Merchant */}
               <div className="sm:col-span-2">
                 <label className="text-[11px] text-slate-300 block mb-1">
-                  Rename Merchant Display <span className="text-slate-400">(optional)</span>
+                  Rename Merchant <span className="text-slate-400">(optional)</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Power and Water Utilities (leave empty to keep original)"
+                  placeholder="e.g. Power/Water Utilities"
                   value={formRenameMerchant}
                   onChange={(e) => setFormRenameMerchant(e.target.value)}
                   className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
