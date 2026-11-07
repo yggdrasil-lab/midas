@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database, PieChart, Receipt as ReceiptIcon } from 'lucide-react';
+import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database, PieChart, Receipt as ReceiptIcon, Landmark } from 'lucide-react';
 import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
 import { CategorySpendingBreakdown } from './components/CategorySpendingBreakdown';
+import { AccountView } from './components/AccountView';
 import { ScenarioSimulator } from './components/ScenarioSimulator';
 import { StatementDropzone } from './components/StatementDropzone';
 import { QuickLogModal } from './components/QuickLogModal';
@@ -49,6 +50,7 @@ export const App: React.FC = () => {
 
   const desktopTabs = [
     { id: 'overview', label: 'Full Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+    { id: 'accounts', label: 'Accounts', icon: <Landmark className="w-3.5 h-3.5" /> },
     { id: 'budgets', label: 'Spending & Budgets', icon: <PieChart className="w-3.5 h-3.5" /> },
     { id: 'simulator', label: 'Time Machine', icon: <Sliders className="w-3.5 h-3.5" /> },
     { id: 'statement', label: 'Statement Hub', icon: <UploadCloud className="w-3.5 h-3.5" /> },
@@ -56,6 +58,7 @@ export const App: React.FC = () => {
 
   const mobileNavTabs = [
     { id: 'overview', label: 'Freedom', icon: <Clock className="w-4 h-4" /> },
+    { id: 'accounts', label: 'Accounts', icon: <Landmark className="w-4 h-4" /> },
     { id: 'budgets', label: 'Budgets', icon: <PieChart className="w-4 h-4" /> },
     { id: 'simulator', label: 'Simulator', icon: <Sliders className="w-4 h-4" /> },
     { id: 'statement', label: 'Statement', icon: <UploadCloud className="w-4 h-4" /> },
@@ -198,6 +201,12 @@ export const App: React.FC = () => {
               </div>
             )}
 
+            {activeTab === 'accounts' && (
+              <div className="max-w-7xl mx-auto">
+                <AccountView onRefreshRunway={loadData} />
+              </div>
+            )}
+
             {activeTab === 'budgets' && (
               <div className="max-w-2xl mx-auto space-y-6">
                 <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
@@ -226,6 +235,10 @@ export const App: React.FC = () => {
                 <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
                 <CategorySpendingBreakdown onRefreshRunway={loadData} />
               </>
+            )}
+
+            {activeTab === 'accounts' && (
+              <AccountView onRefreshRunway={loadData} />
             )}
 
             {activeTab === 'budgets' && (

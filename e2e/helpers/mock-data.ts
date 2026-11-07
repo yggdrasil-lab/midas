@@ -243,8 +243,61 @@ export async function setupMockApi(page: Page) {
     });
   });
 
-  // 5. Mock Accounts Endpoint
-  await page.route('**/api/accounts**', async (route) => {
+  // 5. Mock Accounts & Snapshots Endpoint
+  await page.route(/\/api\/accounts\/\d+\/snapshots(\?.*)?$/, async (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON() || {};
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 99,
+          snapshot_date: body.snapshot_date || '2026-11-04',
+          account_id: 1,
+          balance: Number(body.balance) || 25000.0,
+          currency: body.currency || 'NZD',
+          exchange_rate: body.exchange_rate || 1.0,
+          balance_nzd: Number(body.balance) || 25000.0,
+          source: body.source || 'manual',
+          notes: body.notes || 'Manual balance update',
+          created_at: '2026-11-04T12:00:00Z',
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          id: 1,
+          snapshot_date: '2026-11-04',
+          account_id: 1,
+          balance: 24000.0,
+          currency: 'NZD',
+          exchange_rate: 1.0,
+          balance_nzd: 24000.0,
+          source: 'manual',
+          notes: 'November snapshot',
+          created_at: '2026-11-04T10:00:00Z',
+        },
+        {
+          id: 2,
+          snapshot_date: '2026-10-04',
+          account_id: 1,
+          balance: 22500.0,
+          currency: 'NZD',
+          exchange_rate: 1.0,
+          balance_nzd: 22500.0,
+          source: 'manual',
+          notes: 'October snapshot',
+          created_at: '2026-10-04T10:00:00Z',
+        },
+      ]),
+    });
+  });
+
+  await page.route(/\/api\/accounts(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -257,6 +310,26 @@ export async function setupMockApi(page: Page) {
           institution: 'ASB',
           currency: 'NZD',
           expected_annual_return: 0.0,
+          is_active: true,
+        },
+        {
+          id: 2,
+          name: 'Sharesies Growth Portfolio',
+          account_type: 'brokerage',
+          tier: 'growth',
+          institution: 'Sharesies',
+          currency: 'NZD',
+          expected_annual_return: 0.07,
+          is_active: true,
+        },
+        {
+          id: 3,
+          name: 'Simplicity KiwiSaver',
+          account_type: 'kiwisaver',
+          tier: 'locked',
+          institution: 'Simplicity',
+          currency: 'NZD',
+          expected_annual_return: 0.06,
           is_active: true,
         },
       ]),
