@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UploadCloud, CheckCircle2, ArrowRight, Sparkles, ShieldCheck, TrendingUp, Lock, X } from 'lucide-react';
+import { UploadCloud, CheckCircle2, ArrowRight, Sparkles, ShieldCheck, TrendingUp, Lock } from 'lucide-react';
 import { FileDropzone, Button, StatCard, GlassCard, AlertBanner } from '@yggdrasil-lab/ui';
 import { Account, InstitutionInfo, StatementParseResult } from '../types';
 import { fetchAccounts, fetchInstitutions, fetchSampleStatement, uploadStatement } from '../services/api';
@@ -10,9 +10,7 @@ interface StatementDropzoneProps {
 
 export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
-  const [institution, setInstitution] = useState('ASB');
-  const [isCustomInstitution, setIsCustomInstitution] = useState(false);
-  const [customInstitutionName, setCustomInstitutionName] = useState('');
+  const [institution, setInstitution] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [institutionsList, setInstitutionsList] = useState<InstitutionInfo[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined);
@@ -30,47 +28,17 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       .then(([accs, insts]) => {
         setAccounts(accs);
         setInstitutionsList(insts);
-        if (accs.length > 0) {
-          const matched = accs.find((a) => a.institution.toLowerCase().includes(institution.toLowerCase()));
-          if (matched) {
-            setSelectedAccountId(matched.id);
-          }
-        }
       })
       .catch((err) => console.warn('Could not load accounts or institutions:', err));
   }, []);
-
-  const getEffectiveInstitution = (): string => {
-    if (isCustomInstitution) {
-      return customInstitutionName.trim() || 'Unknown';
-    }
-    return institution;
-  };
-
-  const handleInstitutionSelect = (val: string) => {
-    if (val === '__custom__') {
-      setIsCustomInstitution(true);
-      setCustomInstitutionName('');
-    } else {
-      setIsCustomInstitution(false);
-      setInstitution(val);
-      const match = institutionsList.find((i) => i.name.toLowerCase() === val.toLowerCase());
-      if (match) {
-        setTier(match.default_tier);
-        setAccountType(match.default_type);
-        setAccountName(`${match.name} ${match.default_type.charAt(0).toUpperCase() + match.default_type.slice(1)}`);
-      }
-    }
-  };
 
   const handleLoadSampleStatement = async () => {
     setLoading(true);
     setError(null);
     try {
-      const activeInst = getEffectiveInstitution();
-      const csvText = await fetchSampleStatement(activeInst);
+      const csvText = await fetchSampleStatement('ASB');
       const blob = new Blob([csvText], { type: 'text/csv' });
-      const sampleFile = new File([blob], `${activeInst.toLowerCase()}-sample-statement.csv`, { type: 'text/csv' });
+      const sampleFile = new File([blob], 'asb-sample-statement.csv', { type: 'text/csv' });
       setFile(sampleFile);
       setParseResult(null);
       setCommitted(false);
@@ -88,20 +56,20 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setCommitted(false);
     setError(null);
     try {
-      const activeInst = getEffectiveInstitution();
-      const res = await uploadStatement(file, activeInst, false);
+      const res = await uploadStatement(file, 'auto', false);
       setParseResult(res);
 
-      if (res.institution && res.institution !== 'Unknown' && res.institution !== activeInst) {
-        const match = institutionsList.find((i) => i.name.toLowerCase() === res.institution.toLowerCase());
+      const detected = res.institution && res.institution !== 'Unknown' ? res.institution : '';
+      setInstitution(detected);
+
+      if (detected) {
+        const match = institutionsList.find((i) => i.name.toLowerCase() === detected.toLowerCase());
         if (match) {
-          setInstitution(match.name);
-          setIsCustomInstitution(false);
           setTier(match.default_tier);
           setAccountType(match.default_type);
         } else {
-          setIsCustomInstitution(true);
-          setCustomInstitutionName(res.institution);
+          setTier('cash');
+          setAccountType('checking');
         }
       }
 
@@ -111,13 +79,13 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         setClosingBalanceInput('');
       }
 
-      if (!accountName || accountName === `${activeInst} Checking` || accountName.endsWith('Checking') || accountName.endsWith('Account')) {
-        const instLabel = res.institution && res.institution !== 'Unknown' ? res.institution : activeInst;
-        if (res.account_name) {
-          setAccountName(`${instLabel} ${res.account_name}`);
-        } else {
-          setAccountName(`${instLabel} Account`);
-        }
+      if (res.account_name) {
+        setAccountName(detected ? `${detected} ${res.account_name}` : res.account_name);
+      } else if (detected) {
+        const typeLabel = accountType ? accountType.charAt(0).toUpperCase() + accountType.slice(1) : 'Checking';
+        setAccountName(`${detected} ${typeLabel}`);
+      } else {
+        setAccountName('Bank Checking');
       }
     } catch (err) {
       console.error(err);
@@ -133,10 +101,10 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setError(null);
     try {
       const balanceToCommit = closingBalanceInput.trim() !== '' ? parseFloat(closingBalanceInput) : undefined;
-      const activeInst = getEffectiveInstitution();
+      const targetInst = institution.trim() || parseResult?.institution || 'Unknown';
       await uploadStatement(
         file,
-        activeInst,
+        targetInst,
         true,
         selectedAccountId,
         balanceToCommit,
@@ -157,16 +125,30 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
   const handleReset = () => {
     setFile(null);
     setParseResult(null);
+    setInstitution('');
+    setAccountName('');
     setClosingBalanceInput('');
     setCommitted(false);
     setError(null);
   };
 
-  // Distinct list of known institutions
+  // Distinct list of known institutions for datalist autocomplete
   const combinedInstitutions = Array.from(
     new Set([
       ...institutionsList.map((i) => i.name),
       ...accounts.map((a) => a.institution),
+      'ANZ',
+      'ASB',
+      'BNZ',
+      'Westpac',
+      'Kiwibank',
+      'Rabobank',
+      'TSB',
+      'Sharesies',
+      'Simplicity',
+      'Kernel',
+      'Milford',
+      'InvestNow',
     ])
   ).filter(Boolean);
 
@@ -179,67 +161,29 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-200">Statement Ingestion Hub</h3>
-            <p className="text-xs text-slate-400">Upload bank or brokerage PDF/CSV to anchor balances</p>
+            <p className="text-xs text-slate-400">Drop bank or brokerage PDF/CSV to auto-detect and sync</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Target Account Selector */}
-          <select
-            value={selectedAccountId !== undefined ? selectedAccountId : ''}
-            onChange={(e) => {
-              const val = e.target.value;
-              setSelectedAccountId(val ? Number(val) : undefined);
-            }}
-            className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none flex-1 sm:flex-none"
-          >
-            <option value="">+ Create New Account</option>
-            {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name} ({acc.institution})
-              </option>
-            ))}
-          </select>
-
-          {/* Institution Selector or Custom Input */}
-          {!selectedAccountId && (
-            <>
-              {!isCustomInstitution ? (
-                <select
-                  value={institution}
-                  onChange={(e) => handleInstitutionSelect(e.target.value)}
-                  className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none flex-1 sm:flex-none"
-                >
-                  {combinedInstitutions.map((inst) => (
-                    <option key={inst} value={inst}>
-                      {inst}
-                    </option>
-                  ))}
-                  <option value="__custom__">+ Custom Institution...</option>
-                </select>
-              ) : (
-                <div className="flex items-center space-x-1 flex-1 sm:flex-none">
-                  <input
-                    type="text"
-                    placeholder="Institution Name (e.g. Milford)"
-                    value={customInstitutionName}
-                    onChange={(e) => setCustomInstitutionName(e.target.value)}
-                    className="bg-background border border-border text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500 w-36 sm:w-40"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomInstitution(false)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-card/50"
-                    title="Switch to known institutions"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        {accounts.length > 0 && (
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedAccountId !== undefined ? selectedAccountId : ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedAccountId(val ? Number(val) : undefined);
+              }}
+              className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none flex-1 sm:flex-none"
+            >
+              <option value="">Auto-detect / Create New Account</option>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  Link to: {acc.name} ({acc.institution})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -254,7 +198,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           onFileChange={setFile}
           acceptedFormats=".pdf,.csv"
           title="Drop your PDF/CSV statement here, or browse"
-          description="Extracts official closing balances and deduplicated transactions"
+          description="Extracts official closing balances and deduplicated transactions with automatic institution detection"
           variant="amber"
         >
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -279,7 +223,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
                 onClick={handleLoadSampleStatement}
                 className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
               >
-                {`Try Sample ${getEffectiveInstitution()} Statement`}
+                Try Sample Statement
               </Button>
             )}
           </div>
@@ -289,7 +233,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         <div className="bg-background rounded-xl p-4 border border-border space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
             <span className="text-slate-400 font-medium">
-              Detected from {file?.name} ({parseResult.institution || getEffectiveInstitution()}
+              Detected from {file?.name} ({parseResult.institution || 'Unknown'}
               {parseResult.account_name ? ` · ${parseResult.account_name}` : ''}
               {parseResult.account_number_masked ? ` · ${parseResult.account_number_masked}` : ''})
             </span>
@@ -307,17 +251,36 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
             <div className="p-3 bg-card/60 rounded-xl border border-border space-y-2.5">
               <div className="flex items-center justify-between text-xs text-slate-300">
                 <span className="font-semibold text-slate-200">Account Configuration</span>
-                <span className="text-[11px] text-amber-400">New Account Provisioning</span>
+                <span className="text-[11px] text-emerald-400 flex items-center space-x-1 font-medium">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Auto-detected: {parseResult.institution || 'Unknown'}</span>
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Institution</label>
+                  <input
+                    type="text"
+                    value={institution}
+                    onChange={(e) => setInstitution(e.target.value)}
+                    placeholder="e.g. ANZ, ASB, Sharesies"
+                    list="known-institutions"
+                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                  />
+                  <datalist id="known-institutions">
+                    {combinedInstitutions.map((inst) => (
+                      <option key={inst} value={inst} />
+                    ))}
+                  </datalist>
+                </div>
                 <div>
                   <label className="text-[10px] text-slate-400 block mb-1">Account Display Name</label>
                   <input
                     type="text"
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value)}
-                    placeholder="e.g. ASB Everyday Checking"
+                    placeholder="e.g. ANZ Freedom"
                     className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
