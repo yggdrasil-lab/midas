@@ -1,5 +1,14 @@
 import { authFetch } from '@yggdrasil-lab/ui';
-import { Account, InstitutionInfo, RunwayAiSynthesisResult, RunwayData, RunwayScenarioResult, StatementParseResult } from '../types';
+import {
+  Account,
+  BudgetRule,
+  InstitutionInfo,
+  RunwayAiSynthesisResult,
+  RunwayData,
+  RunwayScenarioResult,
+  SpendingBreakdownResponse,
+  StatementParseResult,
+} from '../types';
 
 const API_BASE = '/api';
 
@@ -174,6 +183,64 @@ export async function resetDatabase(clearAccounts = false): Promise<{
   });
   if (!res.ok) {
     throw new Error(`Failed to reset data: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchSpendingBreakdown(period = 'month'): Promise<SpendingBreakdownResponse> {
+  const res = await authFetch(`${API_BASE}/budgets/breakdown?period=${encodeURIComponent(period)}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch spending breakdown: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchBudgetRules(): Promise<BudgetRule[]> {
+  const res = await authFetch(`${API_BASE}/budgets`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch budget rules: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function upsertBudgetRule(
+  category: string,
+  weeklyLimit?: number,
+  monthlyLimit?: number
+): Promise<BudgetRule> {
+  const res = await authFetch(`${API_BASE}/budgets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      category,
+      weekly_limit: weeklyLimit,
+      monthly_limit: monthlyLimit,
+      is_active: true,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to save budget rule: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function deleteBudgetRule(id: number): Promise<void> {
+  const res = await authFetch(`${API_BASE}/budgets/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete budget rule: ${res.statusText}`);
+  }
+}
+
+export async function initDefaultBudgets(): Promise<BudgetRule[]> {
+  const res = await authFetch(`${API_BASE}/budgets/init-defaults`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to initialize default budgets: ${res.statusText}`);
   }
   return res.json();
 }

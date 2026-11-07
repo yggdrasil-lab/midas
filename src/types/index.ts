@@ -82,3 +82,33 @@ export interface InstitutionInfo {
   default_type: 'checking' | 'savings' | 'brokerage' | 'kiwisaver' | 'crypto' | 'credit_card';
   currency: string;
 }
+
+export interface BudgetRule {
+  id: number;
+  category: string;
+  weekly_limit: number;
+  monthly_limit: number;
+  is_active: boolean;
+}
+
+export interface CategorySpendingReport {
+  category: string;
+  total_spend: number;
+  transaction_count: number;
+  percentage: number;
+  budget_limit?: number | null;
+  percent_used?: number | null;
+  is_over_budget: boolean;
+  warning_level: 'normal' | 'warning' | 'danger';
+}
+
+export interface SpendingBreakdownResponse {
+  period: 'week' | 'month' | 'all';
+  start_date?: string | null;
+  end_date?: string | null;
+  total_spend: number;
+  total_income: number;
+  net_savings: number;
+  categories: CategorySpendingReport[];
+  over_budget_count: number;
+}

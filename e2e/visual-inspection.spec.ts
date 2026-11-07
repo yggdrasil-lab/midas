@@ -123,6 +123,35 @@ for (const { name: platform, options } of PLATFORMS) {
           await page.keyboard.press('Escape');
         }
       }
+
+      // 6. Budgets & Spending Breakdown
+      const budgetTab = page.locator('header nav button:has-text("Spending & Budgets"), nav[aria-label="Main Mobile Navigation"] button:has-text("Budgets")').locator('visible=true').first();
+      if (await budgetTab.isVisible()) {
+        await budgetTab.click();
+        await expect(page.locator('text=Category Spending & Budgets >> visible=true').first()).toBeVisible();
+        await page.waitForTimeout(300);
+        await page.screenshot({
+          path: `screenshots/${platform}/06-budgets-and-spending-breakdown.png`,
+          fullPage: true,
+        });
+
+        // 7. Budget Config Modal
+        const editBudgetsBtn = page.locator('button:has-text("Manage Limits") >> visible=true').first();
+        if (await editBudgetsBtn.isVisible()) {
+          await editBudgetsBtn.click();
+          await expect(page.getByRole('heading', { name: 'Category Budget Guardrails' })).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/07-budget-config-modal.png`,
+          });
+          const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+          if (await modalClose.isVisible()) {
+            await modalClose.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+        }
+      }
     });
   });
 }

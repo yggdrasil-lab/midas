@@ -120,4 +120,62 @@ export async function setupMockApi(page: Page) {
       ]),
     });
   });
+
+  // 6. Mock Budgets & Breakdown Endpoints
+  await page.route('**/api/budgets/breakdown**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        period: 'month',
+        total_spend: 750.0,
+        total_income: 3200.0,
+        net_savings: 2450.0,
+        over_budget_count: 1,
+        categories: [
+          {
+            category: 'Groceries',
+            total_spend: 350.0,
+            transaction_count: 4,
+            percentage: 46.7,
+            budget_limit: 300.0,
+            percent_used: 116.7,
+            is_over_budget: true,
+            warning_level: 'danger',
+          },
+          {
+            category: 'Transport',
+            total_spend: 120.0,
+            transaction_count: 5,
+            percentage: 16.0,
+            budget_limit: 200.0,
+            percent_used: 60.0,
+            is_over_budget: false,
+            warning_level: 'normal',
+          },
+          {
+            category: 'Food',
+            total_spend: 85.0,
+            transaction_count: 3,
+            percentage: 11.3,
+            budget_limit: 100.0,
+            percent_used: 85.0,
+            is_over_budget: false,
+            warning_level: 'warning',
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route(/\/api\/budgets(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { id: 1, category: 'Groceries', weekly_limit: 75.0, monthly_limit: 300.0, is_active: true },
+        { id: 2, category: 'Transport', weekly_limit: 50.0, monthly_limit: 200.0, is_active: true },
+      ]),
+    });
+  });
 }
