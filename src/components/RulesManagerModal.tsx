@@ -154,7 +154,8 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     setError(null);
     setStatusMsg(null);
 
-    const parsedAmt = formAmountEquals.trim() !== '' ? Math.abs(parseFloat(formAmountEquals)) : null;
+    const num = parseFloat(formAmountEquals.trim());
+    const parsedAmt = !isNaN(num) && num > 0 ? Math.abs(num) : null;
 
     try {
       if (editingRuleId) {
@@ -385,7 +386,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
               {/* Optional Amount condition */}
               <div>
                 <label className="text-[11px] text-slate-300 block mb-1">
-                  Exact Amount <span className="text-slate-400">(optional)</span>
+                  Exact Amount <span className="text-slate-400">(optional, blank or 0 for any amount)</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1.5 text-xs text-slate-400">$</span>
@@ -393,7 +394,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
                     type="number"
                     step="0.01"
                     min="0"
-                    placeholder="e.g. 400.00"
+                    placeholder="e.g. 400.00 (leave blank for any)"
                     value={formAmountEquals}
                     onChange={(e) => setFormAmountEquals(e.target.value)}
                     className="w-full text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
