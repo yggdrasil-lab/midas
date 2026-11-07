@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database, PieChart } from 'lucide-react';
+import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database, PieChart, Receipt as ReceiptIcon } from 'lucide-react';
 import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
@@ -10,6 +10,7 @@ import { ScenarioSimulator } from './components/ScenarioSimulator';
 import { StatementDropzone } from './components/StatementDropzone';
 import { QuickLogModal } from './components/QuickLogModal';
 import { DataManagementModal } from './components/DataManagementModal';
+import { ReceiptsHubModal } from './components/ReceiptsHubModal';
 import { MidasTab } from './components/BottomNav';
 
 export const App: React.FC = () => {
@@ -20,6 +21,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MidasTab>('overview');
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [isReceiptsModalOpen, setIsReceiptsModalOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -81,6 +83,16 @@ export const App: React.FC = () => {
           isRefreshing={loading}
           actions={
             <div className="flex items-center space-x-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<ReceiptIcon className="w-3.5 h-3.5 text-amber-400" />}
+                onClick={() => setIsReceiptsModalOpen(true)}
+                title="Receipts & Product Longevity"
+                data-testid="header-receipts-btn"
+              >
+                <span className="hidden sm:inline">Receipts</span>
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -247,6 +259,13 @@ export const App: React.FC = () => {
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
         onSuccess={loadData}
+      />
+
+      {/* Receipts & Granular Product Hub Modal */}
+      <ReceiptsHubModal
+        isOpen={isReceiptsModalOpen}
+        onClose={() => setIsReceiptsModalOpen(false)}
+        onReceiptLinked={loadData}
       />
     </AppShell>
   );

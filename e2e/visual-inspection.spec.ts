@@ -78,7 +78,7 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(200);
 
       // 3. Time Machine Simulator
-      const simTab = page.locator('button:has-text("Simulator"), button:has-text("Time Machine")').locator('visible=true').first();
+      const simTab = page.locator('header nav button:has-text("Time Machine"), nav button:has-text("Simulator")').locator('visible=true').first();
       if (await simTab.isVisible()) {
         await simTab.click();
       }
@@ -89,11 +89,11 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/03-time-machine-simulator.png`,
-        fullPage: true,
+        fullPage: platform !== 'desktop',
       });
 
       // 4. Statement Ingestion Hub
-      const stmtTab = page.locator('button:has-text("Statement"), button:has-text("Statement Hub")').locator('visible=true').first();
+      const stmtTab = page.locator('header nav button:has-text("Statement Hub"), nav button:has-text("Statement")').locator('visible=true').first();
       if (await stmtTab.isVisible()) {
         await stmtTab.click();
       }
@@ -101,7 +101,7 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/04-statement-dropzone.png`,
-        fullPage: true,
+        fullPage: platform !== 'desktop',
       });
 
       // 5. AI Freedom Advisor Modal
@@ -125,7 +125,7 @@ for (const { name: platform, options } of PLATFORMS) {
       }
 
       // 6. Budgets & Spending Breakdown
-      const budgetTab = page.locator('button:has-text("Spending & Budgets"), button:has-text("Budgets")').locator('visible=true').first();
+      const budgetTab = page.locator('header nav button:has-text("Spending & Budgets"), nav button:has-text("Budgets")').locator('visible=true').first();
       if (await budgetTab.isVisible()) {
         await budgetTab.click();
       }
@@ -135,7 +135,7 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/06-budgets-and-spending-breakdown.png`,
-          fullPage: true,
+          fullPage: platform !== 'desktop',
         });
 
         // 7. Budget Config Modal
@@ -197,9 +197,65 @@ for (const { name: platform, options } of PLATFORMS) {
           if (await newRuleBtn.isVisible()) {
             await newRuleBtn.click();
             await expect(page.locator('text=Create Outlook-Style Rule >> visible=true')).toBeVisible();
+            const saveBtn = page.locator('button:has-text("Save Rule") >> visible=true').first();
+            if (await saveBtn.isVisible()) {
+              await saveBtn.scrollIntoViewIfNeeded();
+            }
             await page.waitForTimeout(300);
             await page.screenshot({
               path: `screenshots/${platform}/10-rules-create-form.png`,
+            });
+
+            // Cancel the create form
+            const cancelBtn = page.getByRole('button', { name: /Cancel/i }).locator('visible=true').first();
+            if (await cancelBtn.isVisible()) {
+              await cancelBtn.click();
+            }
+          }
+
+          // Close the Rules Manager modal cleanly
+          const doneBtn = page.getByRole('button', { name: /Done/i }).locator('visible=true').first();
+          if (await doneBtn.isVisible()) {
+            await doneBtn.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+          await expect(page.getByRole('heading', { name: /Outlook-Style Categorization Rules/i })).toBeHidden();
+        }
+
+        // 10. Receipts & Granular Product Hub Feed Modal
+        const receiptsBtn = page.locator('[data-testid="spending-receipts-btn"], [data-testid="receipts-hub-btn"], [data-testid="header-receipts-btn"]').locator('visible=true').first();
+        if (await receiptsBtn.isVisible()) {
+          await receiptsBtn.click();
+          await expect(page.getByRole('heading', { name: /Receipts &.*Hub/i })).toBeVisible();
+          await expect(page.locator('text=Chemist Warehouse Albany >> visible=true').first()).toBeVisible();
+          // Expand first receipt item
+          const expandBtn = page.locator('[data-testid="receipt-row-1"] >> visible=true').first();
+          if (await expandBtn.isVisible()) {
+            await expandBtn.click();
+            await expect(page.locator('text=Itemized Breakdown >> visible=true').first()).toBeVisible();
+          }
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/11-receipts-hub-feed.png`,
+          });
+
+          // 11. Product Inventory, Tags & Historical Price Telemetry Tab
+          const productsTab = page.locator('button:has-text("Products & Price History"), button:has-text("Product Longevity")').locator('visible=true').first();
+          if (await productsTab.isVisible()) {
+            await productsTab.click();
+            await expect(page.locator('text=La Roche-Posay Pure Vitamin C10 Serum >> visible=true').first()).toBeVisible();
+
+            // Expand Price History Timeline for visual inspection
+            const historyBtn = page.locator('button:has-text("View Price History") >> visible=true').first();
+            if (await historyBtn.isVisible()) {
+              await historyBtn.click();
+              await expect(page.locator('text=Hide Price Timeline >> visible=true').first()).toBeVisible();
+            }
+
+            await page.waitForTimeout(300);
+            await page.screenshot({
+              path: `screenshots/${platform}/12-product-longevity.png`,
             });
           }
 

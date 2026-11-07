@@ -5,6 +5,11 @@ import {
   CategorizationRule,
   CategorizationRuleCreate,
   InstitutionInfo,
+  Product,
+  ProductListResponse,
+  ProductStatisticsResponse,
+  ProductUpdatePayload,
+  Receipt,
   RunwayAiSynthesisResult,
   RunwayData,
   RunwayScenarioResult,
@@ -344,4 +349,137 @@ export async function applyAllRules(): Promise<{ evaluated: number; updated: num
   }
   return res.json();
 }
+
+export async function fetchReceipts(status?: string): Promise<Receipt[]> {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  const url = `${API_BASE}/receipts${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await authFetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch receipts: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchReceipt(id: number): Promise<Receipt> {
+  const res = await authFetch(`${API_BASE}/receipts/${id}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch receipt: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function uploadReceipt(file: File): Promise<Receipt> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await authFetch(`${API_BASE}/receipts/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to upload receipt: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchProductStatistics(
+  domain?: string,
+  productType?: string
+): Promise<ProductStatisticsResponse> {
+  const params = new URLSearchParams();
+  if (domain) params.set('domain', domain);
+  if (productType) params.set('product_type', productType);
+  const url = `${API_BASE}/receipts/statistics/products${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await authFetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch product statistics: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function linkReceipt(
+  receiptId: number,
+  transactionId: number
+): Promise<Receipt> {
+  const res = await authFetch(`${API_BASE}/receipts/${receiptId}/link/${transactionId}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to link receipt: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function reconcileReceipts(): Promise<{ status: string; matched_count: number }> {
+  const res = await authFetch(`${API_BASE}/receipts/reconcile`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to reconcile receipts: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchProducts(params?: {
+  domain?: string;
+  tag?: string;
+  search?: string;
+  is_favorite?: boolean;
+}): Promise<ProductListResponse> {
+  const q = new URLSearchParams();
+  if (params?.domain) q.set('domain', params.domain);
+  if (params?.tag) q.set('tag', params.tag);
+  if (params?.search) q.set('search', params.search);
+  if (params?.is_favorite !== undefined) q.set('is_favorite', String(params.is_favorite));
+  const url = `${API_BASE}/products${q.toString() ? `?${q.toString()}` : ''}`;
+  const res = await authFetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch products: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchProduct(id: number): Promise<Product> {
+  const res = await authFetch(`${API_BASE}/products/${id}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch product: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function createProduct(payload: Partial<Product>): Promise<Product> {
+  const res = await authFetch(`${API_BASE}/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to create product: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function updateProduct(id: number, payload: ProductUpdatePayload): Promise<Product> {
+  const res = await authFetch(`${API_BASE}/products/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update product: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function deleteProduct(id: number): Promise<{ status: string; id: number }> {
+  const res = await authFetch(`${API_BASE}/products/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete product: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+
 
