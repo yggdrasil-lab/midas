@@ -15,12 +15,14 @@ import {
   Package,
   ArrowRightLeft,
   Search,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { GlassCard, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { SpendingBreakdownResponse } from '../types';
 import { fetchSpendingBreakdown } from '../services/api';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
+import { RulesManagerModal } from './RulesManagerModal';
 
 interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
@@ -37,6 +39,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [inspectCategory, setInspectCategory] = useState<string | undefined>(undefined);
   const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
   const loadBreakdown = async () => {
     setLoading(true);
@@ -146,6 +149,17 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
           >
             Manage Limits
+          </Button>
+
+          <Button
+            variant="outline"
+            size="xs"
+            icon={<SlidersHorizontal className="w-3 h-3 text-amber-400" />}
+            onClick={() => setIsRulesModalOpen(true)}
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+            data-testid="rules-manager-btn"
+          >
+            Rules
           </Button>
         </div>
       </div>
@@ -364,6 +378,16 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
           if (onRefreshRunway) onRefreshRunway();
         }}
         initialCategory={selectedCategory}
+      />
+
+      {/* Rules Manager Modal */}
+      <RulesManagerModal
+        isOpen={isRulesModalOpen}
+        onClose={() => setIsRulesModalOpen(false)}
+        onRulesApplied={() => {
+          loadBreakdown();
+          if (onRefreshRunway) onRefreshRunway();
+        }}
       />
     </GlassCard>
   );

@@ -239,4 +239,98 @@ export async function setupMockApi(page: Page) {
       });
     }
   });
+
+  // 8. Mock Outlook-style Categorization Rules Endpoints
+  await page.route(/\/api\/rules\/apply-all/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ evaluated: 42, updated: 6 }),
+    });
+  });
+
+  await page.route(/\/api\/rules(\/.*|\?.*)?$/, async (route) => {
+    const method = route.request().method();
+    if (method === 'POST') {
+      const body = route.request().postDataJSON() || {};
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 3,
+          name: body.name || 'New Custom Rule',
+          description_pattern: body.description_pattern || 'PATTERN',
+          match_type: body.match_type || 'contains',
+          amount_equals: body.amount_equals || null,
+          target_category: body.target_category || 'General',
+          rename_merchant: body.rename_merchant || null,
+          priority: body.priority || 10,
+          is_active: body.is_active ?? true,
+          match_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    } else if (method === 'PUT') {
+      const body = route.request().postDataJSON() || {};
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 1,
+          name: body.name || 'Updated Rule',
+          description_pattern: body.description_pattern || '12-0323-0895056',
+          match_type: body.match_type || 'contains',
+          amount_equals: body.amount_equals !== undefined ? body.amount_equals : 400.0,
+          target_category: body.target_category || 'Utilities',
+          rename_merchant: body.rename_merchant || 'Power/Water Utilities',
+          priority: body.priority || 10,
+          is_active: body.is_active !== undefined ? body.is_active : true,
+          match_count: 5,
+          created_at: '2026-11-01T00:00:00Z',
+          updated_at: new Date().toISOString(),
+        }),
+      });
+    } else if (method === 'DELETE') {
+      await route.fulfill({
+        status: 204,
+        body: '',
+      });
+    } else {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 1,
+            name: 'Utilities Regular',
+            description_pattern: '12-0323-0895056',
+            match_type: 'contains',
+            amount_equals: 400.0,
+            target_category: 'Utilities',
+            rename_merchant: 'Power/Water Utilities',
+            priority: 10,
+            is_active: true,
+            match_count: 4,
+            created_at: '2026-11-01T00:00:00Z',
+            updated_at: '2026-11-01T00:00:00Z',
+          },
+          {
+            id: 2,
+            name: 'Wise Transfer',
+            description_pattern: 'WISE',
+            match_type: 'contains',
+            amount_equals: null,
+            target_category: 'Transfers',
+            rename_merchant: 'Wise Multi-Currency',
+            priority: 15,
+            is_active: true,
+            match_count: 8,
+            created_at: '2026-11-01T00:00:00Z',
+            updated_at: '2026-11-01T00:00:00Z',
+          },
+        ]),
+      });
+    }
+  });
 }

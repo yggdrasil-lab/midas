@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Layers, Check, RefreshCw } from 'lucide-react';
+import { Layers, Check, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Modal, Button, AlertBanner } from '@yggdrasil-lab/ui';
-import { Transaction } from '../types';
+import { CategorizationRuleCreate, Transaction } from '../types';
 import { fetchCategoryTransactions, updateTransactionCategory } from '../services/api';
+import { RulesManagerModal } from './RulesManagerModal';
 
 interface CategoryTransactionInspectionModalProps {
   isOpen: boolean;
@@ -38,6 +39,22 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [successNote, setSuccessNote] = useState<string | null>(null);
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [rulePrefill, setRulePrefill] = useState<Partial<CategorizationRuleCreate> | null>(null);
+
+  const handleCreateRuleFromTx = (tx: Transaction) => {
+    setRulePrefill({
+      name: `Rule for ${tx.merchant}`,
+      description_pattern: tx.raw_description || tx.merchant,
+      match_type: 'contains',
+      amount_equals: Math.abs(Number(tx.amount)),
+      target_category: tx.category,
+      rename_merchant: tx.merchant,
+      priority: 10,
+      apply_retroactively: true,
+    });
+    setIsRulesModalOpen(true);
+  };
 
   const loadTransactions = async () => {
     if (!category) return;
@@ -175,7 +192,7 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
                       {formattedAmt}
                     </span>
 
-                    {/* Category quick changer */}
+                    {/* Category quick changer & rule builder */}
                     <div className="flex items-center space-x-1.5">
                       <select
                         value={tx.category}
@@ -190,8 +207,18 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
                           </option>
                         ))}
                       </select>
-                      {updatingId === tx.id && (
+                      {updatingId === tx.id ? (
                         <RefreshCw className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleCreateRuleFromTx(tx)}
+                          className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                          title="Create categorization rule from this transaction"
+                          aria-label={`Create rule for ${tx.merchant}`}
+                        >
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -207,6 +234,20 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
           </Button>
         </div>
       </div>
+
+      {/* Rules Manager Modal spawned from transaction */}
+      <RulesManagerModal
+        isOpen={isRulesModalOpen}
+        onClose={() => {
+          setIsRulesModalOpen(false);
+          setRulePrefill(null);
+        }}
+        prefillRule={rulePrefill}
+        onRulesApplied={() => {
+          loadTransactions();
+          onCategoryChanged();
+        }}
+      />
     </Modal>
   );
 };

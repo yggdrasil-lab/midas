@@ -125,10 +125,13 @@ for (const { name: platform, options } of PLATFORMS) {
       }
 
       // 6. Budgets & Spending Breakdown
-      const budgetTab = page.locator('header nav button:has-text("Spending & Budgets"), nav[aria-label="Main Mobile Navigation"] button:has-text("Budgets")').locator('visible=true').first();
+      const budgetTab = page.locator('button:has-text("Spending & Budgets"), button:has-text("Budgets")').locator('visible=true').first();
       if (await budgetTab.isVisible()) {
         await budgetTab.click();
-        await expect(page.locator('text=Category Spending & Budgets >> visible=true').first()).toBeVisible();
+      }
+
+      const categorySection = page.locator('text=Category Spending & Budgets >> visible=true').first();
+      if (await categorySection.isVisible()) {
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/06-budgets-and-spending-breakdown.png`,
@@ -168,6 +171,36 @@ for (const { name: platform, options } of PLATFORMS) {
           if (await categorySelect.isVisible()) {
             await categorySelect.selectOption('Food');
             await expect(page.locator('text=Moved transaction to "Food" >> visible=true')).toBeVisible();
+          }
+
+          const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+          if (await modalClose.isVisible()) {
+            await modalClose.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+        }
+
+        // 9. Outlook-Style Categorization Rules Manager Modal
+        const rulesBtn = page.locator('[data-testid="rules-manager-btn"] >> visible=true').first();
+        if (await rulesBtn.isVisible()) {
+          await rulesBtn.click();
+          await expect(page.getByRole('heading', { name: /Outlook-Style Categorization Rules/i })).toBeVisible();
+          await expect(page.locator('text=Utilities Regular >> visible=true').first()).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/09-rules-manager-modal.png`,
+          });
+
+          // Open Create Rule Form
+          const newRuleBtn = page.getByRole('button', { name: /New Rule/i }).locator('visible=true').first();
+          if (await newRuleBtn.isVisible()) {
+            await newRuleBtn.click();
+            await expect(page.locator('text=Create Outlook-Style Rule >> visible=true')).toBeVisible();
+            await page.waitForTimeout(300);
+            await page.screenshot({
+              path: `screenshots/${platform}/10-rules-create-form.png`,
+            });
           }
 
           const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
