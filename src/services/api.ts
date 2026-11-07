@@ -1,5 +1,5 @@
 import { authFetch } from '@yggdrasil-lab/ui';
-import { Account, RunwayAiSynthesisResult, RunwayData, RunwayScenarioResult, StatementParseResult } from '../types';
+import { Account, InstitutionInfo, RunwayAiSynthesisResult, RunwayData, RunwayScenarioResult, StatementParseResult } from '../types';
 
 const API_BASE = '/api';
 
@@ -66,7 +66,10 @@ export async function uploadStatement(
   institution = 'Unknown',
   commit = false,
   accountId?: number,
-  closingBalance?: number
+  closingBalance?: number,
+  tier?: string,
+  accountType?: string,
+  accountName?: string
 ): Promise<StatementParseResult> {
   const formData = new FormData();
   formData.append('file', file);
@@ -78,6 +81,15 @@ export async function uploadStatement(
   if (closingBalance !== undefined && !isNaN(closingBalance)) {
     url += `&closing_balance=${closingBalance}`;
   }
+  if (tier) {
+    url += `&tier=${encodeURIComponent(tier)}`;
+  }
+  if (accountType) {
+    url += `&account_type=${encodeURIComponent(accountType)}`;
+  }
+  if (accountName) {
+    url += `&account_name=${encodeURIComponent(accountName)}`;
+  }
 
   const res = await authFetch(url, {
     method: 'POST',
@@ -88,6 +100,33 @@ export async function uploadStatement(
     throw new Error(`Statement upload failed: ${res.statusText}`);
   }
   return res.json();
+}
+
+export async function fetchInstitutions(): Promise<InstitutionInfo[]> {
+  try {
+    const res = await authFetch(`${API_BASE}/institutions`);
+    if (res.ok) {
+      return res.json();
+    }
+  } catch (err) {
+    console.warn('Could not fetch institutions from API, using defaults:', err);
+  }
+  return [
+    { name: 'ASB', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+    { name: 'ANZ', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+    { name: 'BNZ', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+    { name: 'Westpac', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+    { name: 'Kiwibank', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+    { name: 'Rabobank', default_tier: 'cash', default_type: 'savings', currency: 'NZD' },
+    { name: 'TSB', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+    { name: 'Sharesies', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+    { name: 'Hatch', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+    { name: 'Kernel', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+    { name: 'Milford', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+    { name: 'InvestNow', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+    { name: 'Interactive Brokers', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+    { name: 'Simplicity', default_tier: 'locked', default_type: 'kiwisaver', currency: 'NZD' },
+  ];
 }
 
 export async function fetchSampleStatement(institution = 'ASB'): Promise<string> {
