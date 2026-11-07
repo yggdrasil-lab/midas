@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database } from 'lucide-react';
+import { Sliders, UploadCloud, PlusCircle, LayoutDashboard, Clock, Database, PieChart } from 'lucide-react';
 import { AppShell, AppHeader, BottomNav, SessionExpiredBanner, isSessionExpiredError, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { RunwayData } from './types';
 import { fetchRunway } from './services/api';
 import { RunwayClock } from './components/RunwayClock';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
+import { CategorySpendingBreakdown } from './components/CategorySpendingBreakdown';
 import { ScenarioSimulator } from './components/ScenarioSimulator';
 import { StatementDropzone } from './components/StatementDropzone';
 import { QuickLogModal } from './components/QuickLogModal';
@@ -46,12 +47,14 @@ export const App: React.FC = () => {
 
   const desktopTabs = [
     { id: 'overview', label: 'Full Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
+    { id: 'budgets', label: 'Spending & Budgets', icon: <PieChart className="w-3.5 h-3.5" /> },
     { id: 'simulator', label: 'Time Machine', icon: <Sliders className="w-3.5 h-3.5" /> },
     { id: 'statement', label: 'Statement Hub', icon: <UploadCloud className="w-3.5 h-3.5" /> },
   ];
 
   const mobileNavTabs = [
     { id: 'overview', label: 'Freedom', icon: <Clock className="w-4 h-4" /> },
+    { id: 'budgets', label: 'Budgets', icon: <PieChart className="w-4 h-4" /> },
     { id: 'simulator', label: 'Simulator', icon: <Sliders className="w-4 h-4" /> },
     { id: 'statement', label: 'Statement', icon: <UploadCloud className="w-4 h-4" /> },
   ];
@@ -168,10 +171,11 @@ export const App: React.FC = () => {
           <div className="hidden lg:block">
             {activeTab === 'overview' && (
               <div className="grid grid-cols-12 gap-6 items-start">
-                {/* Left Column: Clock + Burn + Ingestion */}
+                {/* Left Column: Clock + Burn + Categories + Ingestion */}
                 <div className="col-span-7 space-y-6">
                   <RunwayClock data={data} />
                   <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
+                  <CategorySpendingBreakdown onRefreshRunway={loadData} />
                   <StatementDropzone onSuccess={loadData} />
                 </div>
 
@@ -179,6 +183,13 @@ export const App: React.FC = () => {
                 <div className="col-span-5 space-y-6 sticky top-20">
                   <ScenarioSimulator baselineBurn={data.breakdown.weekly_burn_rate} />
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'budgets' && (
+              <div className="max-w-2xl mx-auto space-y-6">
+                <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
+                <CategorySpendingBreakdown onRefreshRunway={loadData} />
               </div>
             )}
 
@@ -196,11 +207,19 @@ export const App: React.FC = () => {
           </div>
 
           {/* Mobile / Tablet View (< lg: screens) */}
-          <div className="block lg:hidden space-y-4 max-w-lg mx-auto">
+          <div className="block lg:hidden space-y-4 max-w-lg mx-auto pb-24">
             {activeTab === 'overview' && (
               <>
                 <RunwayClock data={data} />
                 <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
+                <CategorySpendingBreakdown onRefreshRunway={loadData} />
+              </>
+            )}
+
+            {activeTab === 'budgets' && (
+              <>
+                <WeeklyBurnTracker data={data} onQuickLogClick={() => setIsQuickLogOpen(true)} />
+                <CategorySpendingBreakdown onRefreshRunway={loadData} />
               </>
             )}
 

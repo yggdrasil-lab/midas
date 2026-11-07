@@ -1,0 +1,297 @@
+import React, { useEffect, useState } from 'react';
+import {
+  PieChart,
+  AlertTriangle,
+  Target,
+  ShoppingCart,
+  Car,
+  UtensilsCrossed,
+  Zap,
+  HeartPulse,
+  Gamepad2,
+  ShieldCheck,
+  Plane,
+  Home,
+  Package,
+  ChevronRight,
+} from 'lucide-react';
+import { GlassCard, Button, AlertBanner } from '@yggdrasil-lab/ui';
+import { SpendingBreakdownResponse } from '../types';
+import { fetchSpendingBreakdown } from '../services/api';
+import { BudgetConfigModal } from './BudgetConfigModal';
+
+interface CategorySpendingBreakdownProps {
+  onRefreshRunway?: () => void;
+}
+
+export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps> = ({
+  onRefreshRunway,
+}) => {
+  const [period, setPeriod] = useState<'month' | 'week' | 'all'>('month');
+  const [data, setData] = useState<SpendingBreakdownResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+
+  const loadBreakdown = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchSpendingBreakdown(period);
+      setData(res);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to load spending breakdown');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBreakdown();
+  }, [period]);
+
+  const getCategoryIcon = (category: string) => {
+    const c = category.toLowerCase();
+    if (c.includes('grocer') || c.includes('supermarket')) return <ShoppingCart className="w-3.5 h-3.5 text-emerald-400" />;
+    if (c.includes('transport') || c.includes('fuel') || c.includes('transit')) return <Car className="w-3.5 h-3.5 text-sky-400" />;
+    if (c.includes('food') || c.includes('cafe') || c.includes('restaurant') || c.includes('dining')) return <UtensilsCrossed className="w-3.5 h-3.5 text-amber-400" />;
+    if (c.includes('util') || c.includes('power') || c.includes('internet') || c.includes('phone')) return <Zap className="w-3.5 h-3.5 text-yellow-400" />;
+    if (c.includes('health') || c.includes('medical') || c.includes('gym') || c.includes('fitness')) return <HeartPulse className="w-3.5 h-3.5 text-rose-400" />;
+    if (c.includes('leisure') || c.includes('entertainment') || c.includes('movie') || c.includes('game')) return <Gamepad2 className="w-3.5 h-3.5 text-purple-400" />;
+    if (c.includes('insurance')) return <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />;
+    if (c.includes('travel') || c.includes('flight') || c.includes('air')) return <Plane className="w-3.5 h-3.5 text-cyan-400" />;
+    if (c.includes('housing') || c.includes('rent') || c.includes('mortgage')) return <Home className="w-3.5 h-3.5 text-teal-400" />;
+    return <Package className="w-3.5 h-3.5 text-slate-400" />;
+  };
+
+  const handleEditCategory = (cat: string) => {
+    setSelectedCategory(cat);
+    setIsConfigModalOpen(true);
+  };
+
+  const overBudgetCategories = data?.categories.filter((c) => c.is_over_budget) || [];
+
+  return (
+    <GlassCard className="space-y-4">
+      {/* Header with Title and Period Toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center space-x-2">
+          <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
+            <PieChart className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">Category Spending & Budgets</h3>
+            <p className="text-xs text-slate-400">Track where your money goes and set overspending guardrails</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center bg-card/60 p-0.5 rounded-lg border border-border">
+            <button
+              type="button"
+              onClick={() => setPeriod('month')}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                period === 'month'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              This Month
+            </button>
+            <button
+              type="button"
+              onClick={() => setPeriod('week')}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                period === 'week'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              This Week
+            </button>
+            <button
+              type="button"
+              onClick={() => setPeriod('all')}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                period === 'all'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              All Time
+            </button>
+          </div>
+
+          <Button
+            variant="outline"
+            size="xs"
+            icon={<Target className="w-3 h-3 text-amber-400" />}
+            onClick={() => {
+              setSelectedCategory(undefined);
+              setIsConfigModalOpen(true);
+            }}
+            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+          >
+            Budgets
+          </Button>
+        </div>
+      </div>
+
+      {error && <AlertBanner variant="error">{error}</AlertBanner>}
+
+      {/* Overspending Warning Alert */}
+      {overBudgetCategories.length > 0 && (
+        <AlertBanner
+          variant="error"
+          title={`Overspending Alert: Exceeding budget in ${overBudgetCategories.length} ${
+            overBudgetCategories.length === 1 ? 'category' : 'categories'
+          }`}
+          className="shadow-sm"
+        >
+          <div className="text-xs space-y-1">
+            <p>
+              You have exceeded your spending limit for{' '}
+              <span className="font-semibold text-rose-300">
+                {overBudgetCategories.map((c) => c.category).join(', ')}
+              </span>
+              . Consider pausing non-essential purchases in these areas to protect your runway.
+            </p>
+          </div>
+        </AlertBanner>
+      )}
+
+      {/* Summary Chips */}
+      {data && (
+        <div className="grid grid-cols-3 gap-2 p-3 bg-card/40 rounded-xl border border-border text-center">
+          <div>
+            <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Outflow</span>
+            <span className="text-sm font-semibold font-mono text-slate-100">
+              ${data.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Inflow</span>
+            <span className="text-sm font-semibold font-mono text-emerald-400">
+              ${data.total_income.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Net Savings</span>
+            <span
+              className={`text-sm font-semibold font-mono ${
+                data.net_savings >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {data.net_savings >= 0 ? '+' : ''}${data.net_savings.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Category Progress Bars */}
+      {loading && !data ? (
+        <div className="flex items-center justify-center py-10 text-slate-400">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500" />
+        </div>
+      ) : !data || data.categories.length === 0 ? (
+        <div className="p-6 rounded-xl border border-dashed border-border text-center text-xs text-slate-400 space-y-2">
+          <p>No transactions found for this period.</p>
+          <p className="text-[11px] text-slate-500">
+            Ingest bank statements or log expenses to see your auto-categorized spending awareness breakdown.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {data.categories.map((cat) => {
+            const hasBudget = cat.budget_limit !== null && cat.budget_limit !== undefined && cat.budget_limit > 0;
+            const percentUsed = cat.percent_used || 0;
+            const barWidth = Math.min(percentUsed, 100);
+
+            // Determine bar color
+            const barColor =
+              cat.warning_level === 'danger'
+                ? 'bg-rose-500'
+                : cat.warning_level === 'warning'
+                ? 'bg-amber-500'
+                : 'bg-emerald-500';
+
+            return (
+              <div
+                key={cat.category}
+                onClick={() => handleEditCategory(cat.category)}
+                className="p-3 bg-card/40 hover:bg-card/70 rounded-xl border border-border hover:border-slate-600 transition-all cursor-pointer space-y-1.5"
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1 rounded bg-background border border-border">
+                      {getCategoryIcon(cat.category)}
+                    </div>
+                    <span className="font-medium text-slate-200">{cat.category}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {cat.transaction_count} {cat.transaction_count === 1 ? 'txn' : 'txns'} · {cat.percentage}% of spend
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="font-semibold font-mono text-slate-100">
+                      ${cat.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                  </div>
+                </div>
+
+                {/* Progress bar container */}
+                {hasBudget ? (
+                  <div className="space-y-1">
+                    <div className="w-full bg-background rounded-full h-2 overflow-hidden border border-border">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                      <span>
+                        ${cat.total_spend.toFixed(0)} of ${cat.budget_limit?.toFixed(0)} ({percentUsed.toFixed(0)}%)
+                      </span>
+                      {cat.is_over_budget ? (
+                        <span className="text-rose-400 font-semibold flex items-center space-x-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          <span>${(cat.total_spend - (cat.budget_limit || 0)).toFixed(0)} OVER BUDGET</span>
+                        </span>
+                      ) : (
+                        <span className="text-emerald-400">
+                          ${((cat.budget_limit || 0) - cat.total_spend).toFixed(0)} left
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center text-[10px] text-slate-500 pt-0.5">
+                    <span>No target budget configured</span>
+                    <span className="text-amber-400/80 hover:text-amber-300 flex items-center space-x-0.5">
+                      <Target className="w-2.5 h-2.5" />
+                      <span>Set target</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Budget Configuration Modal */}
+      <BudgetConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        onSuccess={() => {
+          loadBreakdown();
+          if (onRefreshRunway) onRefreshRunway();
+        }}
+        initialCategory={selectedCategory}
+      />
+    </GlassCard>
+  );
+};
