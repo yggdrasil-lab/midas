@@ -9,6 +9,29 @@ export interface Account {
   is_active: boolean;
 }
 
+export interface AssetSnapshot {
+  id: number;
+  snapshot_date: string;
+  account_id: number;
+  balance: number;
+  currency: string;
+  exchange_rate: number;
+  balance_nzd: number;
+  source: string;
+  notes?: string | null;
+  created_at?: string;
+}
+
+export interface AssetSnapshotCreatePayload {
+  snapshot_date: string;
+  account_id: number;
+  balance: number;
+  currency?: string;
+  exchange_rate?: number;
+  source?: string;
+  notes?: string | null;
+}
+
 export interface RunwayTierBreakdown {
   cash_balance: number;
   growth_balance: number;

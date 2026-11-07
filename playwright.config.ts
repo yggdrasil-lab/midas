@@ -20,6 +20,9 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        connectOptions: process.env.BROWSERLESS_WS_ENDPOINT
+          ? { wsEndpoint: process.env.BROWSERLESS_WS_ENDPOINT }
+          : undefined,
       },
     },
   ],

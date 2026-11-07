@@ -87,6 +87,42 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.locator('text=+44 weeks >> visible=true').first()).toBeVisible();
   });
 
+  test('navigates to Accounts tab, inspects per-account ledger and records snapshot', async ({ page }) => {
+    const accountsTab = page.locator('header nav button:has-text("Accounts" ), nav button:has-text("Accounts")').locator('visible=true').first();
+    await expect(accountsTab).toBeVisible();
+    await accountsTab.click();
+
+    // Verify Accounts & Per-Account Ledger header
+    await expect(page.locator('text=Accounts & Per-Account Ledger >> visible=true').first()).toBeVisible();
+
+    // Verify accounts exist
+    await expect(page.locator('text=ASB Everyday Checking >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Sharesies Growth Portfolio >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Simplicity KiwiSaver >> visible=true').first()).toBeVisible();
+
+    // Verify per-account transactions list for selected account
+    await expect(page.locator('[data-testid="account-transactions-list"] >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
+
+    // Open Record Snapshot modal
+    const recordSnapshotBtn = page.locator('button:has-text("Record Valuation Snapshot"), button:has-text("Record Snapshot")').locator('visible=true').first();
+    await expect(recordSnapshotBtn).toBeVisible();
+    await recordSnapshotBtn.click();
+
+    await expect(page.getByRole('heading', { name: /Record Balance Valuation Snapshot/i })).toBeVisible();
+
+    // Fill snapshot balance
+    const balanceInput = page.getByPlaceholder('0.00');
+    await balanceInput.fill('25000');
+
+    // Submit snapshot
+    const confirmBtn = page.getByRole('button', { name: /Confirm & Save Valuation/i });
+    await confirmBtn.click();
+
+    // Modal closes
+    await expect(page.getByRole('heading', { name: /Record Balance Valuation Snapshot/i })).toBeHidden();
+  });
+
   test('displays SessionExpiredBanner when Authentik session expires without falling back to mock data', async ({ page }) => {
     // Intercept /api/runway with 401 Authentik redirect
     await page.route(/\/api\/runway(\?.*)?$/, async (route) => {
