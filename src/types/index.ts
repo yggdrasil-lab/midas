@@ -162,6 +162,7 @@ export interface CategorizationRuleCreate {
 export interface ReceiptItem {
   id: number;
   receipt_id: number;
+  product_id?: number | null;
   item_name: string;
   brand?: string | null;
   quantity: number;
@@ -170,6 +171,7 @@ export interface ReceiptItem {
   category: string;
   domain?: string | null;
   product_type?: string | null;
+  tags?: string[];
   volume_ml?: string | null;
   notes?: string | null;
   created_at: string;
@@ -214,5 +216,61 @@ export interface ProductStatisticsResponse {
   total_spend: number;
   products: ProductStatisticItem[];
 }
+
+export interface PricePoint {
+  date: string;
+  merchant: string;
+  unit_price: number;
+  total_price: number;
+  quantity: number;
+  receipt_id: number;
+  receipt_item_id: number;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  brand?: string | null;
+  category: string;
+  domain?: string | null;
+  tags: string[];
+  volume_ml?: string | null;
+  notes?: string | null;
+  rating?: number | null;
+  is_favorite: boolean;
+  purchase_count: number;
+  total_spent: number;
+  latest_price?: number | null;
+  lowest_price?: number | null;
+  highest_price?: number | null;
+  average_price?: number | null;
+  price_change_latest?: number | null;
+  first_purchased?: string | null;
+  last_purchased?: string | null;
+  avg_days_between_purchases?: number | null;
+  estimated_depletion_date?: string | null;
+  price_history: PricePoint[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductListResponse {
+  total_count: number;
+  all_tags: string[];
+  products: Product[];
+}
+
+export interface ProductUpdatePayload {
+  name?: string;
+  brand?: string | null;
+  category?: string;
+  domain?: string | null;
+  tags?: string[];
+  volume_ml?: string | null;
+  notes?: string | null;
+  rating?: number | null;
+  is_favorite?: boolean;
+}
+
 
 
