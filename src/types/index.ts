@@ -97,6 +97,9 @@ export interface Transaction {
   raw_hash?: string;
   has_receipt?: boolean;
   receipt_id?: number | null;
+  linked_transaction_id?: number | null;
+  exchange_rate?: number | null;
+  fee_amount?: number | null;
   created_at?: string;
 }
 

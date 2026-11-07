@@ -378,9 +378,31 @@ export async function setupMockApi(page: Page) {
             merchant: 'Woolworths Silverdale',
             category: 'Groceries',
           },
+          {
+            id: 103,
+            transaction_date: '2026-11-01',
+            account_id: 1,
+            account_name: 'ASB Checking',
+            amount: -500.0,
+            currency: 'NZD',
+            merchant: 'Wise Transfer to USD',
+            category: 'Transfers',
+            linked_transaction_id: 104,
+            exchange_rate: 0.6061,
+            fee_amount: 5.0,
+          },
         ]),
       });
     }
+  });
+
+  // 7b. Mock Reconcile Transfers Endpoint
+  await page.route('**/api/transactions/reconcile-transfers', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', matched_transfers: 2 }),
+    });
   });
 
   // 8. Mock Outlook-style Categorization Rules Endpoints

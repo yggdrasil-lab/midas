@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Layers, Check, RefreshCw, SlidersHorizontal, Receipt } from 'lucide-react';
+import { Layers, Check, RefreshCw, SlidersHorizontal, Receipt, ArrowRightLeft } from 'lucide-react';
 import { Modal, Button, AlertBanner } from '@yggdrasil-lab/ui';
 import { CategorizationRuleCreate, Transaction } from '../types';
-import { fetchCategoryTransactions, updateTransactionCategory } from '../services/api';
+import { fetchCategoryTransactions, triggerReconcileTransfers, updateTransactionCategory } from '../services/api';
 import { RulesManagerModal } from './RulesManagerModal';
 
 interface CategoryTransactionInspectionModalProps {
@@ -38,9 +38,30 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [reconciling, setReconciling] = useState(false);
   const [successNote, setSuccessNote] = useState<string | null>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [rulePrefill, setRulePrefill] = useState<Partial<CategorizationRuleCreate> | null>(null);
+
+  const handleReconcileTransfers = async () => {
+    setReconciling(true);
+    setError(null);
+    try {
+      const res = await triggerReconcileTransfers();
+      setSuccessNote(
+        res.matched_transfers > 0
+          ? `Successfully reconciled and paired ${res.matched_transfers} transfer legs!`
+          : 'All transfers are currently reconciled.'
+      );
+      loadTransactions();
+      onCategoryChanged();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to reconcile transfers');
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const handleCreateRuleFromTx = (tx: Transaction) => {
     setRulePrefill({
@@ -126,9 +147,23 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
 
         {/* Transfer context callout */}
         {isTransferCategory && (
-          <AlertBanner variant="info" title="Inter-Account Transfers">
-            Transactions classified under Transfers represent money moving between your own accounts (such as Wise, ASB, or ANZ). They are excluded from your operational spending and weekly burn calculations.
-          </AlertBanner>
+          <div className="space-y-2">
+            <AlertBanner variant="info" title="Inter-Account Transfers & Foreign Exchange">
+              Transactions classified under Transfers represent money moving between your own accounts (such as ASB, DBS Singapore, Philippine banks, Bitcoin/crypto wallets, or Wise). They are excluded from your operational spending and weekly burn calculations.
+            </AlertBanner>
+            <div className="flex justify-end">
+              <Button
+                variant="secondary"
+                size="xs"
+                loading={reconciling}
+                loadingText="Pairing..."
+                icon={<ArrowRightLeft className="w-3.5 h-3.5 text-sky-400" />}
+                onClick={handleReconcileTransfers}
+              >
+                Reconcile Transfers Now
+              </Button>
+            </div>
+          </div>
         )}
 
         {error && <AlertBanner variant="error">{error}</AlertBanner>}
@@ -179,6 +214,23 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
                         >
                           <Receipt className="w-2.5 h-2.5" />
                           <span>Receipt</span>
+                        </span>
+                      )}
+                      {tx.linked_transaction_id != null && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-medium flex items-center space-x-1"
+                          title={tx.exchange_rate && tx.exchange_rate !== 1.0 ? `Linked Transfer (Rate: ${tx.exchange_rate})` : "Linked Account Transfer"}
+                        >
+                          <ArrowRightLeft className="w-2.5 h-2.5" />
+                          <span>{tx.exchange_rate && tx.exchange_rate !== 1.0 ? `FX (${tx.exchange_rate})` : "Transfer Linked"}</span>
+                        </span>
+                      )}
+                      {Boolean(tx.fee_amount) && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium"
+                          title={`Transfer Fee: $${tx.fee_amount}`}
+                        >
+                          Fee: ${tx.fee_amount}
                         </span>
                       )}
                     </div>
