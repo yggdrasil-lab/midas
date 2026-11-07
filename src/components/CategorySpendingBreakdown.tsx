@@ -134,7 +134,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             }}
             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
           >
-            Budgets
+            Manage Limits
           </Button>
         </div>
       </div>
