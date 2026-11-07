@@ -129,3 +129,31 @@ export interface SpendingBreakdownResponse {
   categories: CategorySpendingReport[];
   over_budget_count: number;
 }
+
+export interface CategorizationRule {
+  id: number;
+  name: string;
+  description_pattern: string;
+  match_type: 'contains' | 'exact' | 'starts_with';
+  amount_equals?: number | null;
+  target_category: string;
+  rename_merchant?: string | null;
+  priority: number;
+  is_active: boolean;
+  match_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CategorizationRuleCreate {
+  name: string;
+  description_pattern: string;
+  match_type?: 'contains' | 'exact' | 'starts_with';
+  amount_equals?: number | null;
+  target_category: string;
+  rename_merchant?: string | null;
+  priority?: number;
+  is_active?: boolean;
+  apply_retroactively?: boolean;
+}
+

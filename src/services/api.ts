@@ -2,6 +2,8 @@ import { authFetch } from '@yggdrasil-lab/ui';
 import {
   Account,
   BudgetRule,
+  CategorizationRule,
+  CategorizationRuleCreate,
   InstitutionInfo,
   RunwayAiSynthesisResult,
   RunwayData,
@@ -277,3 +279,69 @@ export async function updateTransactionCategory(
   }
   return res.json();
 }
+
+export async function fetchRules(isActive?: boolean): Promise<CategorizationRule[]> {
+  const params = new URLSearchParams();
+  if (isActive !== undefined) {
+    params.set('is_active', String(isActive));
+  }
+  const url = `${API_BASE}/rules${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await authFetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch categorization rules: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function createRule(
+  payload: CategorizationRuleCreate
+): Promise<CategorizationRule> {
+  const res = await authFetch(`${API_BASE}/rules`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to create categorization rule: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function updateRule(
+  id: number,
+  payload: Partial<CategorizationRuleCreate>
+): Promise<CategorizationRule> {
+  const res = await authFetch(`${API_BASE}/rules/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update categorization rule: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function deleteRule(id: number): Promise<void> {
+  const res = await authFetch(`${API_BASE}/rules/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete categorization rule: ${res.statusText}`);
+  }
+}
+
+export async function applyAllRules(): Promise<{ evaluated: number; updated: number }> {
+  const res = await authFetch(`${API_BASE}/rules/apply-all`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to apply categorization rules: ${res.statusText}`);
+  }
+  return res.json();
+}
+
