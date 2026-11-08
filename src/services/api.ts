@@ -18,6 +18,7 @@ import {
   SpendingBreakdownResponse,
   StatementParseResult,
   Transaction,
+  PeriodType,
 } from '../types';
 
 const API_BASE = '/api';
@@ -189,7 +190,7 @@ export async function recordAccountSnapshot(
 
 export async function fetchAccountTransactions(params?: {
   accountId?: number;
-  period?: 'week' | 'month' | 'all';
+  period?: PeriodType;
   category?: string;
   limit?: number;
 }): Promise<Transaction[]> {
@@ -302,7 +303,7 @@ export async function initDefaultBudgets(): Promise<BudgetRule[]> {
 
 export async function fetchCategoryTransactions(
   category: string,
-  period?: string
+  period?: PeriodType
 ): Promise<Transaction[]> {
   const params = new URLSearchParams();
   if (category) params.set('category', category);

@@ -122,9 +122,20 @@ test.describe('Midas App Shell & Navigation', () => {
     await doneBtn.click();
     await expect(page.getByRole('heading', { name: /Inspect Account: ASB Everyday Checking/i })).toBeHidden();
 
-    // Verify per-account transactions list for selected account on main page
-    await expect(page.locator('[data-testid="account-transactions-list"] >> visible=true').first()).toBeVisible();
-    await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
+    // Verify Strategy 1 Tier-Grouped sections on main page
+    await expect(page.locator('text=Tier 1: Cash Floor (Liquid Reserves) >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Tier 2: Growth Assets (Compounding Investments) >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Tier 3: Locked Reserve (Preserved Capital) >> visible=true').first()).toBeVisible();
+
+    // Verify All Accounts Combined Ledger card opens modal
+    const combinedCard = page.locator('[data-testid="account-card-all"] >> visible=true').first();
+    await expect(combinedCard).toBeVisible();
+    await combinedCard.click();
+    await expect(page.getByRole('heading', { name: /Inspect: All Accounts/i })).toBeVisible();
+    const doneCombinedBtn = page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first();
+    await expect(doneCombinedBtn).toBeVisible();
+    await doneCombinedBtn.click();
+    await expect(page.getByRole('heading', { name: /Inspect: All Accounts/i })).toBeHidden();
 
     // Open Record Snapshot modal
     const recordSnapshotBtn = page.locator('button:has-text("Record Valuation Snapshot"), button:has-text("Record Snapshot")').locator('visible=true').first();
