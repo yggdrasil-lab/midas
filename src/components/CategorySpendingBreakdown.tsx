@@ -18,7 +18,7 @@ import {
   SlidersHorizontal,
   Receipt as ReceiptIcon,
 } from 'lucide-react';
-import { GlassCard, Button, AlertBanner } from '@yggdrasil-lab/ui';
+import { GlassCard, Button, AlertBanner, SegmentedControl, SegmentedControlOption } from '@yggdrasil-lab/ui';
 import { SpendingBreakdownResponse } from '../types';
 import { fetchSpendingBreakdown } from '../services/api';
 import { BudgetConfigModal } from './BudgetConfigModal';
@@ -29,6 +29,12 @@ import { ReceiptsHubModal } from './ReceiptsHubModal';
 interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
 }
+
+const PERIOD_OPTIONS: SegmentedControlOption<'month' | 'week' | 'all'>[] = [
+  { id: 'month', label: 'This Month' },
+  { id: 'week', label: 'This Week' },
+  { id: 'all', label: 'All Time' },
+];
 
 export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps> = ({
   onRefreshRunway,
@@ -104,42 +110,15 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-card/60 p-0.5 rounded-lg border border-border">
-            <button
-              type="button"
-              onClick={() => setPeriod('month')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                period === 'month'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              This Month
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriod('week')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                period === 'week'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              This Week
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriod('all')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                period === 'all'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              All Time
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            options={PERIOD_OPTIONS}
+            value={period}
+            onChange={setPeriod}
+            variant="amber"
+            size="xs"
+            idPrefix="budget-period"
+          />
 
           <Button
             variant="outline"
@@ -151,7 +130,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             }}
             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
           >
-            Manage Limits
+            <span className="hidden sm:inline">Manage Limits</span>
+            <span className="sm:hidden">Limits</span>
           </Button>
 
           <Button
@@ -258,9 +238,9 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-            <span>Click any category to inspect transactions and re-categorize</span>
-            <span>Target / Spend</span>
+          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
+            <span className="truncate">Click any category to inspect</span>
+            <span className="shrink-0 text-right">Target / Spend</span>
           </div>
 
           {data.categories.map((cat) => {
@@ -285,17 +265,17 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                 className="p-3 bg-card/40 hover:bg-card/70 rounded-xl border border-border hover:border-slate-600 transition-all cursor-pointer space-y-1.5 group"
                 title={`Click to inspect and correct transactions in ${cat.category}`}
               >
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center space-x-2">
-                    <div className="p-1 rounded bg-background border border-border">
+                <div className="flex items-center justify-between text-xs gap-2">
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <div className="p-1 rounded bg-background border border-border shrink-0">
                       {getCategoryIcon(cat.category)}
                     </div>
-                    <span className="font-medium text-slate-200 group-hover:text-amber-300 transition-colors">
+                    <span className="font-medium text-slate-200 group-hover:text-amber-300 transition-colors truncate">
                       {cat.category}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
+                    <span className="text-[10px] text-slate-500 font-mono shrink-0">
                       {cat.transaction_count} {cat.transaction_count === 1 ? 'txn' : 'txns'}
-                      {!isTransfer && ` · ${cat.percentage}% of spend`}
+                      {!isTransfer && ` (${Math.round(cat.percentage)}%)`}
                     </span>
                   </div>
 

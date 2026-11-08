@@ -50,8 +50,19 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(400);
       await page.screenshot({
         path: `screenshots/${platform}/01-dashboard-overview.png`,
-        fullPage: true,
+        fullPage: platform === 'desktop',
       });
+
+      if (platform !== 'desktop') {
+        // Capture scrolled mobile view to inspect categories with bottom nav fixed
+        await page.evaluate(() => window.scrollBy(0, 500));
+        await page.waitForTimeout(300);
+        await page.screenshot({
+          path: `screenshots/${platform}/01b-dashboard-overview-scrolled.png`,
+        });
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(200);
+      }
 
       // 2. Quick Log Modal
       const quickLogBtn = page.locator('button:has-text("Quick Log"), button:has-text("Log Expense")').locator('visible=true').first();
@@ -89,7 +100,6 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/03-time-machine-simulator.png`,
-        fullPage: platform !== 'desktop',
       });
 
       // 4. Statement Ingestion Hub
@@ -101,7 +111,6 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/04-statement-dropzone.png`,
-        fullPage: platform !== 'desktop',
       });
 
       // 5. AI Freedom Advisor Modal
@@ -132,8 +141,34 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/05b-per-account-view.png`,
-          fullPage: platform !== 'desktop',
         });
+
+        // 5b-ii. Open Account Inspection Modal Popup by clicking an account card (consistent with Budgets UI)
+        const asbCard = page.locator('[data-testid="account-card-1"] >> visible=true').first();
+        if (await asbCard.isVisible()) {
+          await asbCard.click();
+          await expect(page.getByRole('heading', { name: /Inspect Account: ASB Everyday Checking/i })).toBeVisible();
+          await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/05d-account-inspection-modal.png`,
+          });
+
+          // Change category selector in modal
+          const catSelect = page.locator('[data-testid="modal-select-category-101"] >> visible=true').first();
+          if (await catSelect.isVisible()) {
+            await catSelect.selectOption('Food');
+            await expect(page.locator('text=Moved transaction to "Food" >> visible=true').first()).toBeVisible();
+          }
+
+          const doneBtn = page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first();
+          if (await doneBtn.isVisible()) {
+            await doneBtn.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+          await page.waitForTimeout(200);
+        }
 
         // Open Record Balance Valuation Snapshot Modal
         const recordSnapshotBtn = page.locator('button:has-text("Record Valuation Snapshot"), button:has-text("Record Snapshot")').locator('visible=true').first();
@@ -164,7 +199,6 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/06-budgets-and-spending-breakdown.png`,
-          fullPage: platform !== 'desktop',
         });
 
         // 7. Budget Config Modal

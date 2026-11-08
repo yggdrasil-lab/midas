@@ -68,6 +68,7 @@ export const App: React.FC = () => {
     <AppShell
       header={
         <AppHeader
+          className="!bg-card !border-border/80 shadow-md"
           variant="amber"
           brandIcon={
             <img
@@ -125,6 +126,7 @@ export const App: React.FC = () => {
           tabs={mobileNavTabs}
           activeTab={activeTab}
           onChangeTab={(tabId) => setActiveTab(tabId as MidasTab)}
+          className="!bg-card/95 !border-border"
         />
       }
     >

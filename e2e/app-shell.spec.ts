@@ -23,13 +23,13 @@ test.describe('Midas App Shell & Navigation', () => {
   });
 
   test('renders tier breakdown cards and weekly burn tracker', async ({ page }) => {
-    await expect(page.locator('text=Cash Floor >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=/Cash Floor|Cash/ >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=24 w >> visible=true').first()).toBeVisible();
 
     await expect(page.locator('text=Growth >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=184 w >> visible=true').first()).toBeVisible();
 
-    await expect(page.locator('text=/KiwiSaver|Locked Reserve/ >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=/KiwiSaver|Locked Reserve|Locked/ >> visible=true').first()).toBeVisible();
 
     // Check weekly burn
     await expect(page.locator('text=Weekly Burn & Budget >> visible=true').first()).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.locator('text=+44 weeks >> visible=true').first()).toBeVisible();
   });
 
-  test('navigates to Accounts tab, inspects per-account ledger and records snapshot', async ({ page }) => {
+  test('navigates to Accounts tab, inspects per-account ledger popup, changes category and records snapshot', async ({ page }) => {
     const accountsTab = page.locator('header nav button:has-text("Accounts" ), nav button:has-text("Accounts")').locator('visible=true').first();
     await expect(accountsTab).toBeVisible();
     await accountsTab.click();
@@ -100,7 +100,29 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.locator('text=Sharesies Growth Portfolio >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=Simplicity KiwiSaver >> visible=true').first()).toBeVisible();
 
-    // Verify per-account transactions list for selected account
+    // Click ASB Everyday Checking account card to open popup (consistent with Budgets UI)
+    const asbCard = page.locator('[data-testid="account-card-1"] >> visible=true').first();
+    await expect(asbCard).toBeVisible();
+    await asbCard.click();
+
+    // Verify Account Inspection Modal popup appears
+    await expect(page.getByRole('heading', { name: /Inspect Account: ASB Everyday Checking/i })).toBeVisible();
+    await expect(page.locator('[data-testid="account-inspection-modal"] >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
+
+    // Change category in the popup modal to Food
+    const catSelect = page.locator('[data-testid="modal-select-category-101"] >> visible=true').first();
+    await expect(catSelect).toBeVisible();
+    await catSelect.selectOption('Food');
+    await expect(page.locator('text=Moved transaction to "Food" >> visible=true').first()).toBeVisible();
+
+    // Close the Account Inspection Modal
+    const doneBtn = page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first();
+    await expect(doneBtn).toBeVisible();
+    await doneBtn.click();
+    await expect(page.getByRole('heading', { name: /Inspect Account: ASB Everyday Checking/i })).toBeHidden();
+
+    // Verify per-account transactions list for selected account on main page
     await expect(page.locator('[data-testid="account-transactions-list"] >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
 

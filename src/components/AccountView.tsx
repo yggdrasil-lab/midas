@@ -8,15 +8,15 @@ import {
   ArrowDownRight,
   ArrowRightLeft,
   Search,
-  Tag,
   Check,
-  X,
   PlusCircle,
   History,
   PieChart,
   Receipt as ReceiptIcon,
   Building2,
   Calendar,
+  SlidersHorizontal,
+  Layers,
 } from 'lucide-react';
 import {
   GlassCard,
@@ -25,8 +25,16 @@ import {
   Button,
   AlertBanner,
   Modal,
+  SegmentedControl,
+  SegmentedControlOption,
+  SelectableCard,
 } from '@yggdrasil-lab/ui';
-import { Account, AssetSnapshot, Transaction } from '../types';
+import {
+  Account,
+  AssetSnapshot,
+  CategorizationRuleCreate,
+  Transaction,
+} from '../types';
 import {
   fetchAccounts,
   fetchAccountSnapshots,
@@ -34,6 +42,9 @@ import {
   recordAccountSnapshot,
   updateTransactionCategory,
 } from '../services/api';
+import { AccountInspectionModal } from './AccountInspectionModal';
+import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
+import { RulesManagerModal } from './RulesManagerModal';
 
 interface AccountViewProps {
   onRefreshRunway?: () => void;
@@ -42,19 +53,29 @@ interface AccountViewProps {
 
 const DEFAULT_CATEGORIES = [
   'Groceries',
-  'Dining & Cafes',
+  'Food',
   'Transport',
   'Utilities',
+  'Health',
+  'Leisure',
+  'Insurance',
+  'Travel',
+  'Transfers',
+  'Income',
+  'General',
   'Housing',
+  'Dining & Cafes',
   'Health & Fitness',
   'Entertainment',
   'Shopping',
-  'Insurance',
-  'Travel',
   'Subscriptions',
-  'Income',
-  'Transfer',
   'Other',
+];
+
+const PERIOD_OPTIONS: SegmentedControlOption<'month' | 'week' | 'all'>[] = [
+  { id: 'month', label: 'This Month' },
+  { id: 'week', label: 'This Week' },
+  { id: 'all', label: 'All Time' },
 ];
 
 export const AccountView: React.FC<AccountViewProps> = ({
@@ -71,13 +92,20 @@ export const AccountView: React.FC<AccountViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [txLoading, setTxLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Inline category editing state
-  const [editingTxId, setEditingTxId] = useState<number | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [customCategory, setCustomCategory] = useState('');
-  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [successNote, setSuccessNote] = useState<string | null>(null);
   const [savingTxId, setSavingTxId] = useState<number | null>(null);
+
+  // Account Inspection Popup Modal (Budgets-style consistency)
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [inspectingAccount, setInspectingAccount] = useState<Account | null>(null);
+
+  // Category Transaction Inspection Modal
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [inspectingCategory, setInspectingCategory] = useState<string | null>(null);
+
+  // Rules Manager Modal state
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [rulePrefill, setRulePrefill] = useState<Partial<CategorizationRuleCreate> | null>(null);
 
   // Snapshot recording modal state
   const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
@@ -268,21 +296,28 @@ export const AccountView: React.FC<AccountViewProps> = ({
     }
   };
 
-  const handleStartEditTx = (tx: Transaction) => {
-    setEditingTxId(tx.id);
-    setSelectedCategory(tx.category);
-    setCustomCategory('');
-    setIsCustomMode(false);
+  const handleInspectAccount = (acc: Account | null) => {
+    setInspectingAccount(acc);
+    setSelectedAccountId(acc ? acc.id : null);
+    setIsAccountModalOpen(true);
   };
 
-  const handleSaveCategory = async (txId: number) => {
-    const targetCat = isCustomMode ? customCategory.trim() : selectedCategory.trim();
-    if (!targetCat) return;
+  const handleInspectCategory = (catName: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setInspectingCategory(catName);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleDirectCategoryChange = async (txId: number, newCategory: string) => {
+    if (!newCategory) return;
     setSavingTxId(txId);
+    setError(null);
     try {
-      const updated = await updateTransactionCategory(txId, targetCat);
-      setTransactions((prev) => prev.map((tx) => (tx.id === txId ? { ...tx, category: updated.category } : tx)));
-      setEditingTxId(null);
+      const updated = await updateTransactionCategory(txId, newCategory);
+      setTransactions((prev) =>
+        prev.map((tx) => (tx.id === txId ? { ...tx, category: updated.category } : tx))
+      );
+      setSuccessNote(`Moved transaction to "${newCategory}"`);
       if (onRefreshRunway) onRefreshRunway();
     } catch (err) {
       console.error(err);
@@ -290,6 +325,20 @@ export const AccountView: React.FC<AccountViewProps> = ({
     } finally {
       setSavingTxId(null);
     }
+  };
+
+  const handleCreateRuleFromTx = (tx: Transaction) => {
+    setRulePrefill({
+      name: `Rule for ${tx.merchant}`,
+      description_pattern: tx.raw_description || tx.merchant,
+      match_type: 'contains',
+      amount_equals: null,
+      target_category: tx.category,
+      rename_merchant: tx.merchant,
+      priority: 10,
+      apply_retroactively: true,
+    });
+    setIsRulesModalOpen(true);
   };
 
   const handleRecordSnapshot = async (e: React.FormEvent) => {
@@ -336,50 +385,20 @@ export const AccountView: React.FC<AccountViewProps> = ({
             <div>
               <h2 className="text-base font-bold text-slate-100">Accounts & Per-Account Ledger</h2>
               <p className="text-xs text-slate-400">
-                Filter balances, valuation history, category spending, and transactions by individual account
+                Click any account to inspect transactions and re-categorize in a popup
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center bg-card/60 p-0.5 rounded-lg border border-border">
-              <button
-                type="button"
-                data-testid="account-period-month"
-                onClick={() => setPeriod('month')}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  period === 'month'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                This Month
-              </button>
-              <button
-                type="button"
-                data-testid="account-period-week"
-                onClick={() => setPeriod('week')}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  period === 'week'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                This Week
-              </button>
-              <button
-                type="button"
-                data-testid="account-period-all"
-                onClick={() => setPeriod('all')}
-                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                  period === 'all'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                All Time
-              </button>
-            </div>
+            <SegmentedControl
+              options={PERIOD_OPTIONS}
+              value={period}
+              onChange={setPeriod}
+              variant="amber"
+              size="xs"
+              idPrefix="account-period"
+            />
 
             {selectedAccount && (
               <Button
@@ -404,7 +423,14 @@ export const AccountView: React.FC<AccountViewProps> = ({
           </AlertBanner>
         )}
 
-        {/* Account Selector Grid */}
+        {successNote && (
+          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
+            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+            <span>{successNote}</span>
+          </div>
+        )}
+
+        {/* Account Selector Grid (Clicking opens Account Inspection Popup) */}
         {loading ? (
           <div className="flex items-center justify-center py-8 text-slate-400 text-xs">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400 mr-2" />
@@ -416,34 +442,18 @@ export const AccountView: React.FC<AccountViewProps> = ({
             data-testid="account-selector-grid"
           >
             {/* All Accounts aggregate selector card */}
-            <button
-              type="button"
+            <SelectableCard
               data-testid="account-card-all"
-              onClick={() => {
-                setSelectedAccountId(null);
-                setCategoryFilter(null);
-              }}
-              className={`text-left p-3.5 rounded-xl border transition-all ${
-                selectedAccountId === null
-                  ? 'bg-amber-500/10 border-amber-500/40 shadow-md ring-1 ring-amber-500/30'
-                  : 'bg-background/60 border-border/60 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                  All Accounts
-                </span>
-                <StatusBadge label={`${accounts.length} active`} variant="idle" />
-              </div>
-              <div className="text-lg font-bold text-slate-100 font-mono">
-                ${Math.round(totalPortfolioBalance).toLocaleString('en-NZ')}
-                <span className="text-xs font-normal text-slate-400 ml-1">NZD</span>
-              </div>
-              <div className="text-[11px] text-slate-400 mt-1">
-                Combined ledger across all institutions
-              </div>
-            </button>
+              onClick={() => handleInspectAccount(null)}
+              isSelected={selectedAccountId === null}
+              title="All Accounts"
+              icon={<Building2 className="w-3.5 h-3.5 text-amber-400" />}
+              badge={<StatusBadge label={`${accounts.length} active`} variant="idle" />}
+              value={`$${Math.round(totalPortfolioBalance).toLocaleString('en-NZ')}`}
+              valueSuffix="NZD"
+              subtitle="Combined ledger across all institutions"
+              variant="amber"
+            />
 
             {accounts.map((acc) => {
               const isSelected = selectedAccountId === acc.id;
@@ -453,53 +463,38 @@ export const AccountView: React.FC<AccountViewProps> = ({
               const latestSnap = snapshotsByAccount[acc.id]?.[0];
 
               return (
-                <button
+                <SelectableCard
                   key={acc.id}
-                  type="button"
                   data-testid={`account-card-${acc.id}`}
-                  onClick={() => {
-                    setSelectedAccountId(acc.id);
-                    setCategoryFilter(null);
-                  }}
-                  className={`text-left p-3.5 rounded-xl border transition-all ${
-                    isSelected
-                      ? 'bg-amber-500/10 border-amber-500/40 shadow-md ring-1 ring-amber-500/30'
-                      : 'bg-background/60 border-border/60 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="text-xs font-semibold text-slate-200 truncate">
-                      {acc.name}
-                    </span>
+                  onClick={() => handleInspectAccount(acc)}
+                  isSelected={isSelected}
+                  title={acc.name}
+                  badge={
                     <StatusBadge
                       label={tierBadge.label}
                       variant={tierBadge.variant}
                       icon={tierBadge.icon}
                     />
-                  </div>
-
-                  <div className="text-lg font-bold text-slate-100 font-mono">
-                    ${Math.round(balance).toLocaleString('en-NZ')}
-                    <span className="text-xs font-normal text-slate-400 ml-1">NZD</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
-                    <span className="truncate">
-                      {acc.institution} • {acc.account_type.replace('_', ' ')}
-                    </span>
-                    {delta !== null && delta !== 0 ? (
-                      <span
-                        className={`font-mono font-medium ${
-                          delta > 0 ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
-                      >
-                        {delta > 0 ? '+' : '-'}${Math.abs(Math.round(delta)).toLocaleString('en-NZ')}
-                      </span>
-                    ) : latestSnap ? (
-                      <span className="text-[10px] text-slate-500">{latestSnap.snapshot_date}</span>
-                    ) : null}
-                  </div>
-                </button>
+                  }
+                  value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
+                  valueSuffix="NZD"
+                  subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}`}
+                  subvalue={
+                    delta !== null && delta !== 0
+                      ? `${delta > 0 ? '+' : '-'}$${Math.abs(Math.round(delta)).toLocaleString('en-NZ')}`
+                      : latestSnap
+                      ? latestSnap.snapshot_date
+                      : undefined
+                  }
+                  subvalueTrend={
+                    delta !== null && delta !== 0
+                      ? delta > 0
+                        ? 'positive'
+                        : 'negative'
+                      : 'neutral'
+                  }
+                  variant="amber"
+                />
               );
             })}
           </div>
@@ -558,230 +553,241 @@ export const AccountView: React.FC<AccountViewProps> = ({
         {/* Per-Account Category Breakdown */}
         <div className="lg:col-span-7" data-testid="account-category-breakdown">
           <GlassCard className="h-full space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-                <PieChart className="w-4 h-4" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                  <PieChart className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-200">
+                    {selectedAccount ? `${selectedAccount.name} Spending by Category` : 'All Accounts Spending by Category'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Click a category to filter or inspect transactions
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-200">
-                  {selectedAccount ? `${selectedAccount.name} Spending by Category` : 'All Accounts Spending by Category'}
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Click a category below to filter the transaction list
-                </p>
-              </div>
+              {categoryFilter && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setCategoryFilter(null)}
+                  data-testid="clear-category-filter-btn"
+                >
+                  Clear Filter ({categoryFilter})
+                </Button>
+              )}
             </div>
-            {categoryFilter && (
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={() => setCategoryFilter(null)}
-                data-testid="clear-category-filter-btn"
-              >
-                Clear Filter ({categoryFilter})
-              </Button>
+
+            {analytics.categoryBreakdown.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-500 border border-dashed border-border rounded-xl">
+                No expense transactions recorded for this account in the selected period.
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1">
+                {analytics.categoryBreakdown.map((cat) => {
+                  const isSelected = categoryFilter?.toLowerCase() === cat.category.toLowerCase();
+                  return (
+                    <div
+                      key={cat.category}
+                      data-testid={`account-cat-row-${cat.category.toLowerCase()}`}
+                      className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'bg-amber-500/15 border-amber-500/40'
+                          : 'bg-background/40 border-border/60 hover:border-slate-700'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCategoryFilter((prev) =>
+                            prev?.toLowerCase() === cat.category.toLowerCase() ? null : cat.category
+                          )
+                        }
+                        className="flex-1 text-left"
+                      >
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="font-medium text-slate-200 flex items-center gap-2">
+                            <span>{cat.category}</span>
+                            <span className="text-[11px] text-slate-400">
+                              ({cat.transaction_count} tx{cat.transaction_count === 1 ? '' : 's'})
+                            </span>
+                          </span>
+                          <span className="font-mono font-semibold text-slate-200">
+                            ${cat.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <span className="text-slate-400 font-normal ml-1.5">({cat.percentage}%)</span>
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-background rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-amber-400 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.max(3, cat.percentage)}%` }}
+                          />
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleInspectCategory(cat.category, e)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800/60 transition-colors shrink-0"
+                        title={`Inspect transactions in ${cat.category}`}
+                        data-testid={`inspect-cat-${cat.category.toLowerCase()}`}
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
-          </div>
-
-          {analytics.categoryBreakdown.length === 0 ? (
-            <div className="text-center py-6 text-xs text-slate-500 border border-dashed border-border rounded-xl">
-              No expense transactions recorded for this account in the selected period.
-            </div>
-          ) : (
-            <div className="space-y-2 pt-1">
-              {analytics.categoryBreakdown.map((cat) => {
-                const isSelected = categoryFilter?.toLowerCase() === cat.category.toLowerCase();
-                return (
-                  <button
-                    key={cat.category}
-                    type="button"
-                    data-testid={`account-cat-row-${cat.category}`}
-                    onClick={() =>
-                      setCategoryFilter((prev) =>
-                        prev?.toLowerCase() === cat.category.toLowerCase() ? null : cat.category
-                      )
-                    }
-                    className={`w-full text-left p-2.5 rounded-xl border transition-all ${
-                      isSelected
-                        ? 'bg-amber-500/15 border-amber-500/40'
-                        : 'bg-background/40 border-border/60 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="font-medium text-slate-200 flex items-center gap-2">
-                        <span>{cat.category}</span>
-                        <span className="text-[11px] text-slate-400">
-                          ({cat.transaction_count} tx{cat.transaction_count === 1 ? '' : 's'})
-                        </span>
-                      </span>
-                      <span className="font-mono font-semibold text-slate-200">
-                        ${cat.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-slate-400 font-normal ml-1.5">({cat.percentage}%)</span>
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-background rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-amber-400 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.max(3, cat.percentage)}%` }}
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </GlassCard>
-      </div>
-
-      {/* Balance Valuation Snapshots */}
-      <div className="lg:col-span-5" data-testid="account-snapshots-panel">
-        <GlassCard className="h-full space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                <History className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-200">Balance Valuation History</h3>
-                <p className="text-xs text-slate-400">
-                  {selectedAccount
-                    ? `Point-in-time snapshots for ${selectedAccount.name}`
-                    : 'Select an individual account to inspect its snapshot timeline'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {selectedAccount === null ? (
-            <div className="space-y-2 pt-1">
-              {accounts.map((acc) => {
-                const latest = snapshotsByAccount[acc.id]?.[0];
-                return (
-                  <div
-                    key={acc.id}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-background/40 border border-border/60 text-xs"
-                  >
-                    <div>
-                      <div className="font-medium text-slate-200">{acc.name}</div>
-                      <div className="text-[11px] text-slate-400">
-                        {latest ? `As of ${latest.snapshot_date} (${latest.source})` : 'No snapshots yet'}
-                      </div>
-                    </div>
-                    <div className="font-mono font-semibold text-slate-100">
-                      ${Math.round(latest?.balance_nzd || 0).toLocaleString('en-NZ')} NZD
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : selectedSnapshots.length === 0 ? (
-            <div className="text-center py-6 text-xs text-slate-500 border border-dashed border-border rounded-xl">
-              No balance snapshots recorded for {selectedAccount.name}.
-            </div>
-          ) : (
-            <div className="space-y-2 pt-1 max-h-64 overflow-y-auto pr-1">
-              {selectedSnapshots.map((snap, idx) => {
-                const prevSnap = selectedSnapshots[idx + 1];
-                const diff = prevSnap ? snap.balance_nzd - prevSnap.balance_nzd : null;
-                return (
-                  <div
-                    key={snap.id}
-                    data-testid={`snapshot-row-${snap.id}`}
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-background/40 border border-border/60 text-xs"
-                  >
-                    <div>
-                      <div className="font-medium text-slate-200 flex items-center gap-1.5">
-                        <Calendar className="w-3 h-3 text-slate-400" />
-                        <span>{snap.snapshot_date}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
-                          {snap.source}
-                        </span>
-                      </div>
-                      {snap.notes && (
-                        <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs">
-                          {snap.notes}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right font-mono">
-                      <div className="font-semibold text-slate-100">
-                        ${snap.balance_nzd.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      {diff !== null && diff !== 0 && (
-                        <div className={`text-[10px] ${diff > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {diff > 0 ? '+' : '-'}${Math.abs(diff).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </GlassCard>
-      </div>
-      </div>
-
-      {/* Per-Account Transactions List */}
-      <div data-testid="account-transactions-list">
-        <GlassCard className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-200">
-              {selectedAccount ? `${selectedAccount.name} Transactions` : 'All Account Transactions'}
-              <span className="ml-2 text-xs font-normal text-slate-400">
-                ({filteredTransactions.length})
-              </span>
-            </h3>
-            <p className="text-xs text-slate-400">
-              Inspect and recategorize individual ledger entries
-            </p>
-          </div>
-
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search merchant or category..."
-              data-testid="account-tx-search"
-              className="w-full bg-background border border-border rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-            />
-          </div>
+          </GlassCard>
         </div>
 
-        {txLoading ? (
-          <div className="flex items-center justify-center py-10 text-slate-400 text-xs">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400 mr-2" />
-            Loading transactions...
-          </div>
-        ) : filteredTransactions.length === 0 ? (
-          <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-border rounded-xl">
-            No matching transactions found for this account filter.
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-            {filteredTransactions.map((tx) => {
-              const isEditing = editingTxId === tx.id;
-              const isSaving = savingTxId === tx.id;
-              const isTransfer = isTransferCategory(tx.category, tx);
+        {/* Balance Valuation Snapshots */}
+        <div className="lg:col-span-5" data-testid="account-snapshots-panel">
+          <GlassCard className="h-full space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <History className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-200">Balance Valuation History</h3>
+                  <p className="text-xs text-slate-400">
+                    {selectedAccount
+                      ? `Point-in-time snapshots for ${selectedAccount.name}`
+                      : 'Select an individual account to inspect its snapshot timeline'}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={tx.id}
-                  data-testid={`account-tx-row-${tx.id}`}
-                  className="p-3 bg-background/50 hover:bg-background/80 border border-border/70 rounded-xl transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-3">
+            {selectedAccount === null ? (
+              <div className="space-y-2 pt-1">
+                {accounts.map((acc) => {
+                  const latest = snapshotsByAccount[acc.id]?.[0];
+                  return (
+                    <div
+                      key={acc.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-background/40 border border-border/60 text-xs"
+                    >
+                      <div>
+                        <div className="font-medium text-slate-200">{acc.name}</div>
+                        <div className="text-[11px] text-slate-400">
+                          {latest ? `As of ${latest.snapshot_date} (${latest.source})` : 'No snapshots yet'}
+                        </div>
+                      </div>
+                      <div className="font-mono font-semibold text-slate-100">
+                        ${Math.round(latest?.balance_nzd || 0).toLocaleString('en-NZ')} NZD
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : selectedSnapshots.length === 0 ? (
+              <div className="text-center py-6 text-xs text-slate-500 border border-dashed border-border rounded-xl">
+                No balance snapshots recorded for {selectedAccount.name}.
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1 max-h-64 overflow-y-auto pr-1">
+                {selectedSnapshots.map((snap, idx) => {
+                  const prevSnap = selectedSnapshots[idx + 1];
+                  const diff = prevSnap ? snap.balance_nzd - prevSnap.balance_nzd : null;
+                  return (
+                    <div
+                      key={snap.id}
+                      data-testid={`snapshot-row-${snap.id}`}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-background/40 border border-border/60 text-xs"
+                    >
+                      <div>
+                        <div className="font-medium text-slate-200 flex items-center gap-1.5">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <span>{snap.snapshot_date}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
+                            {snap.source}
+                          </span>
+                        </div>
+                        {snap.notes && (
+                          <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs">
+                            {snap.notes}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right font-mono">
+                        <div className="font-semibold text-slate-100">
+                          ${snap.balance_nzd.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        {diff !== null && diff !== 0 && (
+                          <div className={`text-[10px] ${diff > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {diff > 0 ? '+' : '-'}${Math.abs(diff).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      </div>
+
+      {/* Per-Account Transactions List with direct category changer */}
+      <div data-testid="account-transactions-list">
+        <GlassCard className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200">
+                {selectedAccount ? `${selectedAccount.name} Transactions` : 'All Account Transactions'}
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  ({filteredTransactions.length})
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Directly change categories and create categorization rules from this account ledger
+              </p>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search merchant or category..."
+                data-testid="account-tx-search"
+                className="w-full bg-background border border-border rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          {txLoading ? (
+            <div className="flex items-center justify-center py-10 text-slate-400 text-xs">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400 mr-2" />
+              Loading transactions...
+            </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-border rounded-xl">
+              No matching transactions found for this account filter.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+              {filteredTransactions.map((tx) => {
+                const isTransfer = isTransferCategory(tx.category, tx);
+                const amt = Number(tx.amount);
+                const isDebit = amt < 0;
+                const formattedAmt = `${isDebit ? '-' : '+'}$${Math.abs(amt).toFixed(2)}`;
+
+                return (
+                  <div
+                    key={tx.id}
+                    data-testid={`account-tx-row-${tx.id}`}
+                    className="p-3 bg-background/50 hover:bg-background/80 border border-border/70 rounded-xl transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-slate-200 truncate">
                           {tx.merchant}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                          {tx.category}
                         </span>
                         {selectedAccountId === null && tx.account_name && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
@@ -812,90 +818,108 @@ export const AccountView: React.FC<AccountViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 shrink-0">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                       <span
                         className={`text-xs font-mono font-semibold ${
                           isTransfer
                             ? 'text-sky-300'
-                            : tx.amount < 0
+                            : isDebit
                             ? 'text-rose-400'
                             : 'text-emerald-400'
                         }`}
                       >
-                        {tx.amount < 0 ? '-' : '+'}${Math.abs(tx.amount).toFixed(2)}
+                        {formattedAmt}
                       </span>
 
-                      {!isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditTx(tx)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800/60 transition-colors"
-                          title="Change Category"
-                          data-testid={`edit-tx-category-${tx.id}`}
-                        >
-                          <Tag className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {isEditing && (
-                    <div className="mt-3 pt-2.5 border-t border-border/60 flex flex-wrap items-center gap-2">
-                      {!isCustomMode ? (
+                      {/* Direct category quick-changer & rule creator */}
+                      <div className="flex items-center space-x-1.5">
                         <select
-                          value={selectedCategory}
-                          onChange={(e) => {
-                            if (e.target.value === '__custom__') {
-                              setIsCustomMode(true);
-                            } else {
-                              setSelectedCategory(e.target.value);
-                            }
-                          }}
-                          className="bg-card border border-border rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                          value={tx.category}
+                          onChange={(e) => handleDirectCategoryChange(tx.id, e.target.value)}
+                          disabled={savingTxId === tx.id}
+                          aria-label={`Category for ${tx.merchant}`}
+                          data-testid={`account-select-category-${tx.id}`}
+                          className="text-[11px] px-2 py-1 bg-background border border-border hover:border-amber-500/50 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 transition-colors disabled:opacity-50"
                         >
                           {availableCategories.map((c) => (
                             <option key={c} value={c}>
                               {c}
                             </option>
                           ))}
-                          <option value="__custom__">+ Custom Category...</option>
                         </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={customCategory}
-                          onChange={(e) => setCustomCategory(e.target.value)}
-                          placeholder="Enter category name"
-                          className="bg-card border border-border rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
-                        />
-                      )}
 
-                      <Button
-                        variant="amber"
-                        size="xs"
-                        disabled={isSaving}
-                        icon={<Check className="w-3 h-3" />}
-                        onClick={() => handleSaveCategory(tx.id)}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        icon={<X className="w-3 h-3" />}
-                        onClick={() => setEditingTxId(null)}
-                      >
-                        Cancel
-                      </Button>
+                        {savingTxId === tx.id ? (
+                          <div className="w-3.5 h-3.5 animate-spin rounded-full border border-amber-400 border-t-transparent shrink-0" />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleCreateRuleFromTx(tx)}
+                            className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors shrink-0"
+                            title="Create categorization rule from this transaction"
+                            aria-label={`Create rule for ${tx.merchant}`}
+                            data-testid={`account-rule-btn-${tx.id}`}
+                          >
+                            <SlidersHorizontal className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </GlassCard>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </GlassCard>
       </div>
+
+      {/* Account Inspection Popup Modal (Consistent with Budgets Category Inspection) */}
+      <AccountInspectionModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        account={inspectingAccount}
+        period={period}
+        onPeriodChange={setPeriod}
+        onTransactionCategoryChanged={() => {
+          loadTransactions();
+          if (onRefreshRunway) onRefreshRunway();
+        }}
+        onRecordSnapshotClick={() => {
+          if (inspectingAccount) {
+            setSnapshotBalance(String(getAccountLatestBalance(inspectingAccount.id) || ''));
+            setIsSnapshotModalOpen(true);
+          }
+        }}
+        latestBalanceNzd={inspectingAccount ? getAccountLatestBalance(inspectingAccount.id) : totalPortfolioBalance}
+      />
+
+      {/* Category Inspection Modal */}
+      <CategoryTransactionInspectionModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => {
+          setIsCategoryModalOpen(false);
+          setInspectingCategory(null);
+        }}
+        category={inspectingCategory || undefined}
+        period={period}
+        onCategoryChanged={() => {
+          loadTransactions();
+          if (onRefreshRunway) onRefreshRunway();
+        }}
+      />
+
+      {/* Rules Manager Modal spawned from transaction */}
+      <RulesManagerModal
+        isOpen={isRulesModalOpen}
+        onClose={() => {
+          setIsRulesModalOpen(false);
+          setRulePrefill(null);
+        }}
+        prefillRule={rulePrefill}
+        onRulesApplied={() => {
+          loadTransactions();
+          if (onRefreshRunway) onRefreshRunway();
+        }}
+      />
 
       {/* Record Balance Snapshot Modal */}
       {selectedAccount && (

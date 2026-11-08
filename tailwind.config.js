@@ -3,7 +3,8 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    "./node_modules/@yggdrasil-lab/ui/dist/**/*.{js,mjs}",
+    "./node_modules/@yggdrasil-lab/ui/dist/**/*.{js,mjs,cjs}",
+    "./node_modules/@yggdrasil-lab/ui/dist/*.{js,mjs,cjs}",
   ],
   theme: {
     extend: {
