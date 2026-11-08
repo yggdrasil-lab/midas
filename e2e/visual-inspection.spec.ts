@@ -132,8 +132,34 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/05b-per-account-view.png`,
-          fullPage: platform !== 'desktop',
         });
+
+        // 5b-ii. Open Account Inspection Modal Popup by clicking an account card (consistent with Budgets UI)
+        const asbCard = page.locator('[data-testid="account-card-1"] >> visible=true').first();
+        if (await asbCard.isVisible()) {
+          await asbCard.click();
+          await expect(page.getByRole('heading', { name: /Inspect Account: ASB Everyday Checking/i })).toBeVisible();
+          await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/05d-account-inspection-modal.png`,
+          });
+
+          // Change category selector in modal
+          const catSelect = page.locator('[data-testid="modal-select-category-101"] >> visible=true').first();
+          if (await catSelect.isVisible()) {
+            await catSelect.selectOption('Food');
+            await expect(page.locator('text=Moved transaction to "Food" >> visible=true').first()).toBeVisible();
+          }
+
+          const doneBtn = page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first();
+          if (await doneBtn.isVisible()) {
+            await doneBtn.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+          await page.waitForTimeout(200);
+        }
 
         // Open Record Balance Valuation Snapshot Modal
         const recordSnapshotBtn = page.locator('button:has-text("Record Valuation Snapshot"), button:has-text("Record Snapshot")').locator('visible=true').first();
