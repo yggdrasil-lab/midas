@@ -23,13 +23,13 @@ test.describe('Midas App Shell & Navigation', () => {
   });
 
   test('renders tier breakdown cards and weekly burn tracker', async ({ page }) => {
-    await expect(page.locator('text=Cash Floor >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=/Cash Floor|Cash/ >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=24 w >> visible=true').first()).toBeVisible();
 
     await expect(page.locator('text=Growth >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=184 w >> visible=true').first()).toBeVisible();
 
-    await expect(page.locator('text=/KiwiSaver|Locked Reserve/ >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=/KiwiSaver|Locked Reserve|Locked/ >> visible=true').first()).toBeVisible();
 
     // Check weekly burn
     await expect(page.locator('text=Weekly Burn & Budget >> visible=true').first()).toBeVisible();

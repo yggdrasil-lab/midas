@@ -50,8 +50,19 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(400);
       await page.screenshot({
         path: `screenshots/${platform}/01-dashboard-overview.png`,
-        fullPage: true,
+        fullPage: platform === 'desktop',
       });
+
+      if (platform !== 'desktop') {
+        // Capture scrolled mobile view to inspect categories with bottom nav fixed
+        await page.evaluate(() => window.scrollBy(0, 500));
+        await page.waitForTimeout(300);
+        await page.screenshot({
+          path: `screenshots/${platform}/01b-dashboard-overview-scrolled.png`,
+        });
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(200);
+      }
 
       // 2. Quick Log Modal
       const quickLogBtn = page.locator('button:has-text("Quick Log"), button:has-text("Log Expense")').locator('visible=true').first();
@@ -89,7 +100,6 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/03-time-machine-simulator.png`,
-        fullPage: platform !== 'desktop',
       });
 
       // 4. Statement Ingestion Hub
@@ -101,7 +111,6 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${platform}/04-statement-dropzone.png`,
-        fullPage: platform !== 'desktop',
       });
 
       // 5. AI Freedom Advisor Modal
@@ -190,7 +199,6 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/06-budgets-and-spending-breakdown.png`,
-          fullPage: platform !== 'desktop',
         });
 
         // 7. Budget Config Modal

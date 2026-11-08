@@ -10,9 +10,9 @@ interface RunwayClockProps {
 export const RunwayClock: React.FC<RunwayClockProps> = ({ data }) => {
   const { is_perpetual, primary_runway_weeks, primary_runway_years, breakdown } = data;
 
-  const cashLabel = breakdown.tier_labels?.cash || 'Cash Floor';
+  const cashLabel = breakdown.tier_labels?.cash || 'Cash';
   const growthLabel = breakdown.tier_labels?.growth || 'Growth';
-  const lockedLabel = breakdown.tier_labels?.locked || 'Locked Reserve';
+  const lockedLabel = breakdown.tier_labels?.locked || 'Locked';
 
   const getBadge = (): MetricHeroBadge => {
     if (is_perpetual) {
@@ -78,7 +78,7 @@ export const RunwayClock: React.FC<RunwayClockProps> = ({ data }) => {
         <StatCard
           title={lockedLabel}
           value={breakdown.locked_weeks !== undefined && breakdown.locked_weeks !== null ? `${breakdown.locked_weeks} w` : '0 w'}
-          subtitle={`$${Math.round(breakdown.locked_balance).toLocaleString('en-NZ')} (Locked)`}
+          subtitle={`$${Math.round(breakdown.locked_balance).toLocaleString('en-NZ')}`}
           icon={<Lock className="w-3.5 h-3.5" />}
           variant="amber"
         />
