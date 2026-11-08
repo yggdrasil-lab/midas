@@ -25,6 +25,7 @@ import {
   Account,
   CategorizationRuleCreate,
   Transaction,
+  PeriodType,
 } from '../types';
 import {
   fetchAccountTransactions,
@@ -36,8 +37,8 @@ interface AccountInspectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   account: Account | null;
-  period: 'month' | 'week' | 'all';
-  onPeriodChange?: (period: 'month' | 'week' | 'all') => void;
+  period: PeriodType;
+  onPeriodChange?: (period: PeriodType) => void;
   onTransactionCategoryChanged: () => void;
   onRecordSnapshotClick?: () => void;
   latestBalanceNzd?: number;
@@ -57,9 +58,10 @@ const CATEGORY_CHOICES = [
   'General',
 ];
 
-const PERIOD_OPTIONS: SegmentedControlOption<'month' | 'week' | 'all'>[] = [
+const PERIOD_OPTIONS: SegmentedControlOption<PeriodType>[] = [
   { id: 'month', label: 'This Month' },
   { id: 'week', label: 'This Week' },
+  { id: 'last_month', label: 'Last Month' },
   { id: 'all', label: 'All Time' },
 ];
 

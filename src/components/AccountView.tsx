@@ -1,80 +1,48 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Landmark,
-  Wallet,
+  Building2,
   TrendingUp,
   Lock,
-  ArrowUpRight,
-  ArrowDownRight,
-  ArrowRightLeft,
-  Search,
-  Check,
-  PlusCircle,
+  ShieldCheck,
   History,
-  PieChart,
-  Receipt as ReceiptIcon,
-  Building2,
   Calendar,
-  SlidersHorizontal,
-  Layers,
+  PlusCircle,
+  Check,
+  ChevronRight,
+  PieChart,
 } from 'lucide-react';
 import {
   GlassCard,
-  StatCard,
-  StatusBadge,
   Button,
   AlertBanner,
   Modal,
   SegmentedControl,
   SegmentedControlOption,
   SelectableCard,
+  StatusBadge,
 } from '@yggdrasil-lab/ui';
 import {
   Account,
   AssetSnapshot,
-  CategorizationRuleCreate,
-  Transaction,
+  PeriodType,
 } from '../types';
 import {
   fetchAccounts,
   fetchAccountSnapshots,
-  fetchAccountTransactions,
   recordAccountSnapshot,
-  updateTransactionCategory,
 } from '../services/api';
 import { AccountInspectionModal } from './AccountInspectionModal';
-import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
-import { RulesManagerModal } from './RulesManagerModal';
 
 interface AccountViewProps {
   onRefreshRunway?: () => void;
   initialAccountId?: number | null;
 }
 
-const DEFAULT_CATEGORIES = [
-  'Groceries',
-  'Food',
-  'Transport',
-  'Utilities',
-  'Health',
-  'Leisure',
-  'Insurance',
-  'Travel',
-  'Transfers',
-  'Income',
-  'General',
-  'Housing',
-  'Dining & Cafes',
-  'Health & Fitness',
-  'Entertainment',
-  'Shopping',
-  'Subscriptions',
-  'Other',
-];
-
-const PERIOD_OPTIONS: SegmentedControlOption<'month' | 'week' | 'all'>[] = [
+const PERIOD_OPTIONS: SegmentedControlOption<PeriodType>[] = [
   { id: 'month', label: 'This Month' },
   { id: 'week', label: 'This Week' },
+  { id: 'last_month', label: 'Last Month' },
   { id: 'all', label: 'All Time' },
 ];
 
@@ -83,32 +51,19 @@ export const AccountView: React.FC<AccountViewProps> = ({
   initialAccountId = null,
 }) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(initialAccountId);
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<number, AssetSnapshot[]>>({});
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [period, setPeriod] = useState<'month' | 'week' | 'all'>('month');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [period, setPeriod] = useState<PeriodType>('month');
   const [loading, setLoading] = useState(true);
-  const [txLoading, setTxLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successNote, setSuccessNote] = useState<string | null>(null);
-  const [savingTxId, setSavingTxId] = useState<number | null>(null);
 
-  // Account Inspection Popup Modal (Budgets-style consistency)
+  // Account Inspection Popup Modal
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [inspectingAccount, setInspectingAccount] = useState<Account | null>(null);
 
-  // Category Transaction Inspection Modal
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [inspectingCategory, setInspectingCategory] = useState<string | null>(null);
-
-  // Rules Manager Modal state
-  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
-  const [rulePrefill, setRulePrefill] = useState<Partial<CategorizationRuleCreate> | null>(null);
-
   // Snapshot recording modal state
   const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
+  const [snapshotAccountId, setSnapshotAccountId] = useState<number | null>(null);
   const [snapshotBalance, setSnapshotBalance] = useState('');
   const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [snapshotNotes, setSnapshotNotes] = useState('');
@@ -120,11 +75,6 @@ export const AccountView: React.FC<AccountViewProps> = ({
     try {
       const accs = await fetchAccounts();
       setAccounts(accs);
-
-      // Default to first account if none selected and accounts exist
-      if (selectedAccountId === null && accs.length > 0 && initialAccountId === null) {
-        setSelectedAccountId(accs[0].id);
-      }
 
       const snapEntries = await Promise.all(
         accs.map(async (acc) => {
@@ -141,6 +91,14 @@ export const AccountView: React.FC<AccountViewProps> = ({
         snapMap[accId] = snaps;
       }
       setSnapshotsByAccount(snapMap);
+
+      if (initialAccountId !== null) {
+        const found = accs.find((a) => a.id === initialAccountId);
+        if (found) {
+          setInspectingAccount(found);
+          setIsAccountModalOpen(true);
+        }
+      }
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load accounts');
@@ -149,35 +107,9 @@ export const AccountView: React.FC<AccountViewProps> = ({
     }
   };
 
-  const loadTransactions = async () => {
-    setTxLoading(true);
-    try {
-      const txs = await fetchAccountTransactions({
-        accountId: selectedAccountId ?? undefined,
-        period,
-        limit: 500,
-      });
-      setTransactions(txs);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load account transactions');
-    } finally {
-      setTxLoading(false);
-    }
-  };
-
   useEffect(() => {
     loadAccountsAndSnapshots();
   }, []);
-
-  useEffect(() => {
-    loadTransactions();
-  }, [selectedAccountId, period]);
-
-  const selectedAccount = useMemo(
-    () => accounts.find((a) => a.id === selectedAccountId) || null,
-    [accounts, selectedAccountId]
-  );
 
   const getAccountLatestBalance = (accountId: number): number => {
     const snaps = snapshotsByAccount[accountId];
@@ -191,206 +123,123 @@ export const AccountView: React.FC<AccountViewProps> = ({
     return snaps[0].balance_nzd - snaps[1].balance_nzd;
   };
 
-  const totalPortfolioBalance = useMemo(() => {
-    return accounts.reduce((sum, acc) => sum + getAccountLatestBalance(acc.id), 0);
-  }, [accounts, snapshotsByAccount]);
+  // Group accounts by tier
+  const cashAccounts = useMemo(() => accounts.filter((a) => a.tier === 'cash'), [accounts]);
+  const growthAccounts = useMemo(() => accounts.filter((a) => a.tier === 'growth'), [accounts]);
+  const lockedAccounts = useMemo(() => accounts.filter((a) => a.tier === 'locked'), [accounts]);
 
-  const displayedBalance = useMemo(() => {
-    if (selectedAccountId === null) return totalPortfolioBalance;
-    return getAccountLatestBalance(selectedAccountId);
-  }, [selectedAccountId, totalPortfolioBalance, snapshotsByAccount]);
+  const cashTotal = useMemo(
+    () => cashAccounts.reduce((sum, a) => sum + getAccountLatestBalance(a.id), 0),
+    [cashAccounts, snapshotsByAccount]
+  );
+  const growthTotal = useMemo(
+    () => growthAccounts.reduce((sum, a) => sum + getAccountLatestBalance(a.id), 0),
+    [growthAccounts, snapshotsByAccount]
+  );
+  const lockedTotal = useMemo(
+    () => lockedAccounts.reduce((sum, a) => sum + getAccountLatestBalance(a.id), 0),
+    [lockedAccounts, snapshotsByAccount]
+  );
 
-  const isTransferCategory = (cat: string, tx?: Transaction) => {
-    const lower = (cat || '').toLowerCase();
-    return lower === 'transfer' || lower === 'transfers' || Boolean(tx?.linked_transaction_id);
-  };
+  const totalPortfolioBalance = cashTotal + growthTotal + lockedTotal;
 
-  // Compute per-account period analytics & category breakdown
-  const analytics = useMemo(() => {
-    let totalSpend = 0;
-    let totalIncome = 0;
-    let totalTransfers = 0;
-    let spendTxCount = 0;
-    const catTotals: Record<string, { spend: number; count: number; isTransfer: boolean }> = {};
+  const cashPct = totalPortfolioBalance > 0 ? Math.round((cashTotal / totalPortfolioBalance) * 100) : 0;
+  const growthPct = totalPortfolioBalance > 0 ? Math.round((growthTotal / totalPortfolioBalance) * 100) : 0;
+  const lockedPct = totalPortfolioBalance > 0 ? Math.max(0, 100 - cashPct - growthPct) : 0;
 
-    for (const tx of transactions) {
-      const isTransfer = isTransferCategory(tx.category, tx);
-      const catName = tx.category || 'Uncategorized';
-
-      if (isTransfer) {
-        totalTransfers += Math.abs(tx.amount);
-        if (!catTotals[catName]) {
-          catTotals[catName] = { spend: 0, count: 0, isTransfer: true };
-        }
-        catTotals[catName].spend += Math.abs(tx.amount);
-        catTotals[catName].count += 1;
-      } else if (tx.amount < 0) {
-        const absAmt = Math.abs(tx.amount);
-        totalSpend += absAmt;
-        spendTxCount += 1;
-        if (!catTotals[catName]) {
-          catTotals[catName] = { spend: 0, count: 0, isTransfer: false };
-        }
-        catTotals[catName].spend += absAmt;
-        catTotals[catName].count += 1;
-      } else if (tx.amount > 0) {
-        totalIncome += tx.amount;
-      }
-    }
-
-    const categoryBreakdown = Object.entries(catTotals)
-      .filter(([, info]) => !info.isTransfer && info.spend > 0)
-      .map(([category, info]) => ({
-        category,
-        total_spend: info.spend,
-        transaction_count: info.count,
-        percentage: totalSpend > 0 ? Math.round((info.spend / totalSpend) * 100) : 0,
-      }))
-      .sort((a, b) => b.total_spend - a.total_spend);
-
-    return {
-      totalSpend,
-      totalIncome,
-      totalTransfers,
-      netCashflow: totalIncome - totalSpend,
-      spendTxCount,
-      categoryBreakdown,
-    };
-  }, [transactions]);
-
-  const availableCategories = useMemo(() => {
-    const set = new Set<string>(DEFAULT_CATEGORIES);
-    transactions.forEach((tx) => {
-      if (tx.category) set.add(tx.category);
-    });
-    return Array.from(set).sort();
-  }, [transactions]);
-
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((tx) => {
-      if (categoryFilter && tx.category.toLowerCase() !== categoryFilter.toLowerCase()) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchMerchant = tx.merchant.toLowerCase().includes(q);
-        const matchCat = tx.category.toLowerCase().includes(q);
-        const matchDesc = (tx.raw_description || '').toLowerCase().includes(q);
-        const matchAcc = (tx.account_name || '').toLowerCase().includes(q);
-        return matchMerchant || matchCat || matchDesc || matchAcc;
-      }
-      return true;
-    });
-  }, [transactions, categoryFilter, searchQuery]);
-
-  const getTierBadgeProps = (tier: Account['tier']) => {
-    switch (tier) {
-      case 'cash':
-        return { label: 'Cash Floor', variant: 'success' as const, icon: <Wallet className="w-3 h-3" /> };
-      case 'growth':
-        return { label: 'Growth', variant: 'warning' as const, icon: <TrendingUp className="w-3 h-3" /> };
-      case 'locked':
-        return { label: 'Locked', variant: 'info' as const, icon: <Lock className="w-3 h-3" /> };
-      default:
-        return { label: tier, variant: 'idle' as const };
-    }
-  };
-
-  const handleInspectAccount = (acc: Account | null) => {
-    setInspectingAccount(acc);
-    setSelectedAccountId(acc ? acc.id : null);
+  const handleInspectAccount = (account: Account | null) => {
+    setInspectingAccount(account);
     setIsAccountModalOpen(true);
   };
 
-  const handleInspectCategory = (catName: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setInspectingCategory(catName);
-    setIsCategoryModalOpen(true);
-  };
-
-  const handleDirectCategoryChange = async (txId: number, newCategory: string) => {
-    if (!newCategory) return;
-    setSavingTxId(txId);
-    setError(null);
-    try {
-      const updated = await updateTransactionCategory(txId, newCategory);
-      setTransactions((prev) =>
-        prev.map((tx) => (tx.id === txId ? { ...tx, category: updated.category } : tx))
-      );
-      setSuccessNote(`Moved transaction to "${newCategory}"`);
-      if (onRefreshRunway) onRefreshRunway();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to update transaction category');
-    } finally {
-      setSavingTxId(null);
+  const handleOpenRecordSnapshot = (account?: Account) => {
+    const targetAccount = account || accounts[0];
+    if (targetAccount) {
+      setSnapshotAccountId(targetAccount.id);
+      setSnapshotBalance(String(getAccountLatestBalance(targetAccount.id) || ''));
     }
+    setSnapshotDate(new Date().toISOString().split('T')[0]);
+    setSnapshotNotes('');
+    setIsSnapshotModalOpen(true);
   };
 
-  const handleCreateRuleFromTx = (tx: Transaction) => {
-    setRulePrefill({
-      name: `Rule for ${tx.merchant}`,
-      description_pattern: tx.raw_description || tx.merchant,
-      match_type: 'contains',
-      amount_equals: null,
-      target_category: tx.category,
-      rename_merchant: tx.merchant,
-      priority: 10,
-      apply_retroactively: true,
-    });
-    setIsRulesModalOpen(true);
-  };
-
-  const handleRecordSnapshot = async (e: React.FormEvent) => {
+  const handleSaveSnapshot = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAccount) return;
-    const parsedBalance = parseFloat(snapshotBalance);
-    if (isNaN(parsedBalance)) return;
+    if (!snapshotAccountId) return;
+    const balanceNum = parseFloat(snapshotBalance);
+    if (isNaN(balanceNum)) {
+      setError('Please enter a valid numeric balance amount');
+      return;
+    }
 
     setSavingSnapshot(true);
+    setError(null);
     try {
-      await recordAccountSnapshot(selectedAccount.id, {
-        account_id: selectedAccount.id,
+      const targetAcc = accounts.find((a) => a.id === snapshotAccountId);
+      await recordAccountSnapshot(snapshotAccountId, {
+        account_id: snapshotAccountId,
+        balance: balanceNum,
         snapshot_date: snapshotDate,
-        balance: parsedBalance,
-        currency: selectedAccount.currency || 'NZD',
-        exchange_rate: 1.0,
+        currency: targetAcc?.currency || 'NZD',
+        exchange_rate: targetAcc?.currency === 'NZD' ? 1.0 : undefined,
         source: 'manual',
-        notes: snapshotNotes.trim() || null,
+        notes: snapshotNotes.trim() || undefined,
       });
+
+      const updatedSnaps = await fetchAccountSnapshots(snapshotAccountId, 12);
+      setSnapshotsByAccount((prev) => ({
+        ...prev,
+        [snapshotAccountId]: updatedSnaps,
+      }));
+
+      setSuccessNote(`Saved valuation snapshot for ${targetAcc?.name || 'account'}`);
+      setTimeout(() => setSuccessNote(null), 4000);
       setIsSnapshotModalOpen(false);
-      setSnapshotBalance('');
-      setSnapshotNotes('');
-      await loadAccountsAndSnapshots();
-      if (onRefreshRunway) onRefreshRunway();
+
+      if (onRefreshRunway) {
+        onRefreshRunway();
+      }
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to record snapshot');
+      setError(err instanceof Error ? err.message : 'Failed to record balance snapshot');
     } finally {
       setSavingSnapshot(false);
     }
   };
 
-  const selectedSnapshots = selectedAccountId ? snapshotsByAccount[selectedAccountId] || [] : [];
+  const getTierBadgeProps = (tier: string) => {
+    switch (tier) {
+      case 'cash':
+        return { label: 'Cash Floor', variant: 'info' as const, icon: <ShieldCheck className="w-3 h-3 mr-1" /> };
+      case 'growth':
+        return { label: 'Growth', variant: 'success' as const, icon: <TrendingUp className="w-3 h-3 mr-1" /> };
+      case 'locked':
+        return { label: 'Locked', variant: 'warning' as const, icon: <Lock className="w-3 h-3 mr-1" /> };
+      default:
+        return { label: tier, variant: 'idle' as const };
+    }
+  };
 
   return (
-    <div className="space-y-6" data-testid="account-view">
-      {/* Top Header & Period / Snapshot Controls */}
-      <GlassCard className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+    <div className="space-y-6" data-testid="per-account-view">
+      {/* 1. Portfolio Net Worth & Asset Allocation Hero */}
+      <GlassCard className="space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Accounts & Per-Account Ledger</h2>
+              <h2 className="text-base font-bold text-slate-100 tracking-wide uppercase">
+                Accounts & Per-Account Ledger
+              </h2>
               <p className="text-xs text-slate-400">
-                Click any account to inspect transactions and re-categorize in a popup
+                Portfolio Allocation across 3 Freedom Tiers • Tap any account to inspect its ledger
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <SegmentedControl
               options={PERIOD_OPTIONS}
               value={period}
@@ -400,20 +249,15 @@ export const AccountView: React.FC<AccountViewProps> = ({
               idPrefix="account-period"
             />
 
-            {selectedAccount && (
-              <Button
-                variant="amber"
-                size="xs"
-                icon={<PlusCircle className="w-3.5 h-3.5" />}
-                onClick={() => {
-                  setSnapshotBalance(String(getAccountLatestBalance(selectedAccount.id) || ''));
-                  setIsSnapshotModalOpen(true);
-                }}
-                data-testid="record-snapshot-btn"
-              >
-                Record Valuation Snapshot
-              </Button>
-            )}
+            <Button
+              variant="amber"
+              size="xs"
+              icon={<PlusCircle className="w-3.5 h-3.5" />}
+              onClick={() => handleOpenRecordSnapshot()}
+              data-testid="record-snapshot-btn"
+            >
+              Record Valuation Snapshot
+            </Button>
           </div>
         </div>
 
@@ -430,570 +274,492 @@ export const AccountView: React.FC<AccountViewProps> = ({
           </div>
         )}
 
-        {/* Account Selector Grid (Clicking opens Account Inspection Popup) */}
-        {loading ? (
-          <div className="flex items-center justify-center py-8 text-slate-400 text-xs">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400 mr-2" />
-            Loading accounts...
+        {/* Total Net Worth + Allocation Visual Bar */}
+        <div className="p-4 rounded-xl bg-background/50 border border-border/70 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+            <div>
+              <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                Total Portfolio Net Worth
+              </div>
+              <div className="text-2xl sm:text-3xl font-extrabold text-slate-100 font-mono tracking-tight">
+                ${Math.round(totalPortfolioBalance).toLocaleString('en-NZ')}
+                <span className="text-sm font-sans font-medium text-slate-400 ml-2">NZD</span>
+              </div>
+            </div>
+            <div className="text-xs text-slate-400 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-border">
+                <PieChart className="w-3 h-3 text-amber-400" />
+                {accounts.length} Active Accounts
+              </span>
+            </div>
           </div>
-        ) : (
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1"
-            data-testid="account-selector-grid"
-          >
-            {/* All Accounts aggregate selector card */}
-            <SelectableCard
-              data-testid="account-card-all"
-              onClick={() => handleInspectAccount(null)}
-              isSelected={selectedAccountId === null}
-              title="All Accounts"
-              icon={<Building2 className="w-3.5 h-3.5 text-amber-400" />}
-              badge={<StatusBadge label={`${accounts.length} active`} variant="idle" />}
-              value={`$${Math.round(totalPortfolioBalance).toLocaleString('en-NZ')}`}
-              valueSuffix="NZD"
-              subtitle="Combined ledger across all institutions"
-              variant="amber"
+
+          {/* 3-Tier Allocation Bar */}
+          <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden flex border border-border/80">
+            <div
+              style={{ width: `${cashPct}%` }}
+              className="h-full bg-sky-500 transition-all duration-300"
+              title={`Cash Floor: ${cashPct}%`}
             />
-
-            {accounts.map((acc) => {
-              const isSelected = selectedAccountId === acc.id;
-              const balance = getAccountLatestBalance(acc.id);
-              const delta = getAccountBalanceDelta(acc.id);
-              const tierBadge = getTierBadgeProps(acc.tier);
-              const latestSnap = snapshotsByAccount[acc.id]?.[0];
-
-              return (
-                <SelectableCard
-                  key={acc.id}
-                  data-testid={`account-card-${acc.id}`}
-                  onClick={() => handleInspectAccount(acc)}
-                  isSelected={isSelected}
-                  title={acc.name}
-                  badge={
-                    <StatusBadge
-                      label={tierBadge.label}
-                      variant={tierBadge.variant}
-                      icon={tierBadge.icon}
-                    />
-                  }
-                  value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
-                  valueSuffix="NZD"
-                  subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}`}
-                  subvalue={
-                    delta !== null && delta !== 0
-                      ? `${delta > 0 ? '+' : '-'}$${Math.abs(Math.round(delta)).toLocaleString('en-NZ')}`
-                      : latestSnap
-                      ? latestSnap.snapshot_date
-                      : undefined
-                  }
-                  subvalueTrend={
-                    delta !== null && delta !== 0
-                      ? delta > 0
-                        ? 'positive'
-                        : 'negative'
-                      : 'neutral'
-                  }
-                  variant="amber"
-                />
-              );
-            })}
+            <div
+              style={{ width: `${growthPct}%` }}
+              className="h-full bg-emerald-500 transition-all duration-300"
+              title={`Growth Assets: ${growthPct}%`}
+            />
+            <div
+              style={{ width: `${lockedPct}%` }}
+              className="h-full bg-amber-500 transition-all duration-300"
+              title={`Locked Reserve: ${lockedPct}%`}
+            />
           </div>
-        )}
+
+          {/* Allocation Legend */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-sky-500/5 border border-sky-500/20">
+              <span className="flex items-center gap-2 text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-sky-400" />
+                <span>Tier 1 (Cash Floor)</span>
+              </span>
+              <span className="font-mono font-semibold text-sky-300">
+                ${Math.round(cashTotal).toLocaleString('en-NZ')} ({cashPct}%)
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <span className="flex items-center gap-2 text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>Tier 2 (Growth)</span>
+              </span>
+              <span className="font-mono font-semibold text-emerald-300">
+                ${Math.round(growthTotal).toLocaleString('en-NZ')} ({growthPct}%)
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/20">
+              <span className="flex items-center gap-2 text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Tier 3 (Locked)</span>
+              </span>
+              <span className="font-mono font-semibold text-amber-300">
+                ${Math.round(lockedTotal).toLocaleString('en-NZ')} ({lockedPct}%)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. All Accounts Combined Ledger Inspection Card */}
+        <div className="pt-1">
+          <SelectableCard
+            data-testid="account-card-all"
+            onClick={() => handleInspectAccount(null)}
+            isSelected={false}
+            title="All Accounts Combined Ledger"
+            icon={<Building2 className="w-4 h-4 text-amber-400" />}
+            badge={<StatusBadge label={`${accounts.length} active`} variant="idle" />}
+            value={`$${Math.round(totalPortfolioBalance).toLocaleString('en-NZ')}`}
+            valueSuffix="NZD"
+            subtitle="Combined ledger across all institutions • Tap to search, inspect transactions, and configure rules"
+            subvalue="Inspect Combined Ledger →"
+            subvalueTrend="positive"
+            variant="amber"
+          />
+        </div>
       </GlassCard>
 
-      {/* Per-Account Summary Metrics */}
-      <div
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3"
-        data-testid="account-analytics-panel"
-      >
-        <StatCard
-          title={selectedAccount ? `${selectedAccount.name} Balance` : 'Total Portfolio Balance'}
-          value={`$${Math.round(displayedBalance).toLocaleString('en-NZ')} NZD`}
-          subtitle={
-            selectedAccount
-              ? `${selectedAccount.institution} (${selectedAccount.tier.toUpperCase()} tier${
-                  selectedAccount.expected_annual_return > 0
-                    ? ` • ${(selectedAccount.expected_annual_return * 100).toFixed(1)}% p.a.`
-                    : ''
-                })`
-              : `Across ${accounts.length} active accounts`
-          }
-          icon={<Wallet className="w-3.5 h-3.5" />}
-          variant="amber"
-        />
-        <StatCard
-          title="Period Outflow"
-          value={`$${Math.round(analytics.totalSpend).toLocaleString('en-NZ')}`}
-          subtitle={`${analytics.spendTxCount} expense transaction${analytics.spendTxCount === 1 ? '' : 's'}`}
-          icon={<ArrowDownRight className="w-3.5 h-3.5" />}
-          variant="card"
-        />
-        <StatCard
-          title="Period Inflow"
-          value={`$${Math.round(analytics.totalIncome).toLocaleString('en-NZ')}`}
-          subtitle={
-            analytics.netCashflow >= 0
-              ? `Net +$${Math.round(analytics.netCashflow).toLocaleString('en-NZ')} saved`
-              : `Net -$${Math.abs(Math.round(analytics.netCashflow)).toLocaleString('en-NZ')} drawdown`
-          }
-          icon={<ArrowUpRight className="w-3.5 h-3.5" />}
-          variant="emerald"
-        />
-        <StatCard
-          title="Internal Transfers"
-          value={`$${Math.round(analytics.totalTransfers).toLocaleString('en-NZ')}`}
-          subtitle="Excluded from burn rate"
-          icon={<ArrowRightLeft className="w-3.5 h-3.5" />}
-          variant="sky"
-        />
-      </div>
-
-      {/* Middle Row: Per-Account Category Breakdown & Valuation History */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Per-Account Category Breakdown */}
-        <div className="lg:col-span-7" data-testid="account-category-breakdown">
-          <GlassCard className="h-full space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-                  <PieChart className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-200">
-                    {selectedAccount ? `${selectedAccount.name} Spending by Category` : 'All Accounts Spending by Category'}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Click a category to filter or inspect transactions
-                  </p>
-                </div>
-              </div>
-              {categoryFilter && (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => setCategoryFilter(null)}
-                  data-testid="clear-category-filter-btn"
-                >
-                  Clear Filter ({categoryFilter})
-                </Button>
-              )}
-            </div>
-
-            {analytics.categoryBreakdown.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-500 border border-dashed border-border rounded-xl">
-                No expense transactions recorded for this account in the selected period.
-              </div>
-            ) : (
-              <div className="space-y-2 pt-1">
-                {analytics.categoryBreakdown.map((cat) => {
-                  const isSelected = categoryFilter?.toLowerCase() === cat.category.toLowerCase();
-                  return (
-                    <div
-                      key={cat.category}
-                      data-testid={`account-cat-row-${cat.category.toLowerCase()}`}
-                      className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
-                        isSelected
-                          ? 'bg-amber-500/15 border-amber-500/40'
-                          : 'bg-background/40 border-border/60 hover:border-slate-700'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCategoryFilter((prev) =>
-                            prev?.toLowerCase() === cat.category.toLowerCase() ? null : cat.category
-                          )
-                        }
-                        className="flex-1 text-left"
-                      >
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="font-medium text-slate-200 flex items-center gap-2">
-                            <span>{cat.category}</span>
-                            <span className="text-[11px] text-slate-400">
-                              ({cat.transaction_count} tx{cat.transaction_count === 1 ? '' : 's'})
-                            </span>
-                          </span>
-                          <span className="font-mono font-semibold text-slate-200">
-                            ${cat.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            <span className="text-slate-400 font-normal ml-1.5">({cat.percentage}%)</span>
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-background rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-amber-400 rounded-full transition-all duration-300"
-                            style={{ width: `${Math.max(3, cat.percentage)}%` }}
-                          />
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleInspectCategory(cat.category, e)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-800/60 transition-colors shrink-0"
-                        title={`Inspect transactions in ${cat.category}`}
-                        data-testid={`inspect-cat-${cat.category.toLowerCase()}`}
-                      >
-                        <Layers className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </GlassCard>
+      {/* 3. Tier-Grouped Account Sections */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12 text-slate-400 text-xs">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-400 mr-2" />
+          Loading accounts and valuation checkpoints...
         </div>
-
-        {/* Balance Valuation Snapshots */}
-        <div className="lg:col-span-5" data-testid="account-snapshots-panel">
-          <GlassCard className="h-full space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                  <History className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-200">Balance Valuation History</h3>
-                  <p className="text-xs text-slate-400">
-                    {selectedAccount
-                      ? `Point-in-time snapshots for ${selectedAccount.name}`
-                      : 'Select an individual account to inspect its snapshot timeline'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {selectedAccount === null ? (
-              <div className="space-y-2 pt-1">
-                {accounts.map((acc) => {
-                  const latest = snapshotsByAccount[acc.id]?.[0];
-                  return (
-                    <div
-                      key={acc.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-background/40 border border-border/60 text-xs"
-                    >
-                      <div>
-                        <div className="font-medium text-slate-200">{acc.name}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {latest ? `As of ${latest.snapshot_date} (${latest.source})` : 'No snapshots yet'}
-                        </div>
-                      </div>
-                      <div className="font-mono font-semibold text-slate-100">
-                        ${Math.round(latest?.balance_nzd || 0).toLocaleString('en-NZ')} NZD
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : selectedSnapshots.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-500 border border-dashed border-border rounded-xl">
-                No balance snapshots recorded for {selectedAccount.name}.
-              </div>
-            ) : (
-              <div className="space-y-2 pt-1 max-h-64 overflow-y-auto pr-1">
-                {selectedSnapshots.map((snap, idx) => {
-                  const prevSnap = selectedSnapshots[idx + 1];
-                  const diff = prevSnap ? snap.balance_nzd - prevSnap.balance_nzd : null;
-                  return (
-                    <div
-                      key={snap.id}
-                      data-testid={`snapshot-row-${snap.id}`}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-background/40 border border-border/60 text-xs"
-                    >
-                      <div>
-                        <div className="font-medium text-slate-200 flex items-center gap-1.5">
-                          <Calendar className="w-3 h-3 text-slate-400" />
-                          <span>{snap.snapshot_date}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 uppercase">
-                            {snap.source}
-                          </span>
-                        </div>
-                        {snap.notes && (
-                          <div className="text-[11px] text-slate-400 mt-0.5 truncate max-w-xs">
-                            {snap.notes}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right font-mono">
-                        <div className="font-semibold text-slate-100">
-                          ${snap.balance_nzd.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                        {diff !== null && diff !== 0 && (
-                          <div className={`text-[10px] ${diff > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {diff > 0 ? '+' : '-'}${Math.abs(diff).toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </GlassCard>
-        </div>
-      </div>
-
-      {/* Per-Account Transactions List with direct category changer */}
-      <div data-testid="account-transactions-list">
-        <GlassCard className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-200">
-                {selectedAccount ? `${selectedAccount.name} Transactions` : 'All Account Transactions'}
-                <span className="ml-2 text-xs font-normal text-slate-400">
-                  ({filteredTransactions.length})
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400">
-                Directly change categories and create categorization rules from this account ledger
-              </p>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search merchant or category..."
-                data-testid="account-tx-search"
-                className="w-full bg-background border border-border rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-          </div>
-
-          {txLoading ? (
-            <div className="flex items-center justify-center py-10 text-slate-400 text-xs">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-amber-400 mr-2" />
-              Loading transactions...
-            </div>
-          ) : filteredTransactions.length === 0 ? (
-            <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-border rounded-xl">
-              No matching transactions found for this account filter.
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-              {filteredTransactions.map((tx) => {
-                const isTransfer = isTransferCategory(tx.category, tx);
-                const amt = Number(tx.amount);
-                const isDebit = amt < 0;
-                const formattedAmt = `${isDebit ? '-' : '+'}$${Math.abs(amt).toFixed(2)}`;
-
-                return (
-                  <div
-                    key={tx.id}
-                    data-testid={`account-tx-row-${tx.id}`}
-                    className="p-3 bg-background/50 hover:bg-background/80 border border-border/70 rounded-xl transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-200 truncate">
-                          {tx.merchant}
-                        </span>
-                        {selectedAccountId === null && tx.account_name && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                            {tx.account_name}
-                          </span>
-                        )}
-                        {isTransfer && (
-                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                            <ArrowRightLeft className="w-2.5 h-2.5" />
-                            Transfer
-                          </span>
-                        )}
-                        {tx.has_receipt && (
-                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                            <ReceiptIcon className="w-2.5 h-2.5" />
-                            Receipt
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                        <span>{tx.transaction_date}</span>
-                        {tx.raw_description && tx.raw_description !== tx.merchant && (
-                          <span className="text-slate-500 truncate max-w-md">
-                            • {tx.raw_description}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                      <span
-                        className={`text-xs font-mono font-semibold ${
-                          isTransfer
-                            ? 'text-sky-300'
-                            : isDebit
-                            ? 'text-rose-400'
-                            : 'text-emerald-400'
-                        }`}
-                      >
-                        {formattedAmt}
-                      </span>
-
-                      {/* Direct category quick-changer & rule creator */}
-                      <div className="flex items-center space-x-1.5">
-                        <select
-                          value={tx.category}
-                          onChange={(e) => handleDirectCategoryChange(tx.id, e.target.value)}
-                          disabled={savingTxId === tx.id}
-                          aria-label={`Category for ${tx.merchant}`}
-                          data-testid={`account-select-category-${tx.id}`}
-                          className="text-[11px] px-2 py-1 bg-background border border-border hover:border-amber-500/50 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 transition-colors disabled:opacity-50"
-                        >
-                          {availableCategories.map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
-
-                        {savingTxId === tx.id ? (
-                          <div className="w-3.5 h-3.5 animate-spin rounded-full border border-amber-400 border-t-transparent shrink-0" />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleCreateRuleFromTx(tx)}
-                            className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors shrink-0"
-                            title="Create categorization rule from this transaction"
-                            aria-label={`Create rule for ${tx.merchant}`}
-                            data-testid={`account-rule-btn-${tx.id}`}
-                          >
-                            <SlidersHorizontal className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+      ) : (
+        <div className="space-y-6" data-testid="account-selector-grid">
+          {/* Group 1: Tier 1 - Cash Floor */}
+          {cashAccounts.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                    <ShieldCheck className="w-3.5 h-3.5" />
                   </div>
-                );
-              })}
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                      Tier 1: Cash Floor (Liquid Reserves)
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Checking accounts and emergency cash covering immediate living expenses
+                    </p>
+                  </div>
+                </div>
+                <div className="font-mono font-semibold text-xs text-sky-300">
+                  ${Math.round(cashTotal).toLocaleString('en-NZ')} NZD
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {cashAccounts.map((acc) => {
+                  const balance = getAccountLatestBalance(acc.id);
+                  const delta = getAccountBalanceDelta(acc.id);
+                  const tierBadge = getTierBadgeProps(acc.tier);
+                  const latestSnap = snapshotsByAccount[acc.id]?.[0];
+
+                  return (
+                    <SelectableCard
+                      key={acc.id}
+                      data-testid={`account-card-${acc.id}`}
+                      onClick={() => handleInspectAccount(acc)}
+                      isSelected={false}
+                      title={acc.name}
+                      badge={
+                        <StatusBadge
+                          label={tierBadge.label}
+                          variant={tierBadge.variant}
+                          icon={tierBadge.icon}
+                        />
+                      }
+                      value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
+                      valueSuffix="NZD"
+                      subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}`}
+                      subvalue={
+                        delta !== null && delta !== 0
+                          ? `${delta > 0 ? '+' : '-'}$${Math.abs(Math.round(delta)).toLocaleString('en-NZ')}`
+                          : latestSnap
+                          ? latestSnap.snapshot_date
+                          : 'Inspect Ledger →'
+                      }
+                      subvalueTrend={
+                        delta !== null && delta !== 0
+                          ? delta > 0
+                            ? 'positive'
+                            : 'negative'
+                          : 'neutral'
+                      }
+                      variant="blue"
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
-        </GlassCard>
-      </div>
 
-      {/* Account Inspection Popup Modal (Consistent with Budgets Category Inspection) */}
+          {/* Group 2: Tier 2 - Growth Assets */}
+          {growthAccounts.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                      Tier 2: Growth Assets (Compounding Investments)
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Brokerage, index funds, stocks, and crypto generating compounding returns
+                    </p>
+                  </div>
+                </div>
+                <div className="font-mono font-semibold text-xs text-emerald-300">
+                  ${Math.round(growthTotal).toLocaleString('en-NZ')} NZD
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {growthAccounts.map((acc) => {
+                  const balance = getAccountLatestBalance(acc.id);
+                  const delta = getAccountBalanceDelta(acc.id);
+                  const tierBadge = getTierBadgeProps(acc.tier);
+                  const latestSnap = snapshotsByAccount[acc.id]?.[0];
+
+                  return (
+                    <SelectableCard
+                      key={acc.id}
+                      data-testid={`account-card-${acc.id}`}
+                      onClick={() => handleInspectAccount(acc)}
+                      isSelected={false}
+                      title={acc.name}
+                      badge={
+                        <StatusBadge
+                          label={tierBadge.label}
+                          variant={tierBadge.variant}
+                          icon={tierBadge.icon}
+                        />
+                      }
+                      value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
+                      valueSuffix="NZD"
+                      subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}${
+                        acc.expected_annual_return > 0
+                          ? ` • ${(acc.expected_annual_return * 100).toFixed(1)}% p.a.`
+                          : ''
+                      }`}
+                      subvalue={
+                        delta !== null && delta !== 0
+                          ? `${delta > 0 ? '+' : '-'}$${Math.abs(Math.round(delta)).toLocaleString('en-NZ')}`
+                          : latestSnap
+                          ? latestSnap.snapshot_date
+                          : 'Inspect Ledger →'
+                      }
+                      subvalueTrend={
+                        delta !== null && delta !== 0
+                          ? delta > 0
+                            ? 'positive'
+                            : 'negative'
+                          : 'neutral'
+                      }
+                      variant="emerald"
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Group 3: Tier 3 - Locked Reserve */}
+          {lockedAccounts.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <Lock className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                      Tier 3: Locked Reserve (Preserved Capital)
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      KiwiSaver and restricted retirement funds preserved until maturity
+                    </p>
+                  </div>
+                </div>
+                <div className="font-mono font-semibold text-xs text-amber-300">
+                  ${Math.round(lockedTotal).toLocaleString('en-NZ')} NZD
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {lockedAccounts.map((acc) => {
+                  const balance = getAccountLatestBalance(acc.id);
+                  const delta = getAccountBalanceDelta(acc.id);
+                  const tierBadge = getTierBadgeProps(acc.tier);
+                  const latestSnap = snapshotsByAccount[acc.id]?.[0];
+
+                  return (
+                    <SelectableCard
+                      key={acc.id}
+                      data-testid={`account-card-${acc.id}`}
+                      onClick={() => handleInspectAccount(acc)}
+                      isSelected={false}
+                      title={acc.name}
+                      badge={
+                        <StatusBadge
+                          label={tierBadge.label}
+                          variant={tierBadge.variant}
+                          icon={tierBadge.icon}
+                        />
+                      }
+                      value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
+                      valueSuffix="NZD"
+                      subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}`}
+                      subvalue={
+                        delta !== null && delta !== 0
+                          ? `${delta > 0 ? '+' : '-'}$${Math.abs(Math.round(delta)).toLocaleString('en-NZ')}`
+                          : latestSnap
+                          ? latestSnap.snapshot_date
+                          : 'Inspect Ledger →'
+                      }
+                      subvalueTrend={
+                        delta !== null && delta !== 0
+                          ? delta > 0
+                            ? 'positive'
+                            : 'negative'
+                          : 'neutral'
+                      }
+                      variant="amber"
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. Compact Balance Valuation Checkpoints */}
+      <GlassCard className="space-y-4" data-testid="account-snapshots-panel">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <History className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-200">Balance Valuation History</h3>
+              <p className="text-xs text-slate-400">
+                Latest recorded valuation snapshots and net worth checkpoints across accounts
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="xs"
+            icon={<PlusCircle className="w-3.5 h-3.5" />}
+            onClick={() => handleOpenRecordSnapshot()}
+          >
+            Record Snapshot
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+          {accounts.map((acc) => {
+            const latest = snapshotsByAccount[acc.id]?.[0];
+            const delta = getAccountBalanceDelta(acc.id);
+            return (
+              <div
+                key={acc.id}
+                onClick={() => handleInspectAccount(acc)}
+                className="p-3 rounded-xl bg-background/50 hover:bg-background/80 border border-border/70 text-xs transition-all cursor-pointer space-y-1.5 group"
+                title={`Click to inspect transactions for ${acc.name}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-200 group-hover:text-amber-300 transition-colors truncate">
+                    {acc.name}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {latest ? latest.snapshot_date : 'No snapshots'}
+                  </span>
+                  <span className="font-mono font-bold text-slate-100">
+                    ${Math.round(latest?.balance_nzd || 0).toLocaleString('en-NZ')} NZD
+                  </span>
+                </div>
+                {delta !== null && delta !== 0 && (
+                  <div
+                    className={`text-[10px] font-mono ${
+                      delta > 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {delta > 0 ? '+' : '-'}${Math.abs(Math.round(delta)).toLocaleString('en-NZ')} vs prior snapshot
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </GlassCard>
+
+      {/* 5. Account Inspection Modal (Budgets-style consistency) */}
       <AccountInspectionModal
         isOpen={isAccountModalOpen}
         onClose={() => setIsAccountModalOpen(false)}
         account={inspectingAccount}
         period={period}
         onPeriodChange={setPeriod}
-        onTransactionCategoryChanged={() => {
-          loadTransactions();
-          if (onRefreshRunway) onRefreshRunway();
-        }}
+        onTransactionCategoryChanged={loadAccountsAndSnapshots}
         onRecordSnapshotClick={() => {
+          setIsAccountModalOpen(false);
           if (inspectingAccount) {
-            setSnapshotBalance(String(getAccountLatestBalance(inspectingAccount.id) || ''));
-            setIsSnapshotModalOpen(true);
+            handleOpenRecordSnapshot(inspectingAccount);
           }
         }}
-        latestBalanceNzd={inspectingAccount ? getAccountLatestBalance(inspectingAccount.id) : totalPortfolioBalance}
+        latestBalanceNzd={
+          inspectingAccount ? getAccountLatestBalance(inspectingAccount.id) : totalPortfolioBalance
+        }
       />
 
-      {/* Category Inspection Modal */}
-      <CategoryTransactionInspectionModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => {
-          setIsCategoryModalOpen(false);
-          setInspectingCategory(null);
-        }}
-        category={inspectingCategory || undefined}
-        period={period}
-        onCategoryChanged={() => {
-          loadTransactions();
-          if (onRefreshRunway) onRefreshRunway();
-        }}
-      />
+      {/* 6. Record Valuation Snapshot Modal */}
+      <Modal
+        isOpen={isSnapshotModalOpen}
+        onClose={() => setIsSnapshotModalOpen(false)}
+        title={
+          snapshotAccountId
+            ? `Record Balance Valuation Snapshot: ${
+                accounts.find((a) => a.id === snapshotAccountId)?.name || 'Account'
+              }`
+            : 'Record Balance Valuation Snapshot'
+        }
+      >
+        <form onSubmit={handleSaveSnapshot} className="space-y-4 pt-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Select Account
+            </label>
+            <select
+              value={snapshotAccountId || ''}
+              onChange={(e) => {
+                const accId = parseInt(e.target.value, 10);
+                setSnapshotAccountId(accId);
+                setSnapshotBalance(String(getAccountLatestBalance(accId) || ''));
+              }}
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({acc.institution} • {acc.currency})
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {/* Rules Manager Modal spawned from transaction */}
-      <RulesManagerModal
-        isOpen={isRulesModalOpen}
-        onClose={() => {
-          setIsRulesModalOpen(false);
-          setRulePrefill(null);
-        }}
-        prefillRule={rulePrefill}
-        onRulesApplied={() => {
-          loadTransactions();
-          if (onRefreshRunway) onRefreshRunway();
-        }}
-      />
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Snapshot Date
+            </label>
+            <input
+              type="date"
+              value={snapshotDate}
+              onChange={(e) => setSnapshotDate(e.target.value)}
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+            />
+          </div>
 
-      {/* Record Balance Snapshot Modal */}
-      {selectedAccount && (
-        <Modal
-          isOpen={isSnapshotModalOpen}
-          onClose={() => setIsSnapshotModalOpen(false)}
-          title={`Record Balance Valuation Snapshot - ${selectedAccount.name}`}
-        >
-          <form onSubmit={handleRecordSnapshot} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Snapshot Date
-              </label>
-              <input
-                type="date"
-                value={snapshotDate}
-                onChange={(e) => setSnapshotDate(e.target.value)}
-                required
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Closing Balance ({accounts.find((a) => a.id === snapshotAccountId)?.currency || 'NZD'})
+            </label>
+            <input
+              type="number"
+              step="any"
+              value={snapshotBalance}
+              onChange={(e) => setSnapshotBalance(e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+              required
+            />
+          </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Closing Balance ({selectedAccount.currency || 'NZD'})
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={snapshotBalance}
-                onChange={(e) => setSnapshotBalance(e.target.value)}
-                placeholder="0.00"
-                required
-                data-testid="snapshot-balance-input"
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-amber-500"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Notes (Optional)
+            </label>
+            <input
+              type="text"
+              value={snapshotNotes}
+              onChange={(e) => setSnapshotNotes(e.target.value)}
+              placeholder="e.g. Monthly statement reconciliation"
+              className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+            />
+          </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Notes (Optional)
-              </label>
-              <input
-                type="text"
-                value={snapshotNotes}
-                onChange={(e) => setSnapshotNotes(e.target.value)}
-                placeholder="e.g. Monthly statement reconciliation"
-                data-testid="snapshot-notes-input"
-                className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSnapshotModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="amber"
-                size="sm"
-                disabled={savingSnapshot}
-                data-testid="submit-snapshot-btn"
-              >
-                {savingSnapshot ? 'Saving...' : 'Confirm & Save Valuation'}
-              </Button>
-            </div>
-          </form>
-        </Modal>
-      )}
+          <div className="flex items-center justify-end space-x-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsSnapshotModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="amber"
+              size="sm"
+              loading={savingSnapshot}
+            >
+              Confirm & Save Valuation
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

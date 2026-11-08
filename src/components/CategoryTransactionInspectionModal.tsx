@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Layers, Check, RefreshCw, SlidersHorizontal, Receipt, ArrowRightLeft } from 'lucide-react';
 import { Modal, Button, AlertBanner } from '@yggdrasil-lab/ui';
-import { CategorizationRuleCreate, Transaction } from '../types';
+import { CategorizationRuleCreate, PeriodType, Transaction } from '../types';
 import { fetchCategoryTransactions, triggerReconcileTransfers, updateTransactionCategory } from '../services/api';
 import { RulesManagerModal } from './RulesManagerModal';
 
@@ -9,7 +9,7 @@ interface CategoryTransactionInspectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   category?: string;
-  period: 'month' | 'week' | 'all';
+  period: PeriodType;
   onCategoryChanged: () => void;
 }
 

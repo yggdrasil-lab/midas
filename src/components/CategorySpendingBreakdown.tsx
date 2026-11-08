@@ -19,7 +19,7 @@ import {
   Receipt as ReceiptIcon,
 } from 'lucide-react';
 import { GlassCard, Button, AlertBanner, SegmentedControl, SegmentedControlOption } from '@yggdrasil-lab/ui';
-import { SpendingBreakdownResponse } from '../types';
+import { SpendingBreakdownResponse, PeriodType } from '../types';
 import { fetchSpendingBreakdown } from '../services/api';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
@@ -30,16 +30,17 @@ interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
 }
 
-const PERIOD_OPTIONS: SegmentedControlOption<'month' | 'week' | 'all'>[] = [
+const PERIOD_OPTIONS: SegmentedControlOption<PeriodType>[] = [
   { id: 'month', label: 'This Month' },
   { id: 'week', label: 'This Week' },
+  { id: 'last_month', label: 'Last Month' },
   { id: 'all', label: 'All Time' },
 ];
 
 export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps> = ({
   onRefreshRunway,
 }) => {
-  const [period, setPeriod] = useState<'month' | 'week' | 'all'>('month');
+  const [period, setPeriod] = useState<PeriodType>('month');
   const [data, setData] = useState<SpendingBreakdownResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
