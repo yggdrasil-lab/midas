@@ -41,6 +41,7 @@ interface AccountInspectionModalProps {
   onPeriodChange?: (period: PeriodType) => void;
   onTransactionCategoryChanged: () => void;
   onRecordSnapshotClick?: () => void;
+  latestBalance?: number;
   latestBalanceNzd?: number;
 }
 
@@ -73,8 +74,11 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
   onPeriodChange,
   onTransactionCategoryChanged,
   onRecordSnapshotClick,
+  latestBalance,
   latestBalanceNzd,
 }) => {
+  const currentBalance = latestBalance !== undefined ? latestBalance : latestBalanceNzd;
+  const displayCurrency = account?.currency || 'NZD';
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -277,11 +281,11 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
 
         {/* Balance & Analytics Chips */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-          {latestBalanceNzd !== undefined && (
+          {currentBalance !== undefined && (
             <div className="p-2.5 rounded-xl bg-card/40 border border-border">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Balance</span>
               <span className="text-xs font-semibold font-mono text-slate-100">
-                ${Math.round(latestBalanceNzd).toLocaleString('en-NZ')} NZD
+                ${Math.round(currentBalance).toLocaleString('en-NZ')} {displayCurrency}
               </span>
             </div>
           )}
