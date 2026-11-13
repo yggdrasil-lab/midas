@@ -117,6 +117,12 @@ export const AccountView: React.FC<AccountViewProps> = ({
     return snaps[0].balance_nzd;
   };
 
+  const getAccountLatestNativeBalance = (accountId: number): number => {
+    const snaps = snapshotsByAccount[accountId];
+    if (!snaps || snaps.length === 0) return 0;
+    return Number(snaps[0].balance ?? snaps[0].balance_nzd);
+  };
+
   const getAccountBalanceDelta = (accountId: number): number | null => {
     const snaps = snapshotsByAccount[accountId];
     if (!snaps || snaps.length < 2) return null;
@@ -396,7 +402,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {cashAccounts.map((acc) => {
-                  const balance = getAccountLatestBalance(acc.id);
+                  const balance = getAccountLatestNativeBalance(acc.id);
                   const delta = getAccountBalanceDelta(acc.id);
                   const tierBadge = getTierBadgeProps(acc.tier);
                   const latestSnap = snapshotsByAccount[acc.id]?.[0];
@@ -464,7 +470,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {growthAccounts.map((acc) => {
-                  const balance = getAccountLatestBalance(acc.id);
+                  const balance = getAccountLatestNativeBalance(acc.id);
                   const delta = getAccountBalanceDelta(acc.id);
                   const tierBadge = getTierBadgeProps(acc.tier);
                   const latestSnap = snapshotsByAccount[acc.id]?.[0];
@@ -536,7 +542,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {lockedAccounts.map((acc) => {
-                  const balance = getAccountLatestBalance(acc.id);
+                  const balance = getAccountLatestNativeBalance(acc.id);
                   const delta = getAccountBalanceDelta(acc.id);
                   const tierBadge = getTierBadgeProps(acc.tier);
                   const latestSnap = snapshotsByAccount[acc.id]?.[0];
@@ -629,7 +635,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                     {latest ? latest.snapshot_date : 'No snapshots'}
                   </span>
                   <span className="font-mono font-bold text-slate-100">
-                    ${Math.round(latest?.balance_nzd || 0).toLocaleString('en-NZ')} NZD
+                    ${Math.round(latest?.balance ?? latest?.balance_nzd ?? 0).toLocaleString('en-NZ')} {acc.currency || 'NZD'}
                   </span>
                 </div>
                 {delta !== null && delta !== 0 && (
@@ -661,8 +667,8 @@ export const AccountView: React.FC<AccountViewProps> = ({
             handleOpenRecordSnapshot(inspectingAccount);
           }
         }}
-        latestBalanceNzd={
-          inspectingAccount ? getAccountLatestBalance(inspectingAccount.id) : totalPortfolioBalance
+        latestBalance={
+          inspectingAccount ? getAccountLatestNativeBalance(inspectingAccount.id) : totalPortfolioBalance
         }
       />
 
