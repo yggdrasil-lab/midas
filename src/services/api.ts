@@ -89,7 +89,8 @@ export async function uploadStatement(
   closingBalance?: number,
   tier?: string,
   accountType?: string,
-  accountName?: string
+  accountName?: string,
+  currency?: string
 ): Promise<StatementParseResult> {
   const formData = new FormData();
   formData.append('file', file);
@@ -109,6 +110,9 @@ export async function uploadStatement(
   }
   if (accountName) {
     url += `&account_name=${encodeURIComponent(accountName)}`;
+  }
+  if (currency) {
+    url += `&currency=${encodeURIComponent(currency)}`;
   }
 
   const res = await authFetch(url, {
@@ -144,8 +148,12 @@ export async function fetchInstitutions(): Promise<InstitutionInfo[]> {
     { name: 'Kernel', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
     { name: 'Milford', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
     { name: 'InvestNow', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
-    { name: 'Interactive Brokers', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+    { name: 'Interactive Brokers', default_tier: 'growth', default_type: 'brokerage', currency: 'USD' },
     { name: 'Simplicity', default_tier: 'locked', default_type: 'kiwisaver', currency: 'NZD' },
+    { name: 'DBS Bank', default_tier: 'cash', default_type: 'savings', currency: 'SGD' },
+    { name: 'BDO Unibank', default_tier: 'cash', default_type: 'checking', currency: 'PHP' },
+    { name: 'BPI', default_tier: 'cash', default_type: 'checking', currency: 'PHP' },
+    { name: 'Wise', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
   ];
 }
 

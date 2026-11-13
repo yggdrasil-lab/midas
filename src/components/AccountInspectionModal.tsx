@@ -363,7 +363,8 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
               const isTransfer = isTransferCategory(tx.category, tx);
               const amt = Number(tx.amount);
               const isDebit = amt < 0;
-              const formattedAmt = `${isDebit ? '-' : '+'}$${Math.abs(amt).toFixed(2)}`;
+              const txCur = tx.currency || account?.currency;
+              const formattedAmt = `${isDebit ? '-' : '+'}$${Math.abs(amt).toFixed(2)}${txCur && txCur !== 'NZD' ? ` ${txCur}` : ''}`;
 
               return (
                 <div

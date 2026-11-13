@@ -416,7 +416,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                         />
                       }
                       value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
-                      valueSuffix="NZD"
+                      valueSuffix={acc.currency || 'NZD'}
                       subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}`}
                       subvalue={
                         delta !== null && delta !== 0
@@ -484,7 +484,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                         />
                       }
                       value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
-                      valueSuffix="NZD"
+                      valueSuffix={acc.currency || 'NZD'}
                       subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}${
                         acc.expected_annual_return > 0
                           ? ` • ${(acc.expected_annual_return * 100).toFixed(1)}% p.a.`
@@ -556,7 +556,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                         />
                       }
                       value={`$${Math.round(balance).toLocaleString('en-NZ')}`}
-                      valueSuffix="NZD"
+                      valueSuffix={acc.currency || 'NZD'}
                       subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}`}
                       subvalue={
                         delta !== null && delta !== 0
