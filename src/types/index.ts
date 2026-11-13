@@ -84,6 +84,7 @@ export interface ParsedTransaction {
   merchant: string;
   raw_description: string;
   category: string;
+  currency?: string;
 }
 
 export interface StatementParseResult {

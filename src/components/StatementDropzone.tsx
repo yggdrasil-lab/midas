@@ -17,6 +17,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
   const [tier, setTier] = useState<'cash' | 'growth' | 'locked'>('cash');
   const [accountType, setAccountType] = useState<string>('checking');
   const [accountName, setAccountName] = useState<string>('');
+  const [currency, setCurrency] = useState<string>('NZD');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<StatementParseResult | null>(null);
@@ -62,16 +63,25 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       const detected = res.institution && res.institution !== 'Unknown' ? res.institution : '';
       setInstitution(detected);
 
+      let resolvedCur = 'NZD';
       if (detected) {
         const match = institutionsList.find((i) => i.name.toLowerCase() === detected.toLowerCase());
         if (match) {
           setTier(match.default_tier);
           setAccountType(match.default_type);
+          if (match.currency) {
+            resolvedCur = match.currency;
+          }
         } else {
           setTier('cash');
           setAccountType('checking');
         }
       }
+
+      if (res.currency && res.currency.trim()) {
+        resolvedCur = res.currency.trim().toUpperCase();
+      }
+      setCurrency(resolvedCur);
 
       if (res.closing_balance !== null && res.closing_balance !== undefined) {
         setClosingBalanceInput(String(res.closing_balance));
@@ -110,7 +120,8 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         balanceToCommit,
         tier,
         accountType,
-        accountName.trim() || undefined
+        accountName.trim() || undefined,
+        currency.trim() || undefined
       );
       setCommitted(true);
       onSuccess();
@@ -127,6 +138,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setParseResult(null);
     setInstitution('');
     setAccountName('');
+    setCurrency('NZD');
     setClosingBalanceInput('');
     setCommitted(false);
     setError(null);
@@ -253,17 +265,28 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
                 <span className="font-semibold text-slate-200">Account Configuration</span>
                 <span className="text-[11px] text-emerald-400 flex items-center space-x-1 font-medium">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Auto-detected: {parseResult.institution || 'Unknown'}</span>
+                  <span>Auto-detected: {parseResult.institution || 'Unknown'} ({currency})</span>
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <div>
                   <label className="text-[10px] text-slate-400 block mb-1">Institution</label>
                   <input
                     type="text"
                     value={institution}
-                    onChange={(e) => setInstitution(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setInstitution(val);
+                      const match = institutionsList.find((i) => i.name.toLowerCase() === val.toLowerCase());
+                      if (match) {
+                        setTier(match.default_tier);
+                        setAccountType(match.default_type);
+                        if (match.currency) {
+                          setCurrency(match.currency);
+                        }
+                      }
+                    }}
                     placeholder="e.g. ANZ, ASB, Sharesies"
                     list="known-institutions"
                     className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
@@ -298,6 +321,30 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
                     <option value="crypto">Crypto</option>
                     <option value="credit_card">Credit Card</option>
                   </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Currency</label>
+                  <input
+                    type="text"
+                    maxLength={3}
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                    placeholder="NZD, SGD, USD"
+                    list="common-currencies"
+                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 font-mono uppercase focus:outline-none focus:border-amber-500"
+                  />
+                  <datalist id="common-currencies">
+                    <option value="NZD" />
+                    <option value="SGD" />
+                    <option value="USD" />
+                    <option value="AUD" />
+                    <option value="PHP" />
+                    <option value="EUR" />
+                    <option value="GBP" />
+                    <option value="JPY" />
+                    <option value="HKD" />
+                    <option value="CAD" />
+                  </datalist>
                 </div>
               </div>
 
@@ -351,9 +398,9 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
               title="Official Closing Balance"
               value={
                 closingBalanceInput.trim() !== ''
-                  ? `$${parseFloat(closingBalanceInput || '0').toLocaleString('en-NZ')} NZD`
+                  ? `$${parseFloat(closingBalanceInput || '0').toLocaleString('en-NZ')} ${currency}`
                   : parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
-                  ? `$${parseResult.closing_balance.toLocaleString('en-NZ')} NZD`
+                  ? `$${parseResult.closing_balance.toLocaleString('en-NZ')} ${currency}`
                   : 'N/A'
               }
               variant="emerald"
@@ -384,7 +431,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
                 onChange={(e) => setClosingBalanceInput(e.target.value)}
                 className="w-28 px-2 py-1 bg-background border border-border rounded text-xs text-slate-100 font-mono text-right focus:outline-none focus:border-amber-500"
               />
-              <span className="text-[10px] text-slate-400">NZD</span>
+              <span className="text-[10px] text-slate-400 font-mono">{currency}</span>
             </div>
           </div>
 
@@ -394,7 +441,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
                 <div key={idx} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-card/50">
                   <span className="text-slate-300 truncate max-w-[200px]">{tx.merchant}</span>
                   <span className={tx.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}>
-                    ${tx.amount.toFixed(2)}
+                    ${tx.amount.toFixed(2)} {tx.currency || currency}
                   </span>
                 </div>
               ))}
