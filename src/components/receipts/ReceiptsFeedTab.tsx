@@ -86,17 +86,17 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
                   data-testid={`receipt-row-${r.id}`}
                 >
                   <div className="space-y-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[11px] font-mono text-slate-400">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap shrink-0">
                         {r.receipt_date}
                       </span>
                       <StatusBadge
                         label={isMatched ? 'Matched to Ledger' : 'Unlinked'}
                         variant={isMatched ? 'success' : 'warning'}
-                        className="px-1.5 py-0.5 text-[10px]"
+                        className="px-1.5 py-0.5 text-[10px] shrink-0"
                       />
                       {r.items && r.items.length > 0 && (
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
                           ({r.items.length} {r.items.length === 1 ? 'item' : 'items'})
                         </span>
                       )}

@@ -286,8 +286,8 @@ export const AccountView: React.FC<AccountViewProps> = ({
             badge={<StatusBadge label={`${accounts.length} active`} variant="idle" />}
             value={formatMoney(totalPortfolioBalance)}
             valueSuffix="NZD"
-            subtitle="Combined ledger across all institutions • Tap to search, inspect transactions, and configure rules"
-            subvalue="Inspect Combined Ledger ->"
+            subtitle="All connected institutions"
+            subvalue="Inspect Ledger ->"
             subvalueTrend="positive"
             variant="amber"
           />

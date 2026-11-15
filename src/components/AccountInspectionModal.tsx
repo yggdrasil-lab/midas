@@ -171,7 +171,11 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
           {
             id: 'balance',
             label: 'Balance',
-            value: `${formatMoney(currentBalance)} ${displayCurrency}`,
+            value: (
+              <span className="text-xs tracking-tight">
+                {`${formatMoney(currentBalance)} ${displayCurrency}`}
+              </span>
+            ),
             valueClassName: 'text-slate-100 font-mono text-xs',
           },
         ]
@@ -179,19 +183,25 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     {
       id: 'outflow',
       label: 'Outflow',
-      value: formatMoney(analytics.totalSpend),
+      value: (
+        <span className="text-xs tracking-tight">{formatMoney(analytics.totalSpend)}</span>
+      ),
       valueClassName: 'text-slate-200 font-mono text-xs',
     },
     {
       id: 'inflow',
       label: 'Inflow',
-      value: formatMoney(analytics.totalIncome),
+      value: (
+        <span className="text-xs tracking-tight">{formatMoney(analytics.totalIncome)}</span>
+      ),
       valueClassName: 'text-emerald-400 font-mono text-xs',
     },
     {
       id: 'transfers',
       label: 'Transfers',
-      value: formatMoney(analytics.totalTransfers),
+      value: (
+        <span className="text-xs tracking-tight">{formatMoney(analytics.totalTransfers)}</span>
+      ),
       valueClassName: 'text-sky-300 font-mono text-xs',
     },
   ];
@@ -200,10 +210,15 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
   const tierInfo = account ? getTierBadge(account.tier) : null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={titleText}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={titleText}
+      className="sm:max-w-2xl"
+    >
       <div className="space-y-4" data-testid="account-inspection-modal">
         {/* Account Header Banner */}
-        <div className="p-3 rounded-xl bg-card/60 border border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="p-3 rounded-xl bg-card/60 border border-border flex flex-col gap-3">
           <div className="flex items-center space-x-2.5">
             <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
               {account ? <Landmark className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
