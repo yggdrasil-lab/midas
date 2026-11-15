@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { setupMockApi } from './helpers/mock-data';
+import { MOCK_RUNWAY_DATA, setupMockApi } from './helpers/mock-data';
 
 test.describe('Midas App Shell & Navigation', () => {
   test.beforeEach(async ({ page }) => {
@@ -175,5 +175,50 @@ test.describe('Midas App Shell & Navigation', () => {
 
     // Mock data should NOT be displayed
     await expect(page.locator('text=Financial Freedom Clock')).not.toBeVisible();
+  });
+
+  test('clears CacheStorage and reloads runway metrics when refresh button is clicked', async ({ page }) => {
+    await expect(page.locator('text=184 >> visible=true').first()).toBeVisible();
+
+    const seededKeys = await page.evaluate(async () => {
+      const cache = await window.caches.open('workbox-precache-v2-stale-test');
+      await cache.put(
+        new Request('/stale-asset.js'),
+        new Response('console.log("stale")', {
+          headers: { 'Content-Type': 'application/javascript' },
+        })
+      );
+      return window.caches.keys();
+    });
+    expect(seededKeys).toContain('workbox-precache-v2-stale-test');
+
+    let runwayFetchCount = 0;
+    await page.route(/\/api\/runway(\?.*)?$/, async (route) => {
+      runwayFetchCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...MOCK_RUNWAY_DATA,
+          primary_runway_weeks: 192,
+          primary_runway_years: 3.7,
+          breakdown: {
+            ...MOCK_RUNWAY_DATA.breakdown,
+            growth_weeks: 192,
+          },
+        }),
+      });
+    });
+
+    const refreshBtn = page.locator('[data-testid="refresh-button"]');
+    await expect(refreshBtn).toBeVisible();
+    await refreshBtn.click();
+
+    await expect.poll(() => runwayFetchCount).toBeGreaterThanOrEqual(1);
+    await expect(page.locator('text=192 >> visible=true').first()).toBeVisible();
+
+    await expect
+      .poll(async () => page.evaluate(() => window.caches.keys()))
+      .toEqual([]);
   });
 });
