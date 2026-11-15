@@ -8,6 +8,7 @@ import {
   Landmark,
   PieChart,
   PlusCircle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   AlertBanner,
@@ -21,8 +22,8 @@ import {
   StatusBadge,
 } from '@yggdrasil-lab/ui';
 import { PERIOD_OPTIONS } from '../constants/categories';
-import { fetchAccounts, fetchAccountSnapshots } from '../services/api';
-import { Account, AssetSnapshot, PeriodType } from '../types';
+import { fetchAccounts, fetchAccountSnapshots, syncAllIntegrations } from '../services/api';
+import { Account, AssetSnapshot, PeriodType, SyncResult } from '../types';
 import { formatMoney } from '../utils/format';
 import { AccountInspectionModal } from './AccountInspectionModal';
 import { AccountTierSection } from './AccountTierSection';
@@ -47,8 +48,10 @@ export const AccountView: React.FC<AccountViewProps> = ({
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<number, AssetSnapshot[]>>({});
   const [period, setPeriod] = useState<PeriodType>('month');
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successNote, setSuccessNote] = useState<string | null>(null);
+  const [syncSummary, setSyncSummary] = useState<SyncResult | null>(null);
 
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [inspectingAccount, setInspectingAccount] = useState<Account | null>(null);
@@ -162,9 +165,31 @@ export const AccountView: React.FC<AccountViewProps> = ({
     accountName: string
   ) => {
     setSnapshotsByAccount((prev) => ({ ...prev, [accountId]: updatedSnaps }));
+    setSyncSummary(null);
     setSuccessNote(`Saved valuation snapshot for ${accountName}`);
     setTimeout(() => setSuccessNote(null), 4000);
     onRefreshRunway?.();
+  };
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    setError(null);
+    setSuccessNote(null);
+    setSyncSummary(null);
+    try {
+      const result = await syncAllIntegrations();
+      setSyncSummary(result);
+      setSuccessNote(
+        `Synced ${result.accounts_synced} accounts: ${result.transactions_created} new transactions, ${result.transactions_skipped} skipped, ${result.snapshots_updated} snapshots updated.`
+      );
+      await loadAccountsAndSnapshots();
+      onRefreshRunway?.();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to sync connected accounts');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (
@@ -196,6 +221,17 @@ export const AccountView: React.FC<AccountViewProps> = ({
               idPrefix="account-period"
             />
             <Button
+              variant="secondary"
+              size="xs"
+              loading={syncing}
+              loadingText="Syncing..."
+              icon={<RefreshCw className="w-3.5 h-3.5" />}
+              onClick={handleSyncNow}
+              data-testid="sync-now-btn"
+            >
+              Sync Now
+            </Button>
+            <Button
               variant="amber"
               size="xs"
               icon={<PlusCircle className="w-3.5 h-3.5" />}
@@ -214,9 +250,24 @@ export const AccountView: React.FC<AccountViewProps> = ({
         )}
 
         {successNote && (
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
-            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-            <span>{successNote}</span>
+          <div className="space-y-2 animate-in fade-in" data-testid="account-success-banner">
+            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2">
+              <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+              <span>{successNote}</span>
+            </div>
+            {syncSummary && syncSummary.accounts.length > 0 && (
+              <div className="flex flex-wrap gap-1.5" data-testid="sync-summary-accounts">
+                {syncSummary.accounts.map((acc) => (
+                  <span
+                    key={acc.account_id}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/80 border border-border/70 text-[11px] text-slate-300"
+                  >
+                    <span className="font-medium text-slate-200">{acc.account_name}</span>
+                    <span className="text-emerald-400 font-mono">+{acc.transactions_created}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

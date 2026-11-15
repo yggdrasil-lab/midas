@@ -773,4 +773,52 @@ export async function setupMockApi(page: Page) {
       await route.continue();
     }
   });
+
+  // Mock External Bank Feed Sync Endpoint
+  await page.route(/\/api\/integrations\/sync\/all(\?.*)?$/, async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          provider: 'all',
+          accounts_synced: 3,
+          transactions_created: 5,
+          transactions_skipped: 12,
+          snapshots_updated: 3,
+          accounts: [
+            {
+              account_id: 1,
+              account_name: 'ANZ Freedom',
+              institution: 'ANZ',
+              currency: 'NZD',
+              balance: 12450.0,
+              transactions_created: 3,
+              transactions_skipped: 6,
+            },
+            {
+              account_id: 2,
+              account_name: 'ANZ Low Rate Visa',
+              institution: 'ANZ',
+              currency: 'NZD',
+              balance: -840.25,
+              transactions_created: 1,
+              transactions_skipped: 4,
+            },
+            {
+              account_id: 3,
+              account_name: 'Wise Multi-Currency',
+              institution: 'Wise',
+              currency: 'SGD',
+              balance: 4200.0,
+              transactions_created: 1,
+              transactions_skipped: 2,
+            },
+          ],
+        }),
+      });
+    } else {
+      await route.continue();
+    }
+  });
 }
