@@ -17,6 +17,7 @@ import {
   RunwayScenarioResult,
   SpendingBreakdownResponse,
   StatementParseResult,
+  SyncResult,
   Transaction,
   PeriodType,
 } from '../types';
@@ -543,6 +544,17 @@ export async function triggerReconcileTransfers(): Promise<{ status: string; mat
   });
   if (!res.ok) {
     throw new Error(`Failed to reconcile transfers: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function syncAllIntegrations(days = 14): Promise<SyncResult> {
+  const res = await authFetch(`${API_BASE}/integrations/sync/all?days=${days}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `Bank feed sync failed: ${res.statusText}`);
   }
   return res.json();
 }

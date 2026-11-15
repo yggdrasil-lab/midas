@@ -301,6 +301,25 @@ export interface ProductUpdatePayload {
 
 export type PeriodType = 'month' | 'week' | 'last_month' | 'all';
 
+export interface SyncAccountSummary {
+  account_id: number;
+  account_name: string;
+  institution: string;
+  currency: string;
+  balance?: number | null;
+  transactions_created: number;
+  transactions_skipped: number;
+}
+
+export interface SyncResult {
+  provider: string;
+  accounts_synced: number;
+  transactions_created: number;
+  transactions_skipped: number;
+  snapshots_updated: number;
+  accounts: SyncAccountSummary[];
+}
+
 
 
 

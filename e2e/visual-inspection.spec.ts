@@ -138,6 +138,11 @@ for (const { name: platform, options } of PLATFORMS) {
       if (await accountsTab.isVisible()) {
         await accountsTab.click();
         await expect(page.locator('text=Accounts & Per-Account Ledger >> visible=true').first()).toBeVisible();
+        const syncNowBtn = page.locator('[data-testid="sync-now-btn"] >> visible=true').first();
+        await expect(syncNowBtn).toBeVisible();
+        await syncNowBtn.click();
+        await expect(page.locator('[data-testid="account-success-banner"] >> visible=true').first()).toBeVisible();
+        await expect(page.locator('text=Synced 3 accounts: 5 new transactions >> visible=true').first()).toBeVisible();
         await page.waitForTimeout(300);
         await page.screenshot({
           path: `screenshots/${platform}/05b-per-account-view.png`,
