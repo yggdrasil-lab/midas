@@ -202,30 +202,42 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             items={[
               {
                 id: 'outflow',
-                label: 'Total Outflow',
-                value: formatMoney(data.total_spend, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }),
+                label: 'Outflow',
+                value: (
+                  <span className="text-xs sm:text-sm tracking-tight">
+                    {formatMoney(data.total_spend, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                ),
                 valueClassName: 'text-slate-100 font-mono',
               },
               {
                 id: 'inflow',
-                label: 'Total Inflow',
-                value: formatMoney(data.total_income, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                }),
+                label: 'Inflow',
+                value: (
+                  <span className="text-xs sm:text-sm tracking-tight">
+                    {formatMoney(data.total_income, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                ),
                 valueClassName: 'text-emerald-400 font-mono',
               },
               {
                 id: 'net',
                 label: 'Net Savings',
-                value: formatMoney(data.net_savings, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                  showPlusSign: true,
-                }),
+                value: (
+                  <span className="text-xs sm:text-sm tracking-tight">
+                    {formatMoney(data.net_savings, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                      showPlusSign: true,
+                    })}
+                  </span>
+                ),
                 valueClassName: `font-mono ${
                   data.net_savings >= 0 ? 'text-emerald-400' : 'text-rose-400'
                 }`,
