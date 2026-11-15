@@ -1,20 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { UploadCloud, CheckCircle2, ArrowRight, Sparkles, ShieldCheck, TrendingUp, Lock } from 'lucide-react';
-import { FileDropzone, Button, StatCard, GlassCard, AlertBanner } from '@yggdrasil-lab/ui';
+import { ArrowRight, Sparkles, UploadCloud } from 'lucide-react';
+import { AlertBanner, Button, FileDropzone, GlassCard } from '@yggdrasil-lab/ui';
+import {
+  fetchAccounts,
+  fetchInstitutions,
+  fetchSampleStatement,
+  uploadStatement,
+} from '../services/api';
 import { Account, InstitutionInfo, StatementParseResult } from '../types';
-import { fetchAccounts, fetchInstitutions, fetchSampleStatement, uploadStatement } from '../services/api';
+import { StatementPreviewCard } from './statements/StatementPreviewCard';
 
 interface StatementDropzoneProps {
   onSuccess: () => void;
 }
 
+/**
+ * Bank and brokerage statement dropzone with dry-run inspection,
+ * institution auto-detection, and ledger anchoring.
+ */
 export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
   const [institution, setInstitution] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [institutionsList, setInstitutionsList] = useState<InstitutionInfo[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined);
-  const [tier, setTier] = useState<'cash' | 'growth' | 'locked'>('cash');
+  const [tier, setTier] = useState<Account['tier']>('cash');
   const [accountType, setAccountType] = useState<string>('checking');
   const [accountName, setAccountName] = useState<string>('');
   const [currency, setCurrency] = useState<string>('NZD');
@@ -51,6 +61,16 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     }
   };
 
+  const handleInstitutionChange = (val: string) => {
+    setInstitution(val);
+    const match = institutionsList.find((i) => i.name.toLowerCase() === val.toLowerCase());
+    if (match) {
+      setTier(match.default_tier);
+      setAccountType(match.default_type);
+      if (match.currency) setCurrency(match.currency);
+    }
+  };
+
   const handleParse = async () => {
     if (!file) return;
     setLoading(true);
@@ -64,14 +84,14 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       setInstitution(detected);
 
       let resolvedCur = 'NZD';
+      let nextType = 'checking';
       if (detected) {
         const match = institutionsList.find((i) => i.name.toLowerCase() === detected.toLowerCase());
         if (match) {
           setTier(match.default_tier);
+          nextType = match.default_type;
           setAccountType(match.default_type);
-          if (match.currency) {
-            resolvedCur = match.currency;
-          }
+          if (match.currency) resolvedCur = match.currency;
         } else {
           setTier('cash');
           setAccountType('checking');
@@ -83,16 +103,16 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       }
       setCurrency(resolvedCur);
 
-      if (res.closing_balance !== null && res.closing_balance !== undefined) {
-        setClosingBalanceInput(String(res.closing_balance));
-      } else {
-        setClosingBalanceInput('');
-      }
+      setClosingBalanceInput(
+        res.closing_balance !== null && res.closing_balance !== undefined
+          ? String(res.closing_balance)
+          : ''
+      );
 
       if (res.account_name) {
         setAccountName(detected ? `${detected} ${res.account_name}` : res.account_name);
       } else if (detected) {
-        const typeLabel = accountType ? accountType.charAt(0).toUpperCase() + accountType.slice(1) : 'Checking';
+        const typeLabel = nextType.charAt(0).toUpperCase() + nextType.slice(1);
         setAccountName(`${detected} ${typeLabel}`);
       } else {
         setAccountName('Bank Checking');
@@ -110,7 +130,8 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setLoading(true);
     setError(null);
     try {
-      const balanceToCommit = closingBalanceInput.trim() !== '' ? parseFloat(closingBalanceInput) : undefined;
+      const balanceToCommit =
+        closingBalanceInput.trim() !== '' ? parseFloat(closingBalanceInput) : undefined;
       const targetInst = institution.trim() || parseResult?.institution || 'Unknown';
       await uploadStatement(
         file,
@@ -144,26 +165,6 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setError(null);
   };
 
-  // Distinct list of known institutions for datalist autocomplete
-  const combinedInstitutions = Array.from(
-    new Set([
-      ...institutionsList.map((i) => i.name),
-      ...accounts.map((a) => a.institution),
-      'ANZ',
-      'ASB',
-      'BNZ',
-      'Westpac',
-      'Kiwibank',
-      'Rabobank',
-      'TSB',
-      'Sharesies',
-      'Simplicity',
-      'Kernel',
-      'Milford',
-      'InvestNow',
-    ])
-  ).filter(Boolean);
-
   return (
     <GlassCard className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -173,7 +174,9 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-200">Statement Ingestion Hub</h3>
-            <p className="text-xs text-slate-400">Drop bank or brokerage PDF/CSV to auto-detect and sync</p>
+            <p className="text-xs text-slate-400">
+              Drop bank or brokerage PDF/CSV to auto-detect and sync
+            </p>
           </div>
         </div>
 
@@ -198,11 +201,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         )}
       </div>
 
-      {error && (
-        <AlertBanner variant="error">
-          {error}
-        </AlertBanner>
-      )}
+      {error && <AlertBanner variant="error">{error}</AlertBanner>}
 
       {!parseResult ? (
         <FileDropzone
@@ -241,237 +240,29 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           </div>
         </FileDropzone>
       ) : (
-        /* Extraction Preview Drawer */
-        <div className="bg-background rounded-xl p-4 border border-border space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-border text-xs">
-            <span className="text-slate-400 font-medium">
-              Detected from {file?.name} ({parseResult.institution || 'Unknown'}
-              {parseResult.account_name ? ` · ${parseResult.account_name}` : ''}
-              {parseResult.account_number_masked ? ` · ${parseResult.account_number_masked}` : ''})
-            </span>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={handleReset}
-            >
-              Upload Different
-            </Button>
-          </div>
-
-          {/* New Account Details Form (shown when creating a new account) */}
-          {!selectedAccountId && (
-            <div className="p-3 bg-card/60 rounded-xl border border-border space-y-2.5">
-              <div className="flex items-center justify-between text-xs text-slate-300">
-                <span className="font-semibold text-slate-200">Account Configuration</span>
-                <span className="text-[11px] text-emerald-400 flex items-center space-x-1 font-medium">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Auto-detected: {parseResult.institution || 'Unknown'} ({currency})</span>
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">Institution</label>
-                  <input
-                    type="text"
-                    value={institution}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setInstitution(val);
-                      const match = institutionsList.find((i) => i.name.toLowerCase() === val.toLowerCase());
-                      if (match) {
-                        setTier(match.default_tier);
-                        setAccountType(match.default_type);
-                        if (match.currency) {
-                          setCurrency(match.currency);
-                        }
-                      }
-                    }}
-                    placeholder="e.g. ANZ, ASB, Sharesies"
-                    list="known-institutions"
-                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  />
-                  <datalist id="known-institutions">
-                    {combinedInstitutions.map((inst) => (
-                      <option key={inst} value={inst} />
-                    ))}
-                  </datalist>
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">Account Display Name</label>
-                  <input
-                    type="text"
-                    value={accountName}
-                    onChange={(e) => setAccountName(e.target.value)}
-                    placeholder="e.g. ANZ Freedom"
-                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">Account Type</label>
-                  <select
-                    value={accountType}
-                    onChange={(e) => setAccountType(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="checking">Checking (Everyday)</option>
-                    <option value="savings">Savings (Interest / Cash Floor)</option>
-                    <option value="brokerage">Brokerage (Equities / Growth)</option>
-                    <option value="kiwisaver">KiwiSaver (Pension / Locked)</option>
-                    <option value="crypto">Crypto</option>
-                    <option value="credit_card">Credit Card</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">Currency</label>
-                  <input
-                    type="text"
-                    maxLength={3}
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                    placeholder="NZD, SGD, USD"
-                    list="common-currencies"
-                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 font-mono uppercase focus:outline-none focus:border-amber-500"
-                  />
-                  <datalist id="common-currencies">
-                    <option value="NZD" />
-                    <option value="SGD" />
-                    <option value="USD" />
-                    <option value="AUD" />
-                    <option value="PHP" />
-                    <option value="EUR" />
-                    <option value="GBP" />
-                    <option value="JPY" />
-                    <option value="HKD" />
-                    <option value="CAD" />
-                  </datalist>
-                </div>
-              </div>
-
-              {/* Asset Tier Selection Pills */}
-              <div>
-                <label className="text-[10px] text-slate-400 block mb-1">Asset Tier (Telemetry Placement)</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setTier('cash')}
-                    className={`flex items-center justify-center space-x-1 px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      tier === 'cash'
-                        ? 'bg-sky-500/10 border-sky-500/50 text-sky-400'
-                        : 'bg-card border-border text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <ShieldCheck className="w-3 h-3 shrink-0" />
-                    <span>Cash Floor</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTier('growth')}
-                    className={`flex items-center justify-center space-x-1 px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      tier === 'growth'
-                        ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
-                        : 'bg-card border-border text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <TrendingUp className="w-3 h-3 shrink-0" />
-                    <span>Growth</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTier('locked')}
-                    className={`flex items-center justify-center space-x-1 px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      tier === 'locked'
-                        ? 'bg-amber-500/10 border-amber-500/50 text-amber-400'
-                        : 'bg-card border-border text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <Lock className="w-3 h-3 shrink-0" />
-                    <span>Locked</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              title="Official Closing Balance"
-              value={
-                closingBalanceInput.trim() !== ''
-                  ? `$${parseFloat(closingBalanceInput || '0').toLocaleString('en-NZ')} ${currency}`
-                  : parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
-                  ? `$${parseResult.closing_balance.toLocaleString('en-NZ')} ${currency}`
-                  : 'N/A'
-              }
-              variant="emerald"
-            />
-            <StatCard
-              title="Transactions Found"
-              value={`${parseResult.transaction_count} items`}
-              variant="card"
-            />
-          </div>
-
-          <div className="p-3 bg-card/60 rounded-xl border border-border flex items-center justify-between gap-3">
-            <div className="text-xs text-slate-300">
-              <span className="font-medium text-slate-200">Account Closing Balance:</span>
-              <p className="text-[11px] text-slate-400">
-                {parseResult.closing_balance !== null && parseResult.closing_balance !== undefined
-                  ? 'Detected from statement. Anchors your live balance in Plutus.'
-                  : 'Enter ending statement balance to anchor in Plutus.'}
-              </p>
-            </div>
-            <div className="flex items-center space-x-1.5 shrink-0">
-              <span className="text-xs text-slate-400">$</span>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={closingBalanceInput}
-                onChange={(e) => setClosingBalanceInput(e.target.value)}
-                className="w-28 px-2 py-1 bg-background border border-border rounded text-xs text-slate-100 font-mono text-right focus:outline-none focus:border-amber-500"
-              />
-              <span className="text-[10px] text-slate-400 font-mono">{currency}</span>
-            </div>
-          </div>
-
-          {parseResult.transactions.length > 0 && (
-            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-              {parseResult.transactions.slice(0, 5).map((tx, idx) => (
-                <div key={idx} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-card/50">
-                  <span className="text-slate-300 truncate max-w-[200px]">{tx.merchant}</span>
-                  <span className={tx.amount < 0 ? 'text-slate-300' : 'text-emerald-400'}>
-                    ${tx.amount.toFixed(2)} {tx.currency || currency}
-                  </span>
-                </div>
-              ))}
-              {parseResult.transactions.length > 5 && (
-                <div className="text-center text-[10px] text-slate-500 pt-1">
-                  +{parseResult.transactions.length - 5} more transactions
-                </div>
-              )}
-            </div>
-          )}
-
-          {!committed ? (
-            <Button
-              variant="emerald"
-              size="md"
-              fullWidth
-              loading={loading}
-              loadingText="Synchronizing..."
-              icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-              onClick={handleConfirmAndSync}
-            >
-              Confirm & Anchor Balances in Plutus
-            </Button>
-          ) : (
-            <div className="flex items-center justify-center space-x-2 text-xs font-semibold text-emerald-400 py-2">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Statement Synchronized & Anchored!</span>
-            </div>
-          )}
-        </div>
+        <StatementPreviewCard
+          fileName={file?.name}
+          parseResult={parseResult}
+          selectedAccountId={selectedAccountId}
+          institution={institution}
+          accountName={accountName}
+          accountType={accountType}
+          currency={currency}
+          tier={tier}
+          closingBalanceInput={closingBalanceInput}
+          loading={loading}
+          committed={committed}
+          institutionsList={institutionsList}
+          accounts={accounts}
+          onInstitutionChange={handleInstitutionChange}
+          onAccountNameChange={setAccountName}
+          onAccountTypeChange={setAccountType}
+          onCurrencyChange={setCurrency}
+          onTierChange={setTier}
+          onClosingBalanceChange={setClosingBalanceInput}
+          onConfirmAndSync={handleConfirmAndSync}
+          onReset={handleReset}
+        />
       )}
     </GlassCard>
   );

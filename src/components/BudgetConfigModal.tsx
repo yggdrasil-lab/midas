@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Target, Sparkles, Trash2, Plus } from 'lucide-react';
-import { Modal, Button, AlertBanner } from '@yggdrasil-lab/ui';
+import { Plus, Sparkles, Target, Trash2 } from 'lucide-react';
+import { AlertBanner, Button, EmptyState, Modal } from '@yggdrasil-lab/ui';
+import { BUDGET_CATEGORY_CHOICES } from '../constants/categories';
+import {
+  deleteBudgetRule,
+  fetchBudgetRules,
+  initDefaultBudgets,
+  upsertBudgetRule,
+} from '../services/api';
 import { BudgetRule } from '../types';
-import { fetchBudgetRules, upsertBudgetRule, deleteBudgetRule, initDefaultBudgets } from '../services/api';
+import { formatMoney } from '../utils/format';
 
 interface BudgetConfigModalProps {
   isOpen: boolean;
@@ -11,19 +18,9 @@ interface BudgetConfigModalProps {
   initialCategory?: string;
 }
 
-const COMMON_CATEGORIES = [
-  'Groceries',
-  'Food',
-  'Transport',
-  'Utilities',
-  'Health',
-  'Leisure',
-  'Insurance',
-  'Travel',
-  'Housing',
-  'General',
-];
-
+/**
+ * Modal for configuring weekly/monthly spending budget guardrails per category.
+ */
 export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   isOpen,
   onClose,
@@ -35,7 +32,6 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Form state
   const [category, setCategory] = useState(initialCategory || 'Groceries');
   const [weeklyLimit, setWeeklyLimit] = useState('');
   const [monthlyLimit, setMonthlyLimit] = useState('');
@@ -47,7 +43,9 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
       const res = await fetchBudgetRules();
       setRules(res);
       if (initialCategory) {
-        const found = res.find((r) => r.category.toLowerCase() === initialCategory.toLowerCase());
+        const found = res.find(
+          (r) => r.category.toLowerCase() === initialCategory.toLowerCase()
+        );
         if (found) {
           setCategory(found.category);
           setWeeklyLimit(String(found.weekly_limit));
@@ -73,25 +71,17 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   const handleWeeklyChange = (val: string) => {
     setWeeklyLimit(val);
     const num = parseFloat(val);
-    if (!isNaN(num) && num > 0) {
-      setMonthlyLimit((num * 52 / 12).toFixed(2));
-    } else {
-      setMonthlyLimit('');
-    }
+    setMonthlyLimit(!isNaN(num) && num > 0 ? ((num * 52) / 12).toFixed(2) : '');
   };
 
   const handleMonthlyChange = (val: string) => {
     setMonthlyLimit(val);
     const num = parseFloat(val);
-    if (!isNaN(num) && num > 0) {
-      setWeeklyLimit((num * 12 / 52).toFixed(2));
-    } else {
-      setWeeklyLimit('');
-    }
+    setWeeklyLimit(!isNaN(num) && num > 0 ? ((num * 12) / 52).toFixed(2) : '');
   };
 
   const handleSave = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+    e?.preventDefault();
     if (!category.trim()) {
       setError('Please select or enter a category name');
       return;
@@ -157,17 +147,15 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Category Budget Guardrails"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title="Category Budget Guardrails">
       <div className="space-y-4">
         {error && <AlertBanner variant="error">{error}</AlertBanner>}
         {successMsg && <AlertBanner variant="success">{successMsg}</AlertBanner>}
 
-        {/* Set / Edit Form */}
-        <form onSubmit={handleSave} className="p-3.5 bg-card/60 rounded-xl border border-border space-y-3">
+        <form
+          onSubmit={handleSave}
+          className="p-3.5 bg-card/60 rounded-xl border border-border space-y-3"
+        >
           <div className="flex items-center justify-between text-xs text-slate-300">
             <span className="font-semibold text-slate-200 flex items-center space-x-1.5">
               <Target className="w-3.5 h-3.5 text-amber-400" />
@@ -188,7 +176,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                 className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
               />
               <datalist id="budget-categories">
-                {COMMON_CATEGORIES.map((cat) => (
+                {BUDGET_CATEGORY_CHOICES.map((cat) => (
                   <option key={cat} value={cat} />
                 ))}
               </datalist>
@@ -238,7 +226,6 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
           </div>
         </form>
 
-        {/* Existing Rules List */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span>Configured Categories ({rules.length})</span>
@@ -257,9 +244,11 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
           </div>
 
           {rules.length === 0 ? (
-            <div className="p-4 rounded-xl border border-dashed border-border text-center text-xs text-slate-400">
-              No category budgets set yet. Click "Load NZ Baseline Targets" to populate common limits.
-            </div>
+            <EmptyState
+              title="No category budgets set yet"
+              description='Click "Load NZ Baseline Targets" to populate common limits.'
+              variant="dashed"
+            />
           ) : (
             <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
               {rules.map((r) => (
@@ -271,14 +260,14 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                   <div>
                     <span className="font-medium text-slate-200">{r.category}</span>
                     <span className="text-[10px] text-slate-400 ml-2">
-                      ${r.weekly_limit.toFixed(0)}/wk · ${r.monthly_limit.toFixed(0)}/mo
+                      {formatMoney(r.weekly_limit)}/wk · {formatMoney(r.monthly_limit)}/mo
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(r.id);
+                      void handleDelete(r.id);
                     }}
                     className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                     title="Delete rule"
