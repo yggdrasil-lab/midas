@@ -20,6 +20,7 @@ import {
   LoadingState,
   PwaUpdateBanner,
   SessionExpiredBanner,
+  clearBrowserCaches,
   isSessionExpiredError,
   usePwaUpdate,
 } from '@yggdrasil-lab/ui';
@@ -108,6 +109,12 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleRefresh = async () => {
+    setLoading(true);
+    await clearBrowserCaches();
+    await loadData();
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -177,7 +184,7 @@ export const App: React.FC = () => {
           tabs={DESKTOP_TABS}
           activeTab={activeTab}
           onChangeTab={(tabId) => setActiveTab(tabId as MidasTab)}
-          onRefresh={loadData}
+          onRefresh={handleRefresh}
           isRefreshing={loading}
           actions={
             <div className="flex items-center space-x-2">
@@ -244,7 +251,7 @@ export const App: React.FC = () => {
           title="Failed to load financial metrics"
           className="mb-6 p-4 shadow-lg"
           action={
-            <Button variant="rose" size="sm" onClick={loadData} className="shrink-0">
+            <Button variant="rose" size="sm" onClick={handleRefresh} className="shrink-0">
               Retry
             </Button>
           }
