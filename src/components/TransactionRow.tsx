@@ -44,7 +44,12 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const txCurrency = tx.currency || fallbackCurrency;
   const formattedAmt = formatSignedTransactionAmount(amt, txCurrency);
   const hasLinkedTransfer = tx.linked_transaction_id != null;
-  const hasFxRate = Boolean(tx.exchange_rate && tx.exchange_rate !== 1.0);
+  const parsedFxRate = tx.exchange_rate != null ? Number(tx.exchange_rate) : null;
+  const hasFxRate =
+    parsedFxRate !== null &&
+    Number.isFinite(parsedFxRate) &&
+    parsedFxRate > 0 &&
+    Math.abs(parsedFxRate - 1) > 1e-6;
 
   return (
     <div
