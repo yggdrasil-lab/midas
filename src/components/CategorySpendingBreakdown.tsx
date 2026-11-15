@@ -1,42 +1,64 @@
 import React, { useEffect, useState } from 'react';
 import {
-  PieChart,
   AlertTriangle,
-  Target,
-  ShoppingCart,
+  ArrowRightLeft,
   Car,
-  UtensilsCrossed,
-  Zap,
-  HeartPulse,
   Gamepad2,
-  ShieldCheck,
-  Plane,
+  HeartPulse,
   Home,
   Package,
-  ArrowRightLeft,
-  Search,
-  SlidersHorizontal,
+  PieChart,
+  Plane,
   Receipt as ReceiptIcon,
+  Search,
+  ShieldCheck,
+  ShoppingCart,
+  SlidersHorizontal,
+  Target,
+  UtensilsCrossed,
+  Zap,
 } from 'lucide-react';
-import { GlassCard, Button, AlertBanner, SegmentedControl, SegmentedControlOption } from '@yggdrasil-lab/ui';
-import { SpendingBreakdownResponse, PeriodType } from '../types';
+import {
+  AlertBanner,
+  Button,
+  EmptyState,
+  GlassCard,
+  LoadingState,
+  SegmentedControl,
+  SummaryMetricGrid,
+} from '@yggdrasil-lab/ui';
+import { PERIOD_OPTIONS } from '../constants/categories';
 import { fetchSpendingBreakdown } from '../services/api';
+import { PeriodType, SpendingBreakdownResponse } from '../types';
+import { formatMoney } from '../utils/format';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
-import { RulesManagerModal } from './RulesManagerModal';
 import { ReceiptsHubModal } from './ReceiptsHubModal';
+import { RulesManagerModal } from './RulesManagerModal';
 
 interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
 }
 
-const PERIOD_OPTIONS: SegmentedControlOption<PeriodType>[] = [
-  { id: 'month', label: 'This Month' },
-  { id: 'week', label: 'This Week' },
-  { id: 'last_month', label: 'Last Month' },
-  { id: 'all', label: 'All Time' },
-];
+function getCategoryIcon(category: string) {
+  const c = category.toLowerCase();
+  if (c.includes('transfer') || c.includes('wise')) return <ArrowRightLeft className="w-3.5 h-3.5 text-sky-400" />;
+  if (c.includes('grocer') || c.includes('supermarket')) return <ShoppingCart className="w-3.5 h-3.5 text-emerald-400" />;
+  if (c.includes('transport') || c.includes('fuel') || c.includes('transit')) return <Car className="w-3.5 h-3.5 text-sky-400" />;
+  if (c.includes('food') || c.includes('cafe') || c.includes('restaurant') || c.includes('dining')) return <UtensilsCrossed className="w-3.5 h-3.5 text-amber-400" />;
+  if (c.includes('util') || c.includes('power') || c.includes('internet') || c.includes('phone')) return <Zap className="w-3.5 h-3.5 text-yellow-400" />;
+  if (c.includes('health') || c.includes('medical') || c.includes('gym') || c.includes('fitness')) return <HeartPulse className="w-3.5 h-3.5 text-rose-400" />;
+  if (c.includes('leisure') || c.includes('entertainment') || c.includes('movie') || c.includes('game')) return <Gamepad2 className="w-3.5 h-3.5 text-purple-400" />;
+  if (c.includes('insurance')) return <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />;
+  if (c.includes('travel') || c.includes('flight') || c.includes('air')) return <Plane className="w-3.5 h-3.5 text-cyan-400" />;
+  if (c.includes('housing') || c.includes('rent') || c.includes('mortgage')) return <Home className="w-3.5 h-3.5 text-teal-400" />;
+  return <Package className="w-3.5 h-3.5 text-slate-400" />;
+}
 
+/**
+ * Category spending breakdown with overspending guardrails, budget configuration,
+ * rules manager, and category drill-down inspection.
+ */
 export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps> = ({
   onRefreshRunway,
 }) => {
@@ -69,23 +91,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
     loadBreakdown();
   }, [period]);
 
-  const getCategoryIcon = (category: string) => {
-    const c = category.toLowerCase();
-    if (c.includes('transfer') || c.includes('wise')) return <ArrowRightLeft className="w-3.5 h-3.5 text-sky-400" />;
-    if (c.includes('grocer') || c.includes('supermarket')) return <ShoppingCart className="w-3.5 h-3.5 text-emerald-400" />;
-    if (c.includes('transport') || c.includes('fuel') || c.includes('transit')) return <Car className="w-3.5 h-3.5 text-sky-400" />;
-    if (c.includes('food') || c.includes('cafe') || c.includes('restaurant') || c.includes('dining')) return <UtensilsCrossed className="w-3.5 h-3.5 text-amber-400" />;
-    if (c.includes('util') || c.includes('power') || c.includes('internet') || c.includes('phone')) return <Zap className="w-3.5 h-3.5 text-yellow-400" />;
-    if (c.includes('health') || c.includes('medical') || c.includes('gym') || c.includes('fitness')) return <HeartPulse className="w-3.5 h-3.5 text-rose-400" />;
-    if (c.includes('leisure') || c.includes('entertainment') || c.includes('movie') || c.includes('game')) return <Gamepad2 className="w-3.5 h-3.5 text-purple-400" />;
-    if (c.includes('insurance')) return <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />;
-    if (c.includes('travel') || c.includes('flight') || c.includes('air')) return <Plane className="w-3.5 h-3.5 text-cyan-400" />;
-    if (c.includes('housing') || c.includes('rent') || c.includes('mortgage')) return <Home className="w-3.5 h-3.5 text-teal-400" />;
-    return <Package className="w-3.5 h-3.5 text-slate-400" />;
-  };
-
   const handleEditBudget = (cat: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+    e?.stopPropagation();
     setSelectedCategory(cat);
     setIsConfigModalOpen(true);
   };
@@ -95,11 +102,16 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
     setIsInspectModalOpen(true);
   };
 
-  const overBudgetCategories = data?.categories.filter((c) => c.is_over_budget && !c.is_transfer) || [];
+  const refreshAll = () => {
+    void loadBreakdown();
+    onRefreshRunway?.();
+  };
+
+  const overBudgetCategories =
+    data?.categories.filter((c) => c.is_over_budget && !c.is_transfer) || [];
 
   return (
     <GlassCard className="space-y-4">
-      {/* Header with Title and Period Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
@@ -107,7 +119,9 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-200">Category Spending & Budgets</h3>
-            <p className="text-xs text-slate-400">Track where your money goes and set overspending guardrails</p>
+            <p className="text-xs text-slate-400">
+              Track where your money goes and set overspending guardrails
+            </p>
           </div>
         </div>
 
@@ -161,7 +175,6 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
 
       {error && <AlertBanner variant="error">{error}</AlertBanner>}
 
-      {/* Overspending Warning Alert */}
       {overBudgetCategories.length > 0 && (
         <AlertBanner
           variant="error"
@@ -182,35 +195,44 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         </AlertBanner>
       )}
 
-      {/* Summary Chips */}
       {data && (
         <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-2 p-3 bg-card/40 rounded-xl border border-border text-center">
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Outflow</span>
-              <span className="text-sm font-semibold font-mono text-slate-100">
-                ${data.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Total Inflow</span>
-              <span className="text-sm font-semibold font-mono text-emerald-400">
-                ${data.total_income.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Net Savings</span>
-              <span
-                className={`text-sm font-semibold font-mono ${
+          <SummaryMetricGrid
+            columns={3}
+            items={[
+              {
+                id: 'outflow',
+                label: 'Total Outflow',
+                value: formatMoney(data.total_spend, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }),
+                valueClassName: 'text-slate-100 font-mono',
+              },
+              {
+                id: 'inflow',
+                label: 'Total Inflow',
+                value: formatMoney(data.total_income, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }),
+                valueClassName: 'text-emerald-400 font-mono',
+              },
+              {
+                id: 'net',
+                label: 'Net Savings',
+                value: formatMoney(data.net_savings, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                  showPlusSign: true,
+                }),
+                valueClassName: `font-mono ${
                   data.net_savings >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                }`}
-              >
-                {data.net_savings >= 0 ? '+' : ''}${data.net_savings.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-          </div>
+                }`,
+              },
+            ]}
+          />
 
-          {/* Transfer volume footnote chip */}
           {Boolean(data.total_transfers && data.total_transfers > 0) && (
             <div className="flex items-center justify-between px-3 py-1.5 bg-card/30 rounded-lg border border-border/60 text-[11px] text-slate-400">
               <div className="flex items-center space-x-1.5">
@@ -218,25 +240,24 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                 <span>Inter-Account Transfers (Excluded from spending):</span>
               </div>
               <span className="font-mono font-medium text-sky-300">
-                ${(data.total_transfers || 0).toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+                {formatMoney(data.total_transfers || 0, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </span>
             </div>
           )}
         </div>
       )}
 
-      {/* Category Progress Bars */}
       {loading && !data ? (
-        <div className="flex items-center justify-center py-10 text-slate-400">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500" />
-        </div>
+        <LoadingState label="Loading spending breakdown..." variant="amber" />
       ) : !data || data.categories.length === 0 ? (
-        <div className="p-6 rounded-xl border border-dashed border-border text-center text-xs text-slate-400 space-y-2">
-          <p>No transactions found for this period.</p>
-          <p className="text-[11px] text-slate-500">
-            Ingest bank statements or log expenses to see your auto-categorized spending awareness breakdown.
-          </p>
-        </div>
+        <EmptyState
+          title="No transactions found for this period."
+          description="Ingest bank statements or log expenses to see your auto-categorized spending awareness breakdown."
+          variant="dashed"
+        />
       ) : (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
@@ -246,11 +267,13 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
 
           {data.categories.map((cat) => {
             const isTransfer = cat.is_transfer;
-            const hasBudget = !isTransfer && cat.budget_limit !== null && cat.budget_limit !== undefined && cat.budget_limit > 0;
+            const hasBudget =
+              !isTransfer &&
+              cat.budget_limit !== null &&
+              cat.budget_limit !== undefined &&
+              cat.budget_limit > 0;
             const percentUsed = cat.percent_used || 0;
             const barWidth = Math.min(percentUsed, 100);
-
-            // Determine bar color
             const barColor =
               cat.warning_level === 'danger'
                 ? 'bg-rose-500'
@@ -281,8 +304,15 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <span className={`font-semibold font-mono ${isTransfer ? 'text-sky-300' : 'text-slate-100'}`}>
-                      ${cat.total_spend.toLocaleString('en-NZ', { minimumFractionDigits: 2 })}
+                    <span
+                      className={`font-semibold font-mono ${
+                        isTransfer ? 'text-sky-300' : 'text-slate-100'
+                      }`}
+                    >
+                      {formatMoney(cat.total_spend, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </span>
                     <div className="p-1 rounded bg-card/80 text-slate-400 group-hover:text-slate-200 border border-transparent group-hover:border-border transition-colors">
                       <Search className="w-3 h-3" />
@@ -290,7 +320,6 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                   </div>
                 </div>
 
-                {/* Progress bar container or transfer status */}
                 {isTransfer ? (
                   <div className="flex justify-between items-center text-[10px] text-sky-400/90 pt-0.5">
                     <span className="flex items-center space-x-1">
@@ -309,17 +338,20 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                     </div>
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
                       <span>
-                        ${cat.total_spend.toFixed(0)} of ${cat.budget_limit?.toFixed(0)} ({percentUsed.toFixed(0)}%)
+                        {formatMoney(cat.total_spend)} of {formatMoney(cat.budget_limit || 0)} (
+                        {percentUsed.toFixed(0)}%)
                       </span>
                       <div className="flex items-center space-x-2">
                         {cat.is_over_budget ? (
                           <span className="text-rose-400 font-semibold flex items-center space-x-1">
                             <AlertTriangle className="w-3 h-3" />
-                            <span>${(cat.total_spend - (cat.budget_limit || 0)).toFixed(0)} OVER BUDGET</span>
+                            <span>
+                              {formatMoney(cat.total_spend - (cat.budget_limit || 0))} OVER BUDGET
+                            </span>
                           </span>
                         ) : (
                           <span className="text-emerald-400">
-                            ${((cat.budget_limit || 0) - cat.total_spend).toFixed(0)} left
+                            {formatMoney((cat.budget_limit || 0) - cat.total_spend)} left
                           </span>
                         )}
                         <button
@@ -352,47 +384,31 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         </div>
       )}
 
-      {/* Category Transaction Inspection & Correction Modal */}
       <CategoryTransactionInspectionModal
         isOpen={isInspectModalOpen}
         onClose={() => setIsInspectModalOpen(false)}
         category={inspectCategory}
         period={period}
-        onCategoryChanged={() => {
-          loadBreakdown();
-          if (onRefreshRunway) onRefreshRunway();
-        }}
+        onCategoryChanged={refreshAll}
       />
 
-      {/* Budget Configuration Modal */}
       <BudgetConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
-        onSuccess={() => {
-          loadBreakdown();
-          if (onRefreshRunway) onRefreshRunway();
-        }}
+        onSuccess={refreshAll}
         initialCategory={selectedCategory}
       />
 
-      {/* Rules Manager Modal */}
       <RulesManagerModal
         isOpen={isRulesModalOpen}
         onClose={() => setIsRulesModalOpen(false)}
-        onRulesApplied={() => {
-          loadBreakdown();
-          if (onRefreshRunway) onRefreshRunway();
-        }}
+        onRulesApplied={refreshAll}
       />
 
-      {/* Receipts & Granular Product Hub Modal */}
       <ReceiptsHubModal
         isOpen={isReceiptsModalOpen}
         onClose={() => setIsReceiptsModalOpen(false)}
-        onReceiptLinked={() => {
-          loadBreakdown();
-          if (onRefreshRunway) onRefreshRunway();
-        }}
+        onReceiptLinked={refreshAll}
       />
     </GlassCard>
   );

@@ -1,9 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { Layers, Check, RefreshCw, SlidersHorizontal, Receipt, ArrowRightLeft } from 'lucide-react';
-import { Modal, Button, AlertBanner } from '@yggdrasil-lab/ui';
-import { CategorizationRuleCreate, PeriodType, Transaction } from '../types';
-import { fetchCategoryTransactions, triggerReconcileTransfers, updateTransactionCategory } from '../services/api';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowRightLeft, Check, Layers } from 'lucide-react';
+import {
+  AlertBanner,
+  Button,
+  Modal,
+  SearchInput,
+  SummaryMetricGrid,
+} from '@yggdrasil-lab/ui';
+import {
+  CATEGORY_CHOICES,
+  formatPeriodLabel,
+  isTransferCategory as checkTransferCategory,
+} from '../constants/categories';
+import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
+import {
+  fetchCategoryTransactions,
+  triggerReconcileTransfers,
+} from '../services/api';
+import { PeriodType, Transaction } from '../types';
+import { formatMoney } from '../utils/format';
 import { RulesManagerModal } from './RulesManagerModal';
+import { TransactionList } from './TransactionList';
 
 interface CategoryTransactionInspectionModalProps {
   isOpen: boolean;
@@ -13,35 +30,62 @@ interface CategoryTransactionInspectionModalProps {
   onCategoryChanged: () => void;
 }
 
-const CATEGORY_CHOICES = [
-  'Groceries',
-  'Food',
-  'Transport',
-  'Utilities',
-  'Health',
-  'Leisure',
-  'Insurance',
-  'Travel',
-  'Transfers',
-  'Income',
-  'General',
-];
-
-export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionInspectionModalProps> = ({
-  isOpen,
-  onClose,
-  category,
-  period,
-  onCategoryChanged,
-}) => {
+/**
+ * Modal for inspecting transactions within a spending category, reconciling
+ * inter-account transfers, and recategorizing or creating rules inline.
+ */
+export const CategoryTransactionInspectionModal: React.FC<
+  CategoryTransactionInspectionModalProps
+> = ({ isOpen, onClose, category, period, onCategoryChanged }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [reconciling, setReconciling] = useState(false);
-  const [successNote, setSuccessNote] = useState<string | null>(null);
-  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
-  const [rulePrefill, setRulePrefill] = useState<Partial<CategorizationRuleCreate> | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleTransactionUpdated = useCallback((txId: number, newCategory: string) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
+    );
+  }, []);
+
+  const {
+    updatingId,
+    successNote,
+    setSuccessNote,
+    isRulesModalOpen,
+    rulePrefill,
+    handleCategoryChange,
+    handleCreateRuleFromTx,
+    closeRulesModal,
+  } = useTransactionCategoryMutation({
+    onTransactionUpdated: handleTransactionUpdated,
+    onChanged: onCategoryChanged,
+    onError: setError,
+  });
+
+  const loadTransactions = async () => {
+    if (!category) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchCategoryTransactions(category, period);
+      setTransactions(res);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to load category transactions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && category) {
+      setSuccessNote(null);
+      setSearchQuery('');
+      loadTransactions();
+    }
+  }, [isOpen, category, period]);
 
   const handleReconcileTransfers = async () => {
     setReconciling(true);
@@ -63,73 +107,30 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
     }
   };
 
-  const handleCreateRuleFromTx = (tx: Transaction) => {
-    setRulePrefill({
-      name: `Rule for ${tx.merchant}`,
-      description_pattern: tx.raw_description || tx.merchant,
-      match_type: 'contains',
-      amount_equals: null,
-      target_category: tx.category,
-      rename_merchant: tx.merchant,
-      priority: 10,
-      apply_retroactively: true,
-    });
-    setIsRulesModalOpen(true);
-  };
+  const filteredTransactions = useMemo(() => {
+    if (!searchQuery.trim()) return transactions;
+    const q = searchQuery.toLowerCase();
+    return transactions.filter(
+      (tx) =>
+        tx.merchant.toLowerCase().includes(q) ||
+        (tx.account_name || '').toLowerCase().includes(q) ||
+        (tx.raw_description || '').toLowerCase().includes(q)
+    );
+  }, [transactions, searchQuery]);
 
-  const loadTransactions = async () => {
-    if (!category) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetchCategoryTransactions(category, period);
-      setTransactions(res);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load category transactions');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen && category) {
-      setSuccessNote(null);
-      loadTransactions();
-    }
-  }, [isOpen, category, period]);
-
-  const handleCategoryChange = async (txId: number, newCategory: string) => {
-    if (!newCategory) return;
-    setUpdatingId(txId);
-    setError(null);
-    try {
-      await updateTransactionCategory(txId, newCategory);
-      setSuccessNote(`Moved transaction to "${newCategory}"`);
-      // Update local transaction category
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
-      );
-      onCategoryChanged();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to update transaction category');
-    } finally {
-      setUpdatingId(null);
-    }
-  };
+  const totalVolume = useMemo(
+    () => transactions.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0),
+    [transactions]
+  );
 
   if (!category) return null;
 
-  const isTransferCategory = category.toLowerCase() === 'transfers' || category.toLowerCase() === 'transfer';
-  const periodLabel = period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : 'All Time';
+  const isTransferCategory = checkTransferCategory(category);
+  const periodLabel = formatPeriodLabel(period);
+  const avgTx = transactions.length > 0 ? totalVolume / transactions.length : 0;
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Inspect Category: ${category}`}
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={`Inspect Category: ${category}`}>
       <div className="space-y-4">
         {/* Info header banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-300 bg-card/60 p-3 rounded-xl border border-border gap-2">
@@ -144,6 +145,30 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
             {transactions.length} {transactions.length === 1 ? 'transaction' : 'transactions'}
           </div>
         </div>
+
+        <SummaryMetricGrid
+          columns={3}
+          items={[
+            {
+              id: 'total',
+              label: 'Total Volume',
+              value: formatMoney(totalVolume, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              valueClassName: 'text-slate-100 font-mono text-xs',
+            },
+            {
+              id: 'count',
+              label: 'Transactions',
+              value: transactions.length,
+              valueClassName: 'text-amber-300 font-mono text-xs',
+            },
+            {
+              id: 'avg',
+              label: 'Average',
+              value: formatMoney(avgTx, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              valueClassName: 'text-slate-200 font-mono text-xs',
+            },
+          ]}
+        />
 
         {/* Transfer context callout */}
         {isTransferCategory && (
@@ -174,120 +199,29 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
           </div>
         )}
 
-        {/* Transaction list */}
-        {loading ? (
-          <div className="py-8 flex flex-col items-center justify-center space-y-2 text-slate-400 text-xs">
-            <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
-            <span>Loading transactions...</span>
-          </div>
-        ) : transactions.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400 bg-card/30 rounded-xl border border-border/50">
-            No transactions found for {category} in {periodLabel.toLowerCase()}.
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
-            {transactions.map((tx) => {
-              const amt = Number(tx.amount);
-              const isDebit = amt < 0;
-              const formattedAmt = `${isDebit ? '-' : '+'}$${Math.abs(amt).toFixed(2)}`;
-
-              return (
-                <div
-                  key={tx.id}
-                  className="p-3 bg-card/60 hover:bg-card/80 border border-border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
-                >
-                  {/* Left: Date, merchant, account badge */}
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[11px] font-mono text-slate-400">
-                        {tx.transaction_date}
-                      </span>
-                      {tx.account_name && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium">
-                          {tx.account_name}
-                        </span>
-                      )}
-                      {Boolean(tx.has_receipt) && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium flex items-center space-x-1"
-                          title="Matched Itemized Receipt"
-                        >
-                          <Receipt className="w-2.5 h-2.5" />
-                          <span>Receipt</span>
-                        </span>
-                      )}
-                      {tx.linked_transaction_id != null && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-medium flex items-center space-x-1"
-                          title={tx.exchange_rate && tx.exchange_rate !== 1.0 ? `Linked Transfer (Rate: ${tx.exchange_rate})` : "Linked Account Transfer"}
-                        >
-                          <ArrowRightLeft className="w-2.5 h-2.5" />
-                          <span>{tx.exchange_rate && tx.exchange_rate !== 1.0 ? `FX (${tx.exchange_rate})` : "Transfer Linked"}</span>
-                        </span>
-                      )}
-                      {Boolean(tx.fee_amount) && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium"
-                          title={`Transfer Fee: $${tx.fee_amount}`}
-                        >
-                          Fee: ${tx.fee_amount}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs font-medium text-slate-200 truncate" title={tx.raw_description || tx.merchant}>
-                      {tx.merchant}
-                    </div>
-                  </div>
-
-                  {/* Right: Amount & Category selector */}
-                  <div className="flex items-center justify-between sm:justify-end space-x-3 shrink-0">
-                    <span
-                      className={`text-xs font-semibold font-mono ${
-                        isTransferCategory
-                          ? 'text-sky-300'
-                          : isDebit
-                          ? 'text-rose-400'
-                          : 'text-emerald-400'
-                      }`}
-                    >
-                      {formattedAmt}
-                    </span>
-
-                    {/* Category quick changer & rule builder */}
-                    <div className="flex items-center space-x-1.5">
-                      <select
-                        value={tx.category}
-                        onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                        disabled={updatingId === tx.id}
-                        aria-label={`Category for ${tx.merchant}`}
-                        className="text-[11px] px-2 py-1 bg-background border border-border hover:border-amber-500/50 rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 transition-colors disabled:opacity-50"
-                      >
-                        {CATEGORY_CHOICES.map((choice) => (
-                          <option key={choice} value={choice}>
-                            {choice}
-                          </option>
-                        ))}
-                      </select>
-                      {updatingId === tx.id ? (
-                        <RefreshCw className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleCreateRuleFromTx(tx)}
-                          className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                          title="Create categorization rule from this transaction"
-                          aria-label={`Create rule for ${tx.merchant}`}
-                        >
-                          <SlidersHorizontal className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {transactions.length > 0 && (
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Filter by merchant or account..."
+            variant="amber"
+          />
         )}
+
+        <TransactionList
+          transactions={filteredTransactions}
+          categories={CATEGORY_CHOICES}
+          loading={loading}
+          loadingLabel="Loading transactions..."
+          emptyTitle={`No transactions found for ${category} in ${periodLabel.toLowerCase()}.`}
+          updatingId={updatingId}
+          onCategoryChange={(txId, cat) => {
+            setError(null);
+            void handleCategoryChange(txId, cat);
+          }}
+          onCreateRule={handleCreateRuleFromTx}
+          showAccountBadge
+        />
 
         <div className="pt-2 flex justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
@@ -296,13 +230,9 @@ export const CategoryTransactionInspectionModal: React.FC<CategoryTransactionIns
         </div>
       </div>
 
-      {/* Rules Manager Modal spawned from transaction */}
       <RulesManagerModal
         isOpen={isRulesModalOpen}
-        onClose={() => {
-          setIsRulesModalOpen(false);
-          setRulePrefill(null);
-        }}
+        onClose={closeRulesModal}
         prefillRule={rulePrefill}
         onRulesApplied={() => {
           loadTransactions();
