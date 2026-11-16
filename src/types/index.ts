@@ -37,6 +37,8 @@ export interface RunwayTierBreakdown {
   growth_balance: number;
   locked_balance: number;
   total_liquid_balance: number;
+  total_liabilities?: number;
+  net_worth?: number;
   emergency_weeks: number;
   growth_weeks: number | null;
   locked_weeks?: number | null;
@@ -63,6 +65,48 @@ export interface RunwayScenarioResult {
   simulated_runway_years: number | null;
   is_perpetual: boolean;
   delta_weeks_compared_to_baseline: number | null;
+  loan_free_date?: string | null;
+  loan_weekly_relief?: number;
+  total_liabilities?: number;
+  simulated_net_worth?: number;
+}
+
+export interface LoanCreatePayload {
+  name: string;
+  lender: string;
+  principal_amount: number;
+  annual_interest_rate: number;
+  term_months: number;
+  monthly_payment: number;
+  start_date: string;
+  asset_value?: number | null;
+  currency?: string;
+  notes?: string | null;
+}
+
+export interface LoanItem extends LoanCreatePayload {
+  id: number;
+  currency: string;
+  is_active: boolean;
+  payments_made: number;
+  payments_remaining: number;
+  payoff_date: string;
+  next_payment_date?: string | null;
+  remaining_principal: number;
+  principal_paid: number;
+  remaining_interest: number;
+  weekly_payment_equivalent: number;
+  net_worth_impact: number;
+}
+
+export interface LoansSummaryResponse {
+  loans: LoanItem[];
+  total_liabilities: number;
+  total_asset_value: number;
+  net_loan_impact: number;
+  total_monthly_payment: number;
+  total_weekly_payment: number;
+  latest_payoff_date?: string | null;
 }
 
 export interface RunwayAiSynthesisResult {

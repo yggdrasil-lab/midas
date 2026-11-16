@@ -22,11 +22,12 @@ import {
   StatusBadge,
 } from '@yggdrasil-lab/ui';
 import { PERIOD_OPTIONS } from '../constants/categories';
-import { fetchAccounts, fetchAccountSnapshots, syncAllIntegrations } from '../services/api';
-import { Account, AssetSnapshot, PeriodType, SyncResult } from '../types';
+import { fetchAccounts, fetchAccountSnapshots, fetchLoans, syncAllIntegrations } from '../services/api';
+import { Account, AssetSnapshot, LoansSummaryResponse, PeriodType, SyncResult } from '../types';
 import { formatMoney } from '../utils/format';
 import { AccountInspectionModal } from './AccountInspectionModal';
 import { AccountTierSection } from './AccountTierSection';
+import { LoansTracker } from './LoansTracker';
 import { RecordSnapshotModal } from './RecordSnapshotModal';
 
 interface AccountViewProps {
@@ -46,6 +47,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
 }) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<number, AssetSnapshot[]>>({});
+  const [loansSummary, setLoansSummary] = useState<LoansSummaryResponse | null>(null);
   const [period, setPeriod] = useState<PeriodType>('month');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -62,8 +64,12 @@ export const AccountView: React.FC<AccountViewProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const accs = await fetchAccounts();
+      const [accs, loans] = await Promise.all([
+        fetchAccounts(),
+        fetchLoans().catch(() => null),
+      ]);
       setAccounts(accs);
+      setLoansSummary(loans);
 
       const snapEntries = await Promise.all(
         accs.map(async (acc) => {
@@ -278,9 +284,19 @@ export const AccountView: React.FC<AccountViewProps> = ({
                 Total Portfolio Net Worth
               </div>
               <div className="text-2xl sm:text-3xl font-extrabold text-slate-100 font-mono tracking-tight">
-                {formatMoney(totalPortfolioBalance)}
+                {formatMoney(
+                  totalPortfolioBalance - (loansSummary?.total_liabilities ?? 0)
+                )}
                 <span className="text-sm font-sans font-medium text-slate-400 ml-2">NZD</span>
               </div>
+              {(loansSummary?.total_liabilities ?? 0) > 0 && (
+                <div className="text-[11px] text-slate-400 font-mono pt-0.5">
+                  Assets {formatMoney(totalPortfolioBalance)} NZD - Loans{' '}
+                  <span className="text-rose-400">
+                    {formatMoney(loansSummary?.total_liabilities ?? 0)} NZD
+                  </span>
+                </div>
+              )}
             </div>
             <div className="text-xs text-slate-400 flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-border">
@@ -368,6 +384,15 @@ export const AccountView: React.FC<AccountViewProps> = ({
           ))}
         </div>
       )}
+
+      {/* Financing & Loans Countdown */}
+      <LoansTracker
+        summary={loansSummary}
+        onChanged={() => {
+          void loadAccountsAndSnapshots();
+          onRefreshRunway?.();
+        }}
+      />
 
       {/* Balance Valuation Checkpoints */}
       <GlassCard className="space-y-4" data-testid="account-snapshots-panel">

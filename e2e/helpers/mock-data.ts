@@ -26,6 +26,43 @@ export const MOCK_SIMULATED_DATA = {
   simulated_runway_years: 4.4,
   is_perpetual: false,
   delta_weeks_compared_to_baseline: 44.0,
+  loan_free_date: '2029-10-20',
+  loan_weekly_relief: 335.17,
+  total_liabilities: 45399.42,
+  simulated_net_worth: 223600.58,
+};
+
+export const MOCK_LOANS_DATA = {
+  loans: [
+    {
+      id: 1,
+      name: 'Toyota Corolla Cross (TFS)',
+      lender: 'Toyota Financial Services',
+      principal_amount: 45399.42,
+      annual_interest_rate: 0.0962,
+      term_months: 36,
+      monthly_payment: 1452.42,
+      start_date: '2026-11-20',
+      asset_value: 55000.0,
+      currency: 'NZD',
+      is_active: true,
+      payments_made: 0,
+      payments_remaining: 36,
+      payoff_date: '2029-10-20',
+      next_payment_date: '2026-11-20',
+      remaining_principal: 45399.42,
+      principal_paid: 0.0,
+      remaining_interest: 6887.7,
+      weekly_payment_equivalent: 335.17,
+      net_worth_impact: 9600.58,
+    },
+  ],
+  total_liabilities: 45399.42,
+  total_asset_value: 55000.0,
+  net_loan_impact: 9600.58,
+  total_monthly_payment: 1452.42,
+  total_weekly_payment: 335.17,
+  latest_payoff_date: '2029-10-20',
 };
 
 export const MOCK_PRODUCTS_DATA = {
@@ -777,6 +814,27 @@ export async function setupMockApi(page: Page) {
   });
 
   // Mock External Bank Feed Sync Endpoint
+  await page.route(/\/api\/loans(\/\d+)?(\?.*)?$/, async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LOANS_DATA),
+      });
+    } else if (method === 'POST') {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_LOANS_DATA.loans[0]),
+      });
+    } else if (method === 'DELETE') {
+      await route.fulfill({ status: 204, body: '' });
+    } else {
+      await route.continue();
+    }
+  });
+
   await page.route(/\/api\/integrations\/sync\/all(\?.*)?$/, async (route) => {
     if (route.request().method() === 'POST') {
       await route.fulfill({
