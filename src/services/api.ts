@@ -567,7 +567,7 @@ export async function triggerReconcileTransfers(): Promise<{ status: string; mat
   return res.json();
 }
 
-export async function syncAllIntegrations(days = 14): Promise<SyncResult> {
+export async function syncAllIntegrations(days = 30): Promise<SyncResult> {
   const res = await authFetch(`${API_BASE}/integrations/sync/all?days=${days}`, {
     method: 'POST',
   });
