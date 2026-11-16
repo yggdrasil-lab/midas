@@ -121,6 +121,14 @@ export const RulesList: React.FC<RulesListProps> = ({
                   <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-medium border border-emerald-500/20 text-[10px]">
                     {rule.target_category}
                   </span>
+                  {(rule.target_tags || []).map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-medium"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
                   {rule.rename_merchant && (
                     <span className="text-slate-400">
                       (rename:{' '}

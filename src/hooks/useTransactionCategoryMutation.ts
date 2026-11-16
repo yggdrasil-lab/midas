@@ -48,6 +48,7 @@ export function useTransactionCategoryMutation({
       match_type: 'contains',
       amount_equals: null,
       target_category: tx.category,
+      target_tags: tx.tags || [],
       rename_merchant: tx.merchant,
       priority: 10,
       apply_retroactively: true,

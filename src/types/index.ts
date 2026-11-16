@@ -167,6 +167,7 @@ export interface CategorizationRule {
   match_type: 'contains' | 'exact' | 'starts_with';
   amount_equals?: number | null;
   target_category: string;
+  target_tags?: string[];
   rename_merchant?: string | null;
   priority: number;
   is_active: boolean;
@@ -181,6 +182,7 @@ export interface CategorizationRuleCreate {
   match_type?: 'contains' | 'exact' | 'starts_with';
   amount_equals?: number | null;
   target_category: string;
+  target_tags?: string[];
   rename_merchant?: string | null;
   priority?: number;
   is_active?: boolean;

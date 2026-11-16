@@ -9,6 +9,7 @@ export interface RuleFormDraft {
   matchType: 'contains' | 'exact' | 'starts_with';
   amountEquals: string;
   targetCategory: string;
+  targetTags: string;
   renameMerchant: string;
   priority: number;
   applyRetroactively: boolean;
@@ -20,6 +21,7 @@ export const DEFAULT_RULE_DRAFT: RuleFormDraft = {
   matchType: 'contains',
   amountEquals: '',
   targetCategory: 'General',
+  targetTags: '',
   renameMerchant: '',
   priority: 10,
   applyRetroactively: true,
@@ -156,7 +158,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
           </select>
         </div>
 
-        <div className="sm:col-span-2">
+        <div>
           <label className="text-[11px] text-slate-300 block mb-1">
             Rename Merchant <span className="text-slate-400">(optional)</span>
           </label>
@@ -166,6 +168,19 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             value={draft.renameMerchant}
             onChange={(e) => updateField('renameMerchant', e.target.value)}
             className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+          />
+        </div>
+
+        <div>
+          <label className="text-[11px] text-slate-300 block mb-1">
+            Target Tags <span className="text-slate-400">(optional, comma-separated)</span>
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. gym-membership, badminton"
+            value={draft.targetTags}
+            onChange={(e) => updateField('targetTags', e.target.value)}
+            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
           />
         </div>
       </div>
