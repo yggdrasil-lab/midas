@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowRightLeft,
+  Plus,
   Receipt as ReceiptIcon,
   RefreshCw,
   SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import { Transaction } from '../types';
 import { isTransferCategory } from '../constants/categories';
@@ -14,6 +16,7 @@ interface TransactionRowProps {
   categories: readonly string[];
   updating: boolean;
   onCategoryChange: (txId: number, category: string) => void;
+  onTagsChange?: (txId: number, tags: string[]) => void;
   onCreateRule: (tx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
@@ -31,6 +34,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   categories,
   updating,
   onCategoryChange,
+  onTagsChange,
   onCreateRule,
   showAccountBadge = true,
   fallbackCurrency,
@@ -45,6 +49,26 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const formattedAmt = formatSignedTransactionAmount(amt, txCurrency);
   const hasLinkedTransfer = tx.linked_transaction_id != null;
   const hasFxRate = Boolean(tx.exchange_rate && tx.exchange_rate !== 1.0);
+  const [addingTag, setAddingTag] = useState(false);
+  const [tagDraft, setTagDraft] = useState('');
+  const tags = tx.tags || [];
+
+  const handleCommitTag = () => {
+    const cleaned = tagDraft.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-');
+    if (cleaned && !tags.includes(cleaned) && onTagsChange) {
+      onTagsChange(tx.id, [...tags, cleaned]);
+    }
+    setTagDraft('');
+    setAddingTag(false);
+  };
+
+  const handleRemoveTag = (target: string) => {
+    if (!onTagsChange) return;
+    onTagsChange(
+      tx.id,
+      tags.filter((t) => t !== target)
+    );
+  };
 
   return (
     <div
@@ -111,6 +135,67 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         {tx.raw_description && tx.raw_description !== tx.merchant && (
           <div className="text-[11px] text-slate-500 truncate max-w-sm">
             {tx.raw_description}
+          </div>
+        )}
+        {(tags.length > 0 || onTagsChange) && (
+          <div className="flex items-center flex-wrap gap-1 pt-0.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-medium"
+              >
+                <span>#{tag}</span>
+                {onTagsChange && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(tag)}
+                    disabled={updating}
+                    aria-label={`Remove tag ${tag}`}
+                    className="text-amber-400/70 hover:text-amber-200 transition-colors"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </span>
+            ))}
+            {onTagsChange && !addingTag && (
+              <button
+                type="button"
+                onClick={() => setAddingTag(true)}
+                disabled={updating}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-800/70 hover:bg-slate-800 text-slate-400 hover:text-amber-300 border border-border/70 text-[10px] transition-colors"
+                data-testid={`add-tag-btn-${tx.id}`}
+              >
+                <Plus className="w-2.5 h-2.5" />
+                <span>tag</span>
+              </button>
+            )}
+            {onTagsChange && addingTag && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleCommitTag();
+                }}
+                className="inline-flex items-center gap-1"
+              >
+                <input
+                  type="text"
+                  value={tagDraft}
+                  onChange={(e) => setTagDraft(e.target.value)}
+                  onBlur={handleCommitTag}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setTagDraft('');
+                      setAddingTag(false);
+                    }
+                  }}
+                  placeholder="badminton"
+                  autoFocus
+                  className="w-24 px-1.5 py-0.5 text-[10px] rounded bg-background border border-amber-500/50 text-slate-200 focus:outline-none"
+                  data-testid={`tag-input-${tx.id}`}
+                />
+              </form>
+            )}
           </div>
         )}
       </div>

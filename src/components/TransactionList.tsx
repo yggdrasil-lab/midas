@@ -12,6 +12,7 @@ interface TransactionListProps {
   emptyDescription?: string;
   updatingId: number | null;
   onCategoryChange: (txId: number, category: string) => void;
+  onTagsChange?: (txId: number, tags: string[]) => void;
   onCreateRule: (tx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
@@ -33,6 +34,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   emptyDescription,
   updatingId,
   onCategoryChange,
+  onTagsChange,
   onCreateRule,
   showAccountBadge = true,
   fallbackCurrency,
@@ -64,6 +66,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           categories={categories}
           updating={updatingId === tx.id}
           onCategoryChange={onCategoryChange}
+          onTagsChange={onTagsChange}
           onCreateRule={onCreateRule}
           showAccountBadge={showAccountBadge}
           fallbackCurrency={fallbackCurrency}

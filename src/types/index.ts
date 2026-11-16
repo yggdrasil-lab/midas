@@ -124,6 +124,7 @@ export interface Transaction {
   linked_transaction_id?: number | null;
   exchange_rate?: number | null;
   fee_amount?: number | null;
+  tags?: string[];
   created_at?: string;
 }
 

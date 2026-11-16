@@ -24,7 +24,7 @@ import {
   isTransferCategory,
 } from '../constants/categories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchAccountTransactions } from '../services/api';
+import { fetchAccountTransactions, updateTransactionTags } from '../services/api';
 import { Account, PeriodType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
 import { RulesManagerModal } from './RulesManagerModal';
@@ -82,6 +82,19 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     setTransactions((prev) =>
       prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
     );
+  }, []);
+
+  const handleTagsChange = useCallback(async (txId: number, newTags: string[]) => {
+    setError(null);
+    try {
+      const updated = await updateTransactionTags(txId, newTags);
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === txId ? { ...t, tags: updated.tags ?? newTags } : t))
+      );
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to update transaction tags');
+    }
   }, []);
 
   const {
@@ -154,11 +167,12 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
         return false;
       }
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+        const q = searchQuery.toLowerCase().replace(/^#+/, '');
         return (
           tx.merchant.toLowerCase().includes(q) ||
           tx.category.toLowerCase().includes(q) ||
-          (tx.raw_description || '').toLowerCase().includes(q)
+          (tx.raw_description || '').toLowerCase().includes(q) ||
+          (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
         );
       }
       return true;
@@ -324,6 +338,9 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
           onCategoryChange={(txId, cat) => {
             setError(null);
             void handleCategoryChange(txId, cat);
+          }}
+          onTagsChange={(txId, newTags) => {
+            void handleTagsChange(txId, newTags);
           }}
           onCreateRule={handleCreateRuleFromTx}
           showAccountBadge={account === null}

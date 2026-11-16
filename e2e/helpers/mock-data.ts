@@ -423,6 +423,7 @@ export async function setupMockApi(page: Page) {
           currency: 'NZD',
           merchant: 'Pak n Save Albany',
           category: body?.category || 'Food',
+          tags: body?.tags || ['weekly-shop'],
         }),
       });
     } else {
@@ -439,6 +440,7 @@ export async function setupMockApi(page: Page) {
             currency: 'NZD',
             merchant: 'Pak n Save Albany',
             category: 'Groceries',
+            tags: ['weekly-shop', 'pantry'],
             has_receipt: true,
           },
           {

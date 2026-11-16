@@ -200,11 +200,13 @@ export async function fetchAccountTransactions(params?: {
   accountId?: number;
   period?: PeriodType;
   category?: string;
+  tag?: string;
   limit?: number;
 }): Promise<Transaction[]> {
   const searchParams = new URLSearchParams();
   if (params?.period) searchParams.set('period', params.period);
   if (params?.category) searchParams.set('category', params.category);
+  if (params?.tag) searchParams.set('tag', params.tag);
   if (params?.accountId !== undefined) searchParams.set('account_id', String(params.accountId));
   searchParams.set('limit', String(params?.limit ?? 500));
   const res = await authFetch(`${API_BASE}/transactions?${searchParams.toString()}`);
@@ -337,6 +339,23 @@ export async function updateTransactionCategory(
   });
   if (!res.ok) {
     throw new Error(`Failed to update transaction category: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function updateTransactionTags(
+  id: number,
+  tags: string[]
+): Promise<Transaction> {
+  const res = await authFetch(`${API_BASE}/transactions/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ tags }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update transaction tags: ${res.statusText}`);
   }
   return res.json();
 }
