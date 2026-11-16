@@ -16,6 +16,7 @@ import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryM
 import {
   fetchCategoryTransactions,
   triggerReconcileTransfers,
+  updateTransactionTags,
 } from '../services/api';
 import { PeriodType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
@@ -47,6 +48,19 @@ export const CategoryTransactionInspectionModal: React.FC<
     setTransactions((prev) =>
       prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
     );
+  }, []);
+
+  const handleTagsChange = useCallback(async (txId: number, newTags: string[]) => {
+    setError(null);
+    try {
+      const updated = await updateTransactionTags(txId, newTags);
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === txId ? { ...t, tags: updated.tags ?? newTags } : t))
+      );
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to update transaction tags');
+    }
   }, []);
 
   const {
@@ -109,12 +123,13 @@ export const CategoryTransactionInspectionModal: React.FC<
 
   const filteredTransactions = useMemo(() => {
     if (!searchQuery.trim()) return transactions;
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().replace(/^#+/, '');
     return transactions.filter(
       (tx) =>
         tx.merchant.toLowerCase().includes(q) ||
         (tx.account_name || '').toLowerCase().includes(q) ||
-        (tx.raw_description || '').toLowerCase().includes(q)
+        (tx.raw_description || '').toLowerCase().includes(q) ||
+        (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
     );
   }, [transactions, searchQuery]);
 
@@ -218,6 +233,9 @@ export const CategoryTransactionInspectionModal: React.FC<
           onCategoryChange={(txId, cat) => {
             setError(null);
             void handleCategoryChange(txId, cat);
+          }}
+          onTagsChange={(txId, newTags) => {
+            void handleTagsChange(txId, newTags);
           }}
           onCreateRule={handleCreateRuleFromTx}
           showAccountBadge
