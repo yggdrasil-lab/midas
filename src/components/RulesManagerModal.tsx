@@ -33,6 +33,7 @@ function draftFromPrefill(prefill: Partial<CategorizationRuleCreate>): RuleFormD
         ? String(prefill.amount_equals)
         : '',
     targetCategory: prefill.target_category || 'General',
+    targetTags: (prefill.target_tags || []).join(', '),
     renameMerchant: prefill.rename_merchant || '',
     priority: prefill.priority || 10,
     applyRetroactively: prefill.apply_retroactively !== false,
@@ -46,6 +47,7 @@ function draftFromRule(rule: CategorizationRule): RuleFormDraft {
     matchType: rule.match_type,
     amountEquals: rule.amount_equals != null ? String(rule.amount_equals) : '',
     targetCategory: rule.target_category,
+    targetTags: (rule.target_tags || []).join(', '),
     renameMerchant: rule.rename_merchant || '',
     priority: rule.priority,
     applyRetroactively: true,
@@ -130,12 +132,17 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
 
     const num = parseFloat(draft.amountEquals.trim());
     const parsedAmt = !isNaN(num) && num > 0 ? Math.abs(num) : null;
+    const parsedTags = draft.targetTags
+      .split(',')
+      .map((t) => t.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-'))
+      .filter(Boolean);
     const payload: CategorizationRuleCreate = {
       name: draft.name.trim(),
       description_pattern: draft.descriptionPattern.trim(),
       match_type: draft.matchType,
       amount_equals: parsedAmt,
       target_category: draft.targetCategory.trim(),
+      target_tags: Array.from(new Set(parsedTags)),
       rename_merchant: draft.renameMerchant.trim() || null,
       priority: draft.priority,
       apply_retroactively: draft.applyRetroactively,
