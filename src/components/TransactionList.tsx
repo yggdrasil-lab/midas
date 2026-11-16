@@ -1,6 +1,6 @@
 import React from 'react';
 import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
-import { Transaction } from '../types';
+import { RecurrenceType, Transaction } from '../types';
 import { TransactionRow } from './TransactionRow';
 
 interface TransactionListProps {
@@ -13,6 +13,7 @@ interface TransactionListProps {
   updatingId: number | null;
   onCategoryChange: (txId: number, category: string) => void;
   onTagsChange?: (txId: number, tags: string[]) => void;
+  onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   onCreateRule: (tx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
@@ -35,6 +36,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   updatingId,
   onCategoryChange,
   onTagsChange,
+  onRecurrenceChange,
   onCreateRule,
   showAccountBadge = true,
   fallbackCurrency,
@@ -67,6 +69,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
           updating={updatingId === tx.id}
           onCategoryChange={onCategoryChange}
           onTagsChange={onTagsChange}
+          onRecurrenceChange={onRecurrenceChange}
           onCreateRule={onCreateRule}
           showAccountBadge={showAccountBadge}
           fallbackCurrency={fallbackCurrency}

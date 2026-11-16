@@ -107,6 +107,14 @@ export interface InstitutionInfo {
   currency: string;
 }
 
+export type RecurrenceType =
+  | 'weekly'
+  | 'fortnightly'
+  | 'monthly'
+  | 'quarterly'
+  | 'annual'
+  | 'one-off';
+
 export interface Transaction {
   id: number;
   transaction_date: string;
@@ -125,6 +133,7 @@ export interface Transaction {
   exchange_rate?: number | null;
   fee_amount?: number | null;
   tags?: string[];
+  recurrence?: RecurrenceType | null;
   created_at?: string;
 }
 
@@ -168,6 +177,7 @@ export interface CategorizationRule {
   amount_equals?: number | null;
   target_category: string;
   target_tags?: string[];
+  target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
   priority: number;
   is_active: boolean;
@@ -183,6 +193,7 @@ export interface CategorizationRuleCreate {
   amount_equals?: number | null;
   target_category: string;
   target_tags?: string[];
+  target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
   priority?: number;
   is_active?: boolean;

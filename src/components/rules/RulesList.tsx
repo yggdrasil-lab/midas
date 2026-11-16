@@ -129,6 +129,11 @@ export const RulesList: React.FC<RulesListProps> = ({
                       #{tag}
                     </span>
                   ))}
+                  {rule.target_recurrence && (
+                    <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-medium">
+                      {rule.target_recurrence}
+                    </span>
+                  )}
                   {rule.rename_merchant && (
                     <span className="text-slate-400">
                       (rename:{' '}

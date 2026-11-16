@@ -7,8 +7,8 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import { Transaction } from '../types';
-import { isTransferCategory } from '../constants/categories';
+import { RecurrenceType, Transaction } from '../types';
+import { isTransferCategory, RECURRENCE_OPTIONS } from '../constants/categories';
 import { formatMoney, formatSignedTransactionAmount } from '../utils/format';
 
 interface TransactionRowProps {
@@ -17,6 +17,7 @@ interface TransactionRowProps {
   updating: boolean;
   onCategoryChange: (txId: number, category: string) => void;
   onTagsChange?: (txId: number, tags: string[]) => void;
+  onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   onCreateRule: (tx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
@@ -35,6 +36,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   updating,
   onCategoryChange,
   onTagsChange,
+  onRecurrenceChange,
   onCreateRule,
   showAccountBadge = true,
   fallbackCurrency,
@@ -211,6 +213,27 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         </span>
 
         <div className="flex items-center space-x-1.5">
+          {onRecurrenceChange && (
+            <select
+              value={tx.recurrence || ''}
+              onChange={(e) =>
+                onRecurrenceChange(
+                  tx.id,
+                  (e.target.value || null) as RecurrenceType | null
+                )
+              }
+              disabled={updating}
+              aria-label={`Recurrence for ${tx.merchant}`}
+              title="Payment frequency for weekly budget and runway burn"
+              className="text-[11px] px-1.5 py-1 bg-background border border-border hover:border-amber-500/50 rounded-lg text-slate-300 focus:outline-none focus:border-amber-500 transition-colors disabled:opacity-50"
+            >
+              {RECURRENCE_OPTIONS.map((opt) => (
+                <option key={opt.label} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
           <select
             value={tx.category}
             onChange={(e) => onCategoryChange(tx.id, e.target.value)}

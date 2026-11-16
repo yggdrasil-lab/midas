@@ -49,6 +49,7 @@ export function useTransactionCategoryMutation({
       amount_equals: null,
       target_category: tx.category,
       target_tags: tx.tags || [],
+      target_recurrence: tx.recurrence || null,
       rename_merchant: tx.merchant,
       priority: 10,
       apply_retroactively: true,

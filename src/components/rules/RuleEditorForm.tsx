@@ -1,7 +1,8 @@
 import React from 'react';
 import { Check, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@yggdrasil-lab/ui';
-import { CATEGORY_CHOICES } from '../../constants/categories';
+import { CATEGORY_CHOICES, RECURRENCE_OPTIONS } from '../../constants/categories';
+import { RecurrenceType } from '../../types';
 
 export interface RuleFormDraft {
   name: string;
@@ -10,6 +11,7 @@ export interface RuleFormDraft {
   amountEquals: string;
   targetCategory: string;
   targetTags: string;
+  targetRecurrence: RecurrenceType | '';
   renameMerchant: string;
   priority: number;
   applyRetroactively: boolean;
@@ -22,6 +24,7 @@ export const DEFAULT_RULE_DRAFT: RuleFormDraft = {
   amountEquals: '',
   targetCategory: 'General',
   targetTags: '',
+  targetRecurrence: '',
   renameMerchant: '',
   priority: 10,
   applyRetroactively: true,
@@ -177,11 +180,30 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
           </label>
           <input
             type="text"
-            placeholder="e.g. gym-membership, badminton"
+            placeholder="e.g. gym, subscription"
             value={draft.targetTags}
             onChange={(e) => updateField('targetTags', e.target.value)}
             className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
           />
+        </div>
+
+        <div>
+          <label className="text-[11px] text-slate-300 block mb-1">
+            Payment Frequency <span className="text-slate-400">(for weekly budget/runway)</span>
+          </label>
+          <select
+            value={draft.targetRecurrence}
+            onChange={(e) =>
+              updateField('targetRecurrence', e.target.value as RecurrenceType | '')
+            }
+            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+          >
+            {RECURRENCE_OPTIONS.map((opt) => (
+              <option key={opt.label} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
