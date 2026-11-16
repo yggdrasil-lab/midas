@@ -18,8 +18,8 @@ export function formatMoney(
 }
 
 /**
- * Formats a signed transaction amount with explicit + / - prefix and optional
- * non-NZD currency suffix (e.g. "-$120.50", "+$500.00 USD").
+ * Formats a signed transaction amount with explicit + / - prefix and currency
+ * suffix (e.g. "-$120.50 NZD", "+$500.00 USD").
  */
 export function formatSignedTransactionAmount(
   amount: number,
@@ -33,6 +33,6 @@ export function formatSignedTransactionAmount(
     showPlusSign: true,
   });
   const prefixed = numeric === 0 ? `+${formatted}` : formatted;
-  const suffix = currency && currency !== 'NZD' ? ` ${currency}` : '';
-  return `${prefixed}${suffix}`;
+  const resolvedCurrency = currency?.trim() || 'NZD';
+  return `${prefixed} ${resolvedCurrency}`;
 }

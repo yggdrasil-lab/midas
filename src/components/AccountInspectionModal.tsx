@@ -198,7 +198,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       id: 'outflow',
       label: 'Outflow',
       value: (
-        <span className="text-xs tracking-tight">{formatMoney(analytics.totalSpend)}</span>
+        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalSpend)} ${displayCurrency}`}</span>
       ),
       valueClassName: 'text-slate-200 font-mono text-xs',
     },
@@ -206,7 +206,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       id: 'inflow',
       label: 'Inflow',
       value: (
-        <span className="text-xs tracking-tight">{formatMoney(analytics.totalIncome)}</span>
+        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalIncome)} ${displayCurrency}`}</span>
       ),
       valueClassName: 'text-emerald-400 font-mono text-xs',
     },
@@ -214,7 +214,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       id: 'transfers',
       label: 'Transfers',
       value: (
-        <span className="text-xs tracking-tight">{formatMoney(analytics.totalTransfers)}</span>
+        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalTransfers)} ${displayCurrency}`}</span>
       ),
       valueClassName: 'text-sky-300 font-mono text-xs',
     },

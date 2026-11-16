@@ -63,7 +63,7 @@ export const RunwayClock: React.FC<RunwayClockProps> = ({ data }) => {
         <StatCard
           title={cashLabel}
           value={`${breakdown.emergency_weeks} w`}
-          subtitle={formatMoney(breakdown.cash_balance)}
+          subtitle={`${formatMoney(breakdown.cash_balance)} NZD`}
           icon={<ShieldCheck className="w-3.5 h-3.5" />}
           variant="sky"
         />
@@ -77,7 +77,7 @@ export const RunwayClock: React.FC<RunwayClockProps> = ({ data }) => {
               ? `${breakdown.growth_weeks} w`
               : 'N/A'
           }
-          subtitle={formatMoney(breakdown.growth_balance)}
+          subtitle={`${formatMoney(breakdown.growth_balance)} NZD`}
           icon={<TrendingUp className="w-3.5 h-3.5" />}
           variant="emerald"
         />
@@ -89,7 +89,7 @@ export const RunwayClock: React.FC<RunwayClockProps> = ({ data }) => {
               ? `${breakdown.locked_weeks} w`
               : '0 w'
           }
-          subtitle={formatMoney(breakdown.locked_balance)}
+          subtitle={`${formatMoney(breakdown.locked_balance)} NZD`}
           icon={<Lock className="w-3.5 h-3.5" />}
           variant="amber"
         />

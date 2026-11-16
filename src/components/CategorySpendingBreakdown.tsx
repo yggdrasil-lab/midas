@@ -208,7 +208,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                     {formatMoney(data.total_spend, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    })}
+                    })}{' '}
+                    NZD
                   </span>
                 ),
                 valueClassName: 'text-slate-100 font-mono',
@@ -221,7 +222,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                     {formatMoney(data.total_income, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    })}
+                    })}{' '}
+                    NZD
                   </span>
                 ),
                 valueClassName: 'text-emerald-400 font-mono',
@@ -235,7 +237,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                       showPlusSign: true,
-                    })}
+                    })}{' '}
+                    NZD
                   </span>
                 ),
                 valueClassName: `font-mono ${
@@ -255,7 +258,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                 {formatMoney(data.total_transfers || 0, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
-                })}
+                })}{' '}
+                NZD
               </span>
             </div>
           )}
@@ -324,7 +328,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                       {formatMoney(cat.total_spend, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                      })}
+                      })}{' '}
+                      NZD
                     </span>
                     <div className="p-1 rounded bg-card/80 text-slate-400 group-hover:text-slate-200 border border-transparent group-hover:border-border transition-colors">
                       <Search className="w-3 h-3" />

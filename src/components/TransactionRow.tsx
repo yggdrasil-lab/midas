@@ -45,7 +45,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const isTransfer = isTransferCategory(tx.category, tx);
   const amt = Number(tx.amount);
   const isDebit = amt < 0;
-  const txCurrency = tx.currency || fallbackCurrency;
+  const txCurrency = tx.currency || fallbackCurrency || 'NZD';
   const formattedAmt = formatSignedTransactionAmount(amt, txCurrency);
   const hasLinkedTransfer = tx.linked_transaction_id != null;
   const hasFxRate = Boolean(tx.exchange_rate && tx.exchange_rate !== 1.0);
@@ -119,9 +119,9 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
           {Boolean(tx.fee_amount) && (
             <span
               className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium"
-              title={`Transfer Fee: ${formatMoney(Number(tx.fee_amount), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              title={`Transfer Fee: ${formatMoney(Number(tx.fee_amount), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${txCurrency}`}
             >
-              Fee: {formatMoney(Number(tx.fee_amount), { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+              Fee: {formatMoney(Number(tx.fee_amount), { minimumFractionDigits: 0, maximumFractionDigits: 2 })} {txCurrency}
             </span>
           )}
         </div>

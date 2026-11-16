@@ -300,7 +300,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                 barColor: 'bg-sky-500',
                 dotColor: 'bg-sky-400',
                 textColor: 'text-sky-300',
-                valueLabel: `${formatMoney(tierTotals.cash)} (${cashPct}%)`,
+                valueLabel: `${formatMoney(tierTotals.cash)} NZD (${cashPct}%)`,
                 minVisiblePct: 0,
               },
               {
@@ -310,7 +310,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                 barColor: 'bg-emerald-500',
                 dotColor: 'bg-emerald-400',
                 textColor: 'text-emerald-300',
-                valueLabel: `${formatMoney(tierTotals.growth)} (${growthPct}%)`,
+                valueLabel: `${formatMoney(tierTotals.growth)} NZD (${growthPct}%)`,
                 minVisiblePct: 0,
               },
               {
@@ -320,7 +320,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                 barColor: 'bg-amber-500',
                 dotColor: 'bg-amber-400',
                 textColor: 'text-amber-300',
-                valueLabel: `${formatMoney(tierTotals.locked)} (${lockedPct}%)`,
+                valueLabel: `${formatMoney(tierTotals.locked)} NZD (${lockedPct}%)`,
                 minVisiblePct: 0,
               },
             ]}
@@ -425,7 +425,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
                       delta > 0 ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
-                    {formatMoney(delta, { showPlusSign: true })} vs prior snapshot
+                    {formatMoney(delta, { showPlusSign: true })} {acc.currency || 'NZD'} vs prior snapshot
                   </div>
                 )}
               </div>
