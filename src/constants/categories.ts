@@ -1,5 +1,19 @@
 import { SegmentedControlOption } from '@yggdrasil-lab/ui';
-import { Account, PeriodType, Transaction } from '../types';
+import { Account, PeriodType, RecurrenceType, Transaction } from '../types';
+
+/** Recurrence frequency options for amortized weekly budget and runway burn. */
+export const RECURRENCE_OPTIONS: ReadonlyArray<{
+  value: RecurrenceType | '';
+  label: string;
+}> = [
+  { value: '', label: 'Variable' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'fortnightly', label: 'Fortnightly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'annual', label: 'Annual' },
+  { value: 'one-off', label: 'One-off' },
+];
 
 /** Canonical transaction and rule categories across Midas. */
 export const CATEGORY_CHOICES = [

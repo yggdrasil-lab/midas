@@ -12,6 +12,7 @@ import {
   ProductStatisticsResponse,
   ProductUpdatePayload,
   Receipt,
+  RecurrenceType,
   RunwayAiSynthesisResult,
   RunwayData,
   RunwayScenarioResult,
@@ -357,6 +358,23 @@ export async function updateTransactionTags(
   });
   if (!res.ok) {
     throw new Error(`Failed to update transaction tags: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function updateTransactionRecurrence(
+  id: number,
+  recurrence: RecurrenceType | null
+): Promise<Transaction> {
+  const res = await authFetch(`${API_BASE}/transactions/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ recurrence }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update transaction recurrence: ${res.statusText}`);
   }
   return res.json();
 }
