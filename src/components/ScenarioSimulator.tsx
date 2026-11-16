@@ -31,6 +31,7 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
   const [burnDelta, setBurnDelta] = useState(0);
   const [returnRate, setReturnRate] = useState(0.05);
   const [lumpSum, setLumpSum] = useState(0);
+  const [payOffLoans, setPayOffLoans] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RunwayScenarioResult | null>(null);
@@ -47,6 +48,7 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
         weekly_burn_adjustment: burnDelta,
         custom_annual_return: returnRate,
         lump_sum_adjustment: lumpSum,
+        pay_off_loans: payOffLoans,
       });
       setResult(res);
       setError(null);
@@ -85,6 +87,7 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
     setBurnDelta(0);
     setReturnRate(0.05);
     setLumpSum(0);
+    setPayOffLoans(false);
     setResult(null);
     setAiSynthesis(null);
     setError(null);
@@ -151,6 +154,17 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
           variant="sky"
         />
 
+        <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer pt-1">
+          <input
+            type="checkbox"
+            checked={payOffLoans}
+            onChange={(e) => setPayOffLoans(e.target.checked)}
+            data-testid="time-machine-payoff-loans"
+            className="rounded border-border text-amber-500 focus:ring-amber-500"
+          />
+          <span>Pay off active loans early from liquid assets</span>
+        </label>
+
         {/* Action Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
           <Button
@@ -209,6 +223,12 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
           {!result.is_perpetual && result.simulated_runway_years && (
             <p className="text-xs text-slate-400">
               Equivalent to approx <strong>{result.simulated_runway_years} years</strong> of full living autonomy.
+            </p>
+          )}
+          {(result.loan_weekly_relief ?? 0) > 0 && (
+            <p className="text-xs text-slate-300">
+              Loan relief: <strong>${result.loan_weekly_relief?.toFixed(2)} NZD/wk</strong>
+              {result.loan_free_date ? ` (scheduled payoff: ${result.loan_free_date})` : ''}
             </p>
           )}
         </div>

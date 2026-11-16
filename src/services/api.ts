@@ -7,6 +7,9 @@ import {
   CategorizationRule,
   CategorizationRuleCreate,
   InstitutionInfo,
+  LoanCreatePayload,
+  LoansSummaryResponse,
+  LoanItem,
   Product,
   ProductListResponse,
   ProductStatisticsResponse,
@@ -37,6 +40,7 @@ export async function simulateScenario(params: {
   weekly_burn_adjustment: number;
   custom_annual_return?: number;
   lump_sum_adjustment?: number;
+  pay_off_loans?: boolean;
 }): Promise<RunwayScenarioResult> {
   const res = await authFetch(`${API_BASE}/runway/simulate`, {
     method: 'POST',
@@ -594,6 +598,35 @@ export async function syncAllIntegrations(days = 30): Promise<SyncResult> {
     throw new Error(detail?.detail || `Bank feed sync failed: ${res.statusText}`);
   }
   return res.json();
+}
+
+export async function fetchLoans(): Promise<LoansSummaryResponse> {
+  const res = await authFetch(`${API_BASE}/loans`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch loans: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function createLoan(payload: LoanCreatePayload): Promise<LoanItem> {
+  const res = await authFetch(`${API_BASE}/loans`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to create loan: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function deleteLoan(id: number): Promise<void> {
+  const res = await authFetch(`${API_BASE}/loans/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete loan: ${res.statusText}`);
+  }
 }
 
 
