@@ -25,6 +25,7 @@ import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryM
 import { fetchAccountTransactions, updateTransactionRecurrence, updateTransactionTags } from '../services/api';
 import { Account, PeriodType, RecurrenceType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
+import { collapsePairedTransfers } from '../utils/transfers';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
@@ -173,11 +174,16 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     }
   }, [isOpen, account?.id, period, startDate, endDate]);
 
+  const collapsedTransactions = useMemo(
+    () => collapsePairedTransfers(transactions),
+    [transactions]
+  );
+
   const analytics = useMemo(() => {
     let totalSpend = 0;
     let totalIncome = 0;
     let totalTransfers = 0;
-    for (const tx of transactions) {
+    for (const tx of collapsedTransactions) {
       if (isTransferCategory(tx.category, tx)) {
         totalTransfers += Math.abs(tx.amount);
       } else if (tx.amount < 0) {
@@ -187,18 +193,18 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       }
     }
     return { totalSpend, totalIncome, totalTransfers };
-  }, [transactions]);
+  }, [collapsedTransactions]);
 
   const availableCategories = useMemo(() => {
     const set = new Set<string>(CATEGORY_CHOICES);
-    transactions.forEach((tx) => {
+    collapsedTransactions.forEach((tx) => {
       if (tx.category) set.add(tx.category);
     });
     return Array.from(set).sort();
-  }, [transactions]);
+  }, [collapsedTransactions]);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((tx) => {
+    return collapsedTransactions.filter((tx) => {
       if (categoryFilter && tx.category.toLowerCase() !== categoryFilter.toLowerCase()) {
         return false;
       }
@@ -207,13 +213,15 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
         return (
           tx.merchant.toLowerCase().includes(q) ||
           tx.category.toLowerCase().includes(q) ||
+          (tx.account_name || '').toLowerCase().includes(q) ||
+          (tx.linked_account_name || '').toLowerCase().includes(q) ||
           (tx.raw_description || '').toLowerCase().includes(q) ||
           (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
         );
       }
       return true;
     });
-  }, [transactions, categoryFilter, searchQuery]);
+  }, [collapsedTransactions, categoryFilter, searchQuery]);
 
   const summaryItems: SummaryMetricItem[] = [
     ...(currentBalance !== undefined
@@ -360,7 +368,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
               ))}
             </select>
             <div className="text-[11px] text-slate-400 shrink-0">
-              {filteredTransactions.length} of {transactions.length}
+              {filteredTransactions.length} of {collapsedTransactions.length}
             </div>
           </div>
         </div>

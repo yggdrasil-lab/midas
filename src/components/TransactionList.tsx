@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
 import { RecurrenceType, Transaction } from '../types';
+import { collapsePairedTransfers } from '../utils/transfers';
 import { TransactionRow } from './TransactionRow';
 
 interface TransactionListProps {
@@ -45,11 +46,16 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   getSelectTestId,
   getRuleBtnTestId,
 }) => {
+  const displayTransactions = useMemo(
+    () => collapsePairedTransfers(transactions),
+    [transactions]
+  );
+
   if (loading) {
     return <LoadingState label={loadingLabel} variant="amber" />;
   }
 
-  if (transactions.length === 0) {
+  if (displayTransactions.length === 0) {
     return (
       <EmptyState
         title={emptyTitle}
@@ -61,7 +67,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   return (
     <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1" data-testid={listTestId}>
-      {transactions.map((tx) => (
+      {displayTransactions.map((tx) => (
         <TransactionRow
           key={tx.id}
           transaction={tx}

@@ -506,6 +506,21 @@ export async function setupMockApi(page: Page) {
             exchange_rate: 0.6061,
             fee_amount: 5.0,
           },
+          {
+            id: 104,
+            transaction_date: '2026-11-01',
+            account_id: 2,
+            account_name: 'Wise USD (Personal)',
+            amount: 300.0,
+            currency: 'USD',
+            merchant: 'Wise Transfer from ASB',
+            category: 'Transfers',
+            linked_transaction_id: 103,
+            linked_account_name: 'ASB Checking',
+            linked_amount: -500.0,
+            linked_currency: 'NZD',
+            exchange_rate: 0.6061,
+          },
         ]),
       });
     }

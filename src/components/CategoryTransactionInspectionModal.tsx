@@ -21,6 +21,7 @@ import {
 } from '../services/api';
 import { PeriodType, RecurrenceType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
+import { collapsePairedTransfers } from '../utils/transfers';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
 
@@ -148,28 +149,34 @@ export const CategoryTransactionInspectionModal: React.FC<
     }
   };
 
+  const collapsedTransactions = useMemo(
+    () => collapsePairedTransfers(transactions),
+    [transactions]
+  );
+
   const filteredTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return transactions;
+    if (!searchQuery.trim()) return collapsedTransactions;
     const q = searchQuery.toLowerCase().replace(/^#+/, '');
-    return transactions.filter(
+    return collapsedTransactions.filter(
       (tx) =>
         tx.merchant.toLowerCase().includes(q) ||
         (tx.account_name || '').toLowerCase().includes(q) ||
+        (tx.linked_account_name || '').toLowerCase().includes(q) ||
         (tx.raw_description || '').toLowerCase().includes(q) ||
         (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
     );
-  }, [transactions, searchQuery]);
+  }, [collapsedTransactions, searchQuery]);
 
   const totalVolume = useMemo(
-    () => transactions.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0),
-    [transactions]
+    () => collapsedTransactions.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0),
+    [collapsedTransactions]
   );
 
   if (!category) return null;
 
   const isTransferCategory = checkTransferCategory(category);
   const periodLabel = formatPeriodLabel(period, startDate, endDate);
-  const avgTx = transactions.length > 0 ? totalVolume / transactions.length : 0;
+  const avgTx = collapsedTransactions.length > 0 ? totalVolume / collapsedTransactions.length : 0;
 
   return (
     <Modal
@@ -189,7 +196,7 @@ export const CategoryTransactionInspectionModal: React.FC<
             <span className="text-[11px] text-slate-400">({periodLabel})</span>
           </div>
           <div className="text-[11px] text-slate-400">
-            {transactions.length} {transactions.length === 1 ? 'transaction' : 'transactions'}
+            {collapsedTransactions.length} {collapsedTransactions.length === 1 ? 'transaction' : 'transactions'}
           </div>
         </div>
 
@@ -205,7 +212,7 @@ export const CategoryTransactionInspectionModal: React.FC<
             {
               id: 'count',
               label: 'Txns',
-              value: transactions.length,
+              value: collapsedTransactions.length,
               valueClassName: 'text-amber-300 font-mono text-xs sm:text-sm tracking-tight',
             },
             {
