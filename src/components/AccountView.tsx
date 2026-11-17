@@ -17,17 +17,16 @@ import {
   GlassCard,
   LoadingState,
   MultiSegmentBar,
-  SegmentedControl,
   SelectableCard,
   StatusBadge,
 } from '@yggdrasil-lab/ui';
-import { PERIOD_OPTIONS } from '../constants/categories';
 import { fetchAccounts, fetchAccountSnapshots, fetchLoans, syncAllIntegrations } from '../services/api';
 import { Account, AssetSnapshot, LoansSummaryResponse, PeriodType, SyncResult } from '../types';
 import { formatMoney } from '../utils/format';
 import { AccountInspectionModal } from './AccountInspectionModal';
 import { AccountTierSection } from './AccountTierSection';
 import { LoansTracker } from './LoansTracker';
+import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RecordSnapshotModal } from './RecordSnapshotModal';
 
 interface AccountViewProps {
@@ -48,7 +47,10 @@ export const AccountView: React.FC<AccountViewProps> = ({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [snapshotsByAccount, setSnapshotsByAccount] = useState<Record<number, AssetSnapshot[]>>({});
   const [loansSummary, setLoansSummary] = useState<LoansSummaryResponse | null>(null);
+  const defaultRange = useMemo(() => getDefaultCustomRange(), []);
   const [period, setPeriod] = useState<PeriodType>('month');
+  const [startDate, setStartDate] = useState(defaultRange.startDate);
+  const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,12 +220,13 @@ export const AccountView: React.FC<AccountViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <SegmentedControl
-              options={PERIOD_OPTIONS}
-              value={period}
-              onChange={setPeriod}
-              variant="amber"
-              size="xs"
+            <PeriodFilterBar
+              period={period}
+              onPeriodChange={setPeriod}
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
               idPrefix="account-period"
             />
             <Button
@@ -465,6 +468,10 @@ export const AccountView: React.FC<AccountViewProps> = ({
         account={inspectingAccount}
         period={period}
         onPeriodChange={setPeriod}
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
         onTransactionCategoryChanged={loadAccountsAndSnapshots}
         onRecordSnapshotClick={() => {
           setIsAccountModalOpen(false);

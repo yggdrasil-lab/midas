@@ -13,20 +13,19 @@ import {
   Button,
   Modal,
   SearchInput,
-  SegmentedControl,
   StatusBadge,
   SummaryMetricGrid,
   SummaryMetricItem,
 } from '@yggdrasil-lab/ui';
 import {
   CATEGORY_CHOICES,
-  PERIOD_OPTIONS,
   isTransferCategory,
 } from '../constants/categories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import { fetchAccountTransactions, updateTransactionRecurrence, updateTransactionTags } from '../services/api';
 import { Account, PeriodType, RecurrenceType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
+import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
 
@@ -36,6 +35,10 @@ interface AccountInspectionModalProps {
   account: Account | null;
   period: PeriodType;
   onPeriodChange?: (period: PeriodType) => void;
+  startDate?: string;
+  endDate?: string;
+  onStartDateChange?: (date: string) => void;
+  onEndDateChange?: (date: string) => void;
   onTransactionCategoryChanged: () => void;
   onRecordSnapshotClick?: () => void;
   latestBalance?: number;
@@ -65,11 +68,23 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
   account,
   period,
   onPeriodChange,
+  startDate: controlledStartDate,
+  endDate: controlledEndDate,
+  onStartDateChange,
+  onEndDateChange,
   onTransactionCategoryChanged,
   onRecordSnapshotClick,
   latestBalance,
   latestBalanceNzd,
 }) => {
+  const defaultRange = useMemo(() => getDefaultCustomRange(), []);
+  const [localStartDate, setLocalStartDate] = useState(defaultRange.startDate);
+  const [localEndDate, setLocalEndDate] = useState(defaultRange.endDate);
+  const startDate = controlledStartDate ?? localStartDate;
+  const endDate = controlledEndDate ?? localEndDate;
+  const handleStartDateChange = onStartDateChange ?? setLocalStartDate;
+  const handleEndDateChange = onEndDateChange ?? setLocalEndDate;
+
   const currentBalance = latestBalance !== undefined ? latestBalance : latestBalanceNzd;
   const displayCurrency = account?.currency || 'NZD';
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -138,6 +153,8 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       const res = await fetchAccountTransactions({
         accountId: account ? account.id : undefined,
         period,
+        startDate: period === 'custom' ? startDate : undefined,
+        endDate: period === 'custom' ? endDate : undefined,
         limit: 500,
       });
       setTransactions(res);
@@ -154,7 +171,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       setSuccessNote(null);
       loadTransactions();
     }
-  }, [isOpen, account?.id, period]);
+  }, [isOpen, account?.id, period, startDate, endDate]);
 
   const analytics = useMemo(() => {
     let totalSpend = 0;
@@ -279,12 +296,14 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
 
           <div className="flex items-center gap-2 flex-wrap">
             {onPeriodChange && (
-              <SegmentedControl
-                options={PERIOD_OPTIONS}
-                value={period}
-                onChange={onPeriodChange}
-                variant="amber"
-                size="xs"
+              <PeriodFilterBar
+                period={period}
+                onPeriodChange={onPeriodChange}
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={handleEndDateChange}
+                idPrefix="modal-period"
               />
             )}
             {account && onRecordSnapshotClick && (

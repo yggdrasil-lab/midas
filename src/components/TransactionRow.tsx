@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ArrowRight,
   ArrowRightLeft,
   Plus,
   Receipt as ReceiptIcon,
@@ -51,6 +52,17 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const formattedAmt = formatSignedTransactionAmount(amt, txCurrency);
   const hasLinkedTransfer = tx.linked_transaction_id != null;
   const hasFxRate = Boolean(tx.exchange_rate && tx.exchange_rate !== 1.0);
+  const transferFromAccount = isDebit
+    ? tx.account_name || 'Source Account'
+    : tx.linked_account_name || 'Source Account';
+  const transferToAccount = isDebit
+    ? tx.linked_account_name || 'Destination Account'
+    : tx.account_name || 'Destination Account';
+  const hasCrossCurrencyLeg =
+    hasLinkedTransfer &&
+    tx.linked_amount != null &&
+    tx.linked_currency &&
+    tx.linked_currency !== txCurrency;
   const [addingTag, setAddingTag] = useState(false);
   const [tagDraft, setTagDraft] = useState('');
   const tags = tx.tags || [];
@@ -75,7 +87,11 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   return (
     <div
       data-testid={rowTestId}
-      className="p-3 bg-card/60 hover:bg-card/80 border border-border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors"
+      className={`p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border ${
+        hasLinkedTransfer
+          ? 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/30'
+          : 'bg-card/60 hover:bg-card/80 border-border'
+      }`}
     >
       {/* Left: Date, badges, merchant */}
       <div className="space-y-1 min-w-0 flex-1">
@@ -137,6 +153,26 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         {tx.raw_description && tx.raw_description !== tx.merchant && (
           <div className="text-[11px] text-slate-500 truncate max-w-sm">
             {tx.raw_description}
+          </div>
+        )}
+        {hasLinkedTransfer && tx.linked_account_name && (
+          <div
+            className="inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-200"
+            data-testid={`transfer-flow-${tx.id}`}
+          >
+            <ArrowRightLeft className="w-3 h-3 text-sky-400 shrink-0" />
+            <span className="font-semibold truncate max-w-[140px]" title={transferFromAccount}>
+              {transferFromAccount}
+            </span>
+            <ArrowRight className="w-3 h-3 text-sky-400 shrink-0" />
+            <span className="font-semibold truncate max-w-[140px]" title={transferToAccount}>
+              {transferToAccount}
+            </span>
+            {hasCrossCurrencyLeg && (
+              <span className="text-[10px] font-mono text-sky-300/90">
+                ({formatMoney(Math.abs(Number(tx.linked_amount)))} {tx.linked_currency})
+              </span>
+            )}
           </div>
         )}
         {(tags.length > 0 || onTagsChange) && (

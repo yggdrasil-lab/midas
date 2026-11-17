@@ -174,6 +174,9 @@ export interface Transaction {
   has_receipt?: boolean;
   receipt_id?: number | null;
   linked_transaction_id?: number | null;
+  linked_account_name?: string | null;
+  linked_amount?: number | null;
+  linked_currency?: string | null;
   exchange_rate?: number | null;
   fee_amount?: number | null;
   tags?: string[];
@@ -357,7 +360,7 @@ export interface ProductUpdatePayload {
   is_favorite?: boolean;
 }
 
-export type PeriodType = 'month' | 'week' | 'last_month' | 'all';
+export type PeriodType = 'week' | 'last_week' | 'month' | 'last_month' | 'custom';
 
 export interface SyncAccountSummary {
   account_id: number;

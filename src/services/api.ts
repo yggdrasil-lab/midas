@@ -205,12 +205,20 @@ export async function recordAccountSnapshot(
 export async function fetchAccountTransactions(params?: {
   accountId?: number;
   period?: PeriodType;
+  startDate?: string;
+  endDate?: string;
   category?: string;
   tag?: string;
   limit?: number;
 }): Promise<Transaction[]> {
   const searchParams = new URLSearchParams();
-  if (params?.period) searchParams.set('period', params.period);
+  if (params?.period && params.period !== 'custom') {
+    searchParams.set('period', params.period);
+  }
+  if (params?.period === 'custom' || (!params?.period && (params?.startDate || params?.endDate))) {
+    if (params?.startDate) searchParams.set('start_date', params.startDate);
+    if (params?.endDate) searchParams.set('end_date', params.endDate);
+  }
   if (params?.category) searchParams.set('category', params.category);
   if (params?.tag) searchParams.set('tag', params.tag);
   if (params?.accountId !== undefined) searchParams.set('account_id', String(params.accountId));
@@ -259,8 +267,19 @@ export async function resetDatabase(clearAccounts = false): Promise<{
   return res.json();
 }
 
-export async function fetchSpendingBreakdown(period = 'month'): Promise<SpendingBreakdownResponse> {
-  const res = await authFetch(`${API_BASE}/budgets/breakdown?period=${encodeURIComponent(period)}`);
+export async function fetchSpendingBreakdown(
+  period: PeriodType = 'month',
+  startDate?: string,
+  endDate?: string
+): Promise<SpendingBreakdownResponse> {
+  const params = new URLSearchParams();
+  if (period === 'custom') {
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+  } else {
+    params.set('period', period);
+  }
+  const res = await authFetch(`${API_BASE}/budgets/breakdown?${params.toString()}`);
   if (!res.ok) {
     throw new Error(`Failed to fetch spending breakdown: ${res.statusText}`);
   }
@@ -319,11 +338,18 @@ export async function initDefaultBudgets(): Promise<BudgetRule[]> {
 
 export async function fetchCategoryTransactions(
   category: string,
-  period?: PeriodType
+  period?: PeriodType,
+  startDate?: string,
+  endDate?: string
 ): Promise<Transaction[]> {
   const params = new URLSearchParams();
   if (category) params.set('category', category);
-  if (period) params.set('period', period);
+  if (period && period !== 'custom') {
+    params.set('period', period);
+  } else if (period === 'custom') {
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+  }
   params.set('limit', '200');
   const res = await authFetch(`${API_BASE}/transactions?${params.toString()}`);
   if (!res.ok) {
