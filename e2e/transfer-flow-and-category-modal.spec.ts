@@ -35,9 +35,11 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       });
       await catModal.getByRole('button', { name: 'Done' }).click();
 
-      // 2. Accounts tab -> Inspect All Accounts -> Reconciled Transfer Flow + Custom Range
+      // 2. Accounts tab -> Inspect All Accounts -> Reconciled Transfer Flow + Collapsed Paired Legs
       await page.getByRole('button', { name: 'Accounts' }).first().click();
       await page.getByTestId('account-card-all').click();
+      await expect(page.getByTestId('account-modal-tx-row-103')).toBeVisible();
+      await expect(page.getByTestId('account-modal-tx-row-104')).toHaveCount(0);
       const flowPill = page.getByTestId('transfer-flow-103');
       await flowPill.scrollIntoViewIfNeeded();
       await expect(flowPill).toBeVisible();
