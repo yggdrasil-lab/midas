@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -24,15 +24,14 @@ import {
   EmptyState,
   GlassCard,
   LoadingState,
-  SegmentedControl,
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
-import { PERIOD_OPTIONS } from '../constants/categories';
 import { fetchSpendingBreakdown } from '../services/api';
 import { PeriodType, SpendingBreakdownResponse } from '../types';
 import { formatMoney } from '../utils/format';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
+import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { ReceiptsHubModal } from './ReceiptsHubModal';
 import { RulesManagerModal } from './RulesManagerModal';
 
@@ -62,7 +61,10 @@ function getCategoryIcon(category: string) {
 export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps> = ({
   onRefreshRunway,
 }) => {
+  const defaultRange = useMemo(() => getDefaultCustomRange(), []);
   const [period, setPeriod] = useState<PeriodType>('month');
+  const [startDate, setStartDate] = useState(defaultRange.startDate);
+  const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [data, setData] = useState<SpendingBreakdownResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +79,11 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchSpendingBreakdown(period);
+      const res = await fetchSpendingBreakdown(
+        period,
+        period === 'custom' ? startDate : undefined,
+        period === 'custom' ? endDate : undefined
+      );
       setData(res);
     } catch (err) {
       console.error(err);
@@ -89,7 +95,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
 
   useEffect(() => {
     loadBreakdown();
-  }, [period]);
+  }, [period, startDate, endDate]);
 
   const handleEditBudget = (cat: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -126,12 +132,13 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <SegmentedControl
-            options={PERIOD_OPTIONS}
-            value={period}
-            onChange={setPeriod}
-            variant="amber"
-            size="xs"
+          <PeriodFilterBar
+            period={period}
+            onPeriodChange={setPeriod}
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
             idPrefix="budget-period"
           />
 
@@ -406,6 +413,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         onClose={() => setIsInspectModalOpen(false)}
         category={inspectCategory}
         period={period}
+        startDate={startDate}
+        endDate={endDate}
         onCategoryChanged={refreshAll}
       />
 

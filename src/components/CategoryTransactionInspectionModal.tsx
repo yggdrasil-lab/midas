@@ -29,6 +29,8 @@ interface CategoryTransactionInspectionModalProps {
   onClose: () => void;
   category?: string;
   period: PeriodType;
+  startDate?: string;
+  endDate?: string;
   onCategoryChanged: () => void;
 }
 
@@ -38,7 +40,7 @@ interface CategoryTransactionInspectionModalProps {
  */
 export const CategoryTransactionInspectionModal: React.FC<
   CategoryTransactionInspectionModalProps
-> = ({ isOpen, onClose, category, period, onCategoryChanged }) => {
+> = ({ isOpen, onClose, category, period, startDate, endDate, onCategoryChanged }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +105,12 @@ export const CategoryTransactionInspectionModal: React.FC<
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchCategoryTransactions(category, period);
+      const res = await fetchCategoryTransactions(
+        category,
+        period,
+        period === 'custom' ? startDate : undefined,
+        period === 'custom' ? endDate : undefined
+      );
       setTransactions(res);
     } catch (err) {
       console.error(err);
@@ -119,7 +126,7 @@ export const CategoryTransactionInspectionModal: React.FC<
       setSearchQuery('');
       loadTransactions();
     }
-  }, [isOpen, category, period]);
+  }, [isOpen, category, period, startDate, endDate]);
 
   const handleReconcileTransfers = async () => {
     setReconciling(true);
@@ -161,7 +168,7 @@ export const CategoryTransactionInspectionModal: React.FC<
   if (!category) return null;
 
   const isTransferCategory = checkTransferCategory(category);
-  const periodLabel = formatPeriodLabel(period);
+  const periodLabel = formatPeriodLabel(period, startDate, endDate);
   const avgTx = transactions.length > 0 ? totalVolume / transactions.length : 0;
 
   return (

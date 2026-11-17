@@ -357,7 +357,7 @@ export interface ProductUpdatePayload {
   is_favorite?: boolean;
 }
 
-export type PeriodType = 'month' | 'week' | 'last_month' | 'all';
+export type PeriodType = 'week' | 'last_week' | 'month' | 'last_month' | 'custom';
 
 export interface SyncAccountSummary {
   account_id: number;

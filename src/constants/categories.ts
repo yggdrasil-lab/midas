@@ -50,10 +50,10 @@ export const QUICK_LOG_CATEGORIES = [
 
 /** Shared time-period selector options for inspection modals and dashboards. */
 export const PERIOD_OPTIONS: SegmentedControlOption<PeriodType>[] = [
-  { id: 'month', label: 'This Month' },
   { id: 'week', label: 'This Week' },
+  { id: 'last_week', label: 'Last Week' },
+  { id: 'month', label: 'This Month' },
   { id: 'last_month', label: 'Last Month' },
-  { id: 'all', label: 'All Time' },
 ];
 
 /** Known financial institutions for statement ingestion autocomplete. */
@@ -151,7 +151,11 @@ export function isTransferCategory(category: string, tx?: Transaction): boolean 
 }
 
 /** Formats a period enum into a human-readable label. */
-export function formatPeriodLabel(period: PeriodType): string {
+export function formatPeriodLabel(period: PeriodType, startDate?: string, endDate?: string): string {
+  if (period === 'custom') {
+    if (startDate && endDate) return `${startDate} to ${endDate}`;
+    return 'Custom Range';
+  }
   const found = PERIOD_OPTIONS.find((opt) => opt.id === period);
-  return found ? found.label : 'All Time';
+  return found ? found.label : 'This Month';
 }
