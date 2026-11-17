@@ -172,8 +172,13 @@ export const CategoryTransactionInspectionModal: React.FC<
   const avgTx = transactions.length > 0 ? totalVolume / transactions.length : 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Inspect Category: ${category}`}>
-      <div className="space-y-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Inspect Category: ${category}`}
+      className="sm:max-w-2xl"
+    >
+      <div className="space-y-4" data-testid="category-inspection-modal">
         {/* Info header banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-300 bg-card/60 p-3 rounded-xl border border-border gap-2">
           <div className="flex items-center space-x-2">
@@ -193,21 +198,21 @@ export const CategoryTransactionInspectionModal: React.FC<
           items={[
             {
               id: 'total',
-              label: 'Total Volume',
+              label: 'Total',
               value: formatMoney(totalVolume, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-              valueClassName: 'text-slate-100 font-mono text-xs',
+              valueClassName: 'text-slate-100 font-mono text-xs sm:text-sm tracking-tight',
             },
             {
               id: 'count',
-              label: 'Transactions',
+              label: 'Txns',
               value: transactions.length,
-              valueClassName: 'text-amber-300 font-mono text-xs',
+              valueClassName: 'text-amber-300 font-mono text-xs sm:text-sm tracking-tight',
             },
             {
               id: 'avg',
               label: 'Average',
               value: formatMoney(avgTx, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-              valueClassName: 'text-slate-200 font-mono text-xs',
+              valueClassName: 'text-slate-200 font-mono text-xs sm:text-sm tracking-tight',
             },
           ]}
         />

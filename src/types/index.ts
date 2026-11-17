@@ -174,6 +174,9 @@ export interface Transaction {
   has_receipt?: boolean;
   receipt_id?: number | null;
   linked_transaction_id?: number | null;
+  linked_account_name?: string | null;
+  linked_amount?: number | null;
+  linked_currency?: string | null;
   exchange_rate?: number | null;
   fee_amount?: number | null;
   tags?: string[];
