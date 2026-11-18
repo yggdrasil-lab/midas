@@ -50,6 +50,11 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(btcFlowPill).toBeVisible();
       await expect(btcFlowPill).toContainText('0.04884012 BTC');
       await expect(page.getByTestId('account-modal-tx-row-107')).toContainText('FX (122,849.82)');
+      await expect(page.getByTestId('tx-fee-107')).toHaveText('Fee: $100.81 NZD');
+      const btcSpendRow = page.getByTestId('account-modal-tx-row-109');
+      await btcSpendRow.scrollIntoViewIfNeeded();
+      await expect(btcSpendRow).toContainText('-0.005005 BTC');
+      await expect(page.getByTestId('tx-fee-109')).toHaveText('Fee: 0.000005 BTC');
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${name}/17-transfer-flow.png`,

@@ -17,9 +17,18 @@ export function formatMoney(
   });
 }
 
+const CRYPTO_CURRENCIES = new Set(['BTC', 'ETH', 'SOL', 'USDC', 'USDT']);
+
+/**
+ * Returns true if the currency code represents a supported crypto asset.
+ */
+export function isCryptoCurrency(currency?: string | null): boolean {
+  return CRYPTO_CURRENCIES.has((currency?.trim() || '').toUpperCase());
+}
+
 /**
  * Formats a signed transaction amount with explicit + / - prefix and currency
- * suffix (e.g. "-$120.50 NZD", "+$500.00 USD").
+ * suffix (e.g. "-$120.50 NZD", "+$500.00 USD", "+0.04884012 BTC").
  */
 export function formatSignedTransactionAmount(
   amount: number,
@@ -28,14 +37,35 @@ export function formatSignedTransactionAmount(
 ): string {
   const numeric = Number(amount);
   const resolvedCurrency = currency?.trim() || 'NZD';
-  const isBtc = resolvedCurrency.toUpperCase() === 'BTC';
+  const isCrypto = isCryptoCurrency(resolvedCurrency);
   const formatted = formatMoney(numeric, {
-    minimumFractionDigits: isBtc ? 2 : decimals,
-    maximumFractionDigits: isBtc ? 8 : decimals,
+    currency: isCrypto ? '' : '$',
+    minimumFractionDigits: isCrypto ? 2 : decimals,
+    maximumFractionDigits: isCrypto ? 8 : decimals,
     showPlusSign: true,
   });
   const prefixed = numeric === 0 ? `+${formatted}` : formatted;
   return `${prefixed} ${resolvedCurrency}`;
+}
+
+/**
+ * Formats a transfer/miner fee cleanly for both fiat (2dp with $) and crypto
+ * (up to 8dp without $).
+ */
+export function formatTransactionFee(
+  feeAmount: number,
+  currency?: string,
+  exact = false
+): string {
+  const numeric = Math.abs(Number(feeAmount) || 0);
+  const resolvedCurrency = (currency?.trim() || 'NZD').toUpperCase();
+  const isCrypto = isCryptoCurrency(resolvedCurrency);
+  const formatted = formatMoney(numeric, {
+    currency: isCrypto ? '' : '$',
+    minimumFractionDigits: isCrypto ? 2 : exact ? 2 : 0,
+    maximumFractionDigits: isCrypto ? 8 : 2,
+  });
+  return `${formatted} ${resolvedCurrency}`;
 }
 
 /**
