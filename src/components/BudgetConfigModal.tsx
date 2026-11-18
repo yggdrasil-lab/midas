@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Calculator, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
+import { Calculator, ChevronDown, ChevronUp, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
 import { AlertBanner, Button, EmptyState, Modal } from '@yggdrasil-lab/ui';
 import { BUDGET_CATEGORY_CHOICES } from '../constants/categories';
 import {
@@ -39,6 +39,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   const [category, setCategory] = useState(initialCategory || 'Groceries');
   const [weeklyLimit, setWeeklyLimit] = useState('');
   const [monthlyLimit, setMonthlyLimit] = useState('');
+  const [showBurnBreakdown, setShowBurnBreakdown] = useState(false);
 
   const loadRules = async () => {
     setLoading(true);
@@ -179,30 +180,141 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
         {error && <AlertBanner variant="error">{error}</AlertBanner>}
         {successMsg && <AlertBanner variant="success">{successMsg}</AlertBanner>}
 
-        {avgBurnReport && (
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-            <div className="space-y-0.5">
-              <div className="font-semibold text-amber-300">
-                {avgBurnReport.lookback_weeks}w Average Burn:{' '}
-                <span className="font-mono">{formatMoney(avgBurnReport.effective_weekly_burn)}/wk</span>
+        {avgBurnReport && (() => {
+          const totalVar = avgBurnReport.variable_weekly_burn || 0;
+          const variableCats = avgBurnReport.categories
+            .filter((c) => c.variable_weekly_burn > 0)
+            .sort((a, b) => b.variable_weekly_burn - a.variable_weekly_burn);
+          const recurringItems = avgBurnReport.recurring_commitments ?? [];
+          const getVarPct = (catVar: number, preset?: number) =>
+            preset !== undefined
+              ? preset
+              : totalVar > 0
+                ? Math.round((catVar / totalVar) * 1000) / 10
+                : 0;
+
+          return (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2.5 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <div className="font-semibold text-amber-300">
+                    {avgBurnReport.lookback_weeks}w Average Burn:{' '}
+                    <span className="font-mono">
+                      {formatMoney(avgBurnReport.effective_weekly_burn)}/wk
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-300 font-mono">
+                    {formatMoney(avgBurnReport.recurring_weekly_burn)}/wk recurring +{' '}
+                    {formatMoney(avgBurnReport.variable_weekly_burn)}/wk variable
+                  </div>
+                </div>
+                <Button
+                  variant="amber"
+                  size="xs"
+                  loading={loading}
+                  icon={<Calculator className="w-3.5 h-3.5" />}
+                  onClick={handleSyncFromBurn}
+                  data-testid="sync-from-burn-btn"
+                >
+                  Use Avg Burn
+                </Button>
               </div>
-              <div className="text-[11px] text-slate-300 font-mono">
-                {formatMoney(avgBurnReport.recurring_weekly_burn)}/wk recurring +{' '}
-                {formatMoney(avgBurnReport.variable_weekly_burn)}/wk variable
-              </div>
+
+              {(variableCats.length > 0 || recurringItems.length > 0) && (
+                <div className="pt-2 border-t border-amber-500/20 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1">
+                      {variableCats.slice(0, 3).map((cat) => (
+                        <button
+                          key={cat.category}
+                          type="button"
+                          onClick={() => {
+                            setCategory(cat.category);
+                            handleWeeklyChange(String(cat.average_weekly_burn));
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-background/70 border border-border/70 hover:border-amber-500/40 text-[10px] text-slate-200 font-mono transition-colors"
+                          title="Tap to populate budget rule"
+                        >
+                          {cat.category} {getVarPct(cat.variable_weekly_burn, cat.variable_percentage).toFixed(1)}%
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      data-testid="budget-burn-details-toggle"
+                      onClick={() => setShowBurnBreakdown((prev) => !prev)}
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-300 hover:text-amber-200 transition-colors"
+                    >
+                      <span>{showBurnBreakdown ? 'Hide details' : 'View % & fixed'}</span>
+                      {showBurnBreakdown ? (
+                        <ChevronUp className="w-3 h-3" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" />
+                      )}
+                    </button>
+                  </div>
+
+                  {showBurnBreakdown && (
+                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1 text-[11px]">
+                      {variableCats.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                            Variable Share ({avgBurnReport.lookback_weeks}w avg)
+                          </div>
+                          {variableCats.map((cat) => (
+                            <div
+                              key={cat.category}
+                              onClick={() => {
+                                setCategory(cat.category);
+                                handleWeeklyChange(String(cat.average_weekly_burn));
+                              }}
+                              className="flex items-center justify-between gap-2 px-2 py-1 rounded bg-background/60 border border-border/60 hover:border-amber-500/40 cursor-pointer"
+                            >
+                              <span className="text-slate-200 truncate">{cat.category}</span>
+                              <span className="font-mono text-slate-300 shrink-0">
+                                <span className="text-amber-300">
+                                  {getVarPct(cat.variable_weekly_burn, cat.variable_percentage).toFixed(1)}%
+                                </span>{' '}
+                                ({formatMoney(cat.variable_weekly_burn)}/wk
+                                {cat.recurring_weekly_burn > 0
+                                  ? ` + ${formatMoney(cat.recurring_weekly_burn)} fixed`
+                                  : ''}
+                                )
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {recurringItems.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400">
+                            Active Fixed Commitments ({recurringItems.length})
+                          </div>
+                          {recurringItems.map((item) => (
+                            <div
+                              key={`${item.transaction_id}-${item.merchant}`}
+                              className="flex items-center justify-between gap-2 px-2 py-1 rounded bg-background/60 border border-border/60"
+                            >
+                              <span className="text-slate-200 truncate">
+                                {item.merchant}{' '}
+                                <span className="text-slate-400">({item.recurrence})</span>
+                              </span>
+                              <span className="font-mono text-sky-300 shrink-0">
+                                {formatMoney(item.weekly_nzd)}/wk ({item.percentage_of_recurring.toFixed(1)}%)
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <Button
-              variant="amber"
-              size="xs"
-              loading={loading}
-              icon={<Calculator className="w-3.5 h-3.5" />}
-              onClick={handleSyncFromBurn}
-              data-testid="sync-from-burn-btn"
-            >
-              Use Avg Burn
-            </Button>
-          </div>
-        )}
+          );
+        })()}
 
         <form
           onSubmit={handleSave}
