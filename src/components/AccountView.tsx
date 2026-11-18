@@ -131,6 +131,12 @@ export const AccountView: React.FC<AccountViewProps> = ({
   const totalPortfolioBalance = tierTotals.cash + tierTotals.growth + tierTotals.locked;
 
   const handleInspectAccount = (account: Account | null) => {
+    if (
+      account &&
+      (account.account_type === 'crypto' || account.currency.toUpperCase() === 'BTC')
+    ) {
+      setPeriod('all');
+    }
     setInspectingAccount(account);
     setIsAccountModalOpen(true);
   };
