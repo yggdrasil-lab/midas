@@ -18,7 +18,7 @@ import {
   triggerReconcileTransfers,
 } from '../services/api';
 import { PeriodType, Transaction } from '../types';
-import { formatMoney } from '../utils/format';
+import { formatMoney, getTransactionNzdAmount } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
@@ -30,6 +30,7 @@ interface CategoryTransactionInspectionModalProps {
   period: PeriodType;
   startDate?: string;
   endDate?: string;
+  isAnnualOverride?: boolean;
   onCategoryChanged: () => void;
 }
 
@@ -39,7 +40,16 @@ interface CategoryTransactionInspectionModalProps {
  */
 export const CategoryTransactionInspectionModal: React.FC<
   CategoryTransactionInspectionModalProps
-> = ({ isOpen, onClose, category, period, startDate, endDate, onCategoryChanged }) => {
+> = ({
+  isOpen,
+  onClose,
+  category,
+  period,
+  startDate,
+  endDate,
+  isAnnualOverride = false,
+  onCategoryChanged,
+}) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +146,11 @@ export const CategoryTransactionInspectionModal: React.FC<
   }, [collapsedTransactions, searchQuery]);
 
   const totalVolume = useMemo(
-    () => collapsedTransactions.reduce((sum, tx) => sum + Math.abs(Number(tx.amount)), 0),
+    () =>
+      collapsedTransactions.reduce(
+        (sum, tx) => sum + getTransactionNzdAmount(tx),
+        0
+      ),
     [collapsedTransactions]
   );
 
@@ -156,12 +170,20 @@ export const CategoryTransactionInspectionModal: React.FC<
       <div className="space-y-4" data-testid="category-inspection-modal">
         {/* Info header banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-300 bg-card/60 p-3 rounded-xl border border-border gap-2">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 flex-wrap gap-y-1">
             <span className="p-1 rounded bg-amber-500/10 text-amber-400">
               <Layers className="w-3.5 h-3.5" />
             </span>
             <span className="font-semibold text-slate-200">{category}</span>
             <span className="text-[11px] text-slate-400">({periodLabel})</span>
+            {isAnnualOverride && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium"
+                data-testid="annual-override-badge"
+              >
+                52w Annual Budget Period
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-slate-400">
             {collapsedTransactions.length} {collapsedTransactions.length === 1 ? 'transaction' : 'transactions'}

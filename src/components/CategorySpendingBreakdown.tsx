@@ -91,6 +91,14 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
   const overBudgetCategories =
     data?.categories.filter((c) => c.is_over_budget && !c.is_transfer) || [];
 
+  const inspectedCategoryReport = data?.categories.find((c) => c.category === inspectCategory);
+  const isInspectAnnualOverride = Boolean(
+    inspectedCategoryReport &&
+      !inspectedCategoryReport.is_transfer &&
+      inspectedCategoryReport.budget_period === 'annual'
+  );
+  const effectiveInspectPeriod: PeriodType = isInspectAnnualOverride ? 'annual' : period;
+
   return (
     <GlassCard className="space-y-4">
       <SectionHeader
@@ -326,9 +334,10 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         isOpen={isInspectModalOpen}
         onClose={() => setIsInspectModalOpen(false)}
         category={inspectCategory}
-        period={period}
-        startDate={startDate}
-        endDate={endDate}
+        period={effectiveInspectPeriod}
+        startDate={isInspectAnnualOverride ? undefined : startDate}
+        endDate={isInspectAnnualOverride ? undefined : endDate}
+        isAnnualOverride={isInspectAnnualOverride}
         onCategoryChanged={refreshAll}
       />
 

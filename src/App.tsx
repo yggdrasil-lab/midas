@@ -28,6 +28,7 @@ import { DataManagementModal } from './components/DataManagementModal';
 import { QuickLogModal } from './components/QuickLogModal';
 import { ReceiptsHubModal } from './components/ReceiptsHubModal';
 import { RunwayClock } from './components/RunwayClock';
+import { TagSpendingBreakdown } from './components/TagSpendingBreakdown';
 import { ToolsHubView } from './components/ToolsHubView';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
 import { fetchRunway } from './services/api';
@@ -60,6 +61,7 @@ export const App: React.FC = () => {
   const [isQuickLogOpen, setIsQuickLogOpen] = useState(false);
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isReceiptsModalOpen, setIsReceiptsModalOpen] = useState(false);
+  const [budgetRefreshKey, setBudgetRefreshKey] = useState(0);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   const {
@@ -90,6 +92,7 @@ export const App: React.FC = () => {
       const res = await fetchRunway();
       setData(res);
       setSessionExpired(false);
+      setBudgetRefreshKey((prev) => prev + 1);
     } catch (err) {
       console.error(err);
       if (isSessionExpiredError(err)) {
@@ -155,6 +158,10 @@ export const App: React.FC = () => {
               onBudgetChanged={loadData}
             />
             <CategorySpendingBreakdown onRefreshRunway={loadData} />
+            <TagSpendingBreakdown
+              onRefreshRunway={loadData}
+              refreshKey={budgetRefreshKey}
+            />
           </div>
         );
       case 'tools':

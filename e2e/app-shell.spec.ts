@@ -275,4 +275,51 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(rows.nth(0)).toContainText('52w Annual');
     await expect(toggleGroceriesBtn).toContainText('Spread 52w On');
   });
+
+  test('overrides period filter for annual categories and inspects cross-category tag spending', async ({ page }) => {
+    const budgetTab = page
+      .locator('header nav button:has-text("Spending & Budgets"), nav button:has-text("Budgets")')
+      .locator('visible=true')
+      .first();
+    await budgetTab.click();
+
+    // 1. Annual category overrides This Month filter -> Trailing 52 Weeks (365d)
+    const travelRow = page.getByTestId('category-row-travel').locator('visible=true').first();
+    await expect(travelRow).toBeVisible();
+    await travelRow.click();
+
+    const catModal = page.getByTestId('category-inspection-modal');
+    await expect(catModal).toBeVisible();
+    await expect(page.getByTestId('annual-override-badge')).toContainText('52w Annual Budget Period');
+    await expect(catModal).toContainText('Trailing 52 Weeks (365d)');
+    await expect(catModal).toContainText('Air New Zealand');
+    await catModal.getByRole('button', { name: 'Done' }).click();
+    await expect(catModal).toBeHidden();
+
+    // 2. Tag & Trip Explorer shows cross-category trip breakdown and opens inspection modal
+    const tagCard = page.getByTestId('tag-spending-breakdown');
+    await tagCard.scrollIntoViewIfNeeded();
+    await expect(tagCard).toBeVisible();
+
+    const queenstownRow = page.getByTestId('tag-row-queenstown-trip');
+    await expect(queenstownRow).toBeVisible();
+    await expect(queenstownRow).toContainText('#queenstown-trip');
+    await expect(queenstownRow).toContainText('Travel');
+    await expect(queenstownRow).toContainText('Food');
+    await queenstownRow.click();
+
+    const tagModal = page.getByTestId('tag-inspection-modal');
+    await expect(tagModal).toBeVisible();
+    await expect(page.getByTestId('tag-category-breakdown')).toContainText('Travel');
+    await expect(page.getByTestId('tag-category-breakdown')).toContainText('Food');
+    await expect(page.getByTestId('tag-category-breakdown')).toContainText('Transport');
+    await expect(tagModal).toContainText('Air New Zealand');
+    await expect(tagModal).toContainText('Fergburger Queenstown');
+    await expect(tagModal).toContainText('Queenstown Airport Shuttle');
+
+    // Filter down to Food within the trip tag modal
+    await page.getByTestId('tag-category-breakdown').getByRole('button', { name: /Food:/i }).click();
+    await expect(tagModal).toContainText('Fergburger Queenstown');
+    await expect(tagModal).not.toContainText('Air New Zealand');
+  });
 });
