@@ -231,6 +231,14 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.getByRole('heading', { name: 'Category Budget Guardrails' })).toBeVisible();
     await expect(page.locator('text=12w Average Burn:')).toBeVisible();
 
+    await page.getByTestId('budget-period-mode-annual').click();
+    await expect(page.getByTestId('budget-annual-limit-input')).toBeVisible();
+
+    const groceriesAnnualToggle = page.getByTestId('rule-toggle-annual-groceries');
+    await groceriesAnnualToggle.click();
+    await expect(page.locator('text=52w Annual')).toBeVisible();
+    await expect(groceriesAnnualToggle).toContainText('52w On');
+
     const syncBtn = page.getByTestId('sync-from-burn-btn');
     await expect(syncBtn).toBeVisible();
     await syncBtn.click();
@@ -260,5 +268,11 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(rows.nth(0)).toContainText('58.2%');
     await expect(rows.nth(1)).toContainText('Food');
     await expect(rows.nth(1)).toContainText('41.8%');
+
+    const toggleGroceriesBtn = page.getByTestId('toggle-annual-groceries');
+    await expect(toggleGroceriesBtn).toContainText('Spread over 52w');
+    await toggleGroceriesBtn.click();
+    await expect(rows.nth(0)).toContainText('52w Annual');
+    await expect(toggleGroceriesBtn).toContainText('Spread 52w On');
   });
 });

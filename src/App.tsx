@@ -120,7 +120,11 @@ export const App: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start max-w-lg lg:max-w-7xl mx-auto pb-24 lg:pb-0">
             <div className="lg:col-span-5 space-y-4 lg:space-y-6">
               <RunwayClock data={runway} />
-              <WeeklyBurnTracker data={runway} onQuickLogClick={() => setIsQuickLogOpen(true)} />
+              <WeeklyBurnTracker
+                data={runway}
+                onQuickLogClick={() => setIsQuickLogOpen(true)}
+                onBudgetChanged={loadData}
+              />
             </div>
             <div className="lg:col-span-7 space-y-4 lg:space-y-6">
               <div className="hidden lg:block">
@@ -145,7 +149,11 @@ export const App: React.FC = () => {
       case 'budgets':
         return (
           <div className="max-w-lg lg:max-w-3xl mx-auto space-y-4 lg:space-y-6 pb-24 lg:pb-0">
-            <WeeklyBurnTracker data={runway} onQuickLogClick={() => setIsQuickLogOpen(true)} />
+            <WeeklyBurnTracker
+              data={runway}
+              onQuickLogClick={() => setIsQuickLogOpen(true)}
+              onBudgetChanged={loadData}
+            />
             <CategorySpendingBreakdown onRefreshRunway={loadData} />
           </div>
         );

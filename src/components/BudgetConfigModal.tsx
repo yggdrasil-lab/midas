@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Calculator, ChevronDown, ChevronUp, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
-import { AlertBanner, Button, EmptyState, Modal } from '@yggdrasil-lab/ui';
+import { AlertBanner, Button, EmptyState, Modal, SegmentedControl } from '@yggdrasil-lab/ui';
 import { BUDGET_CATEGORY_CHOICES } from '../constants/categories';
 import {
   deleteBudgetRule,
@@ -10,7 +10,7 @@ import {
   syncBudgetsFromBurn,
   upsertBudgetRule,
 } from '../services/api';
-import { AverageBurnReportResponse, BudgetRule } from '../types';
+import { AverageBurnReportResponse, BudgetPeriod, BudgetRule } from '../types';
 import { formatMoney } from '../utils/format';
 
 interface BudgetConfigModalProps {
@@ -39,7 +39,18 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   const [category, setCategory] = useState(initialCategory || 'Groceries');
   const [weeklyLimit, setWeeklyLimit] = useState('');
   const [monthlyLimit, setMonthlyLimit] = useState('');
+  const [annualLimit, setAnnualLimit] = useState('');
+  const [budgetPeriod, setBudgetPeriod] = useState<BudgetPeriod>('monthly');
   const [showBurnBreakdown, setShowBurnBreakdown] = useState(false);
+
+  const syncFromRule = (r: BudgetRule) => {
+    setCategory(r.category);
+    setWeeklyLimit(String(r.weekly_limit));
+    setMonthlyLimit(String(r.monthly_limit));
+    const computedAnnual = r.annual_limit ?? Math.round(r.weekly_limit * 52 * 100) / 100;
+    setAnnualLimit(String(computedAnnual));
+    setBudgetPeriod(r.budget_period || 'monthly');
+  };
 
   const loadRules = async () => {
     setLoading(true);
@@ -56,9 +67,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
           (r) => r.category.toLowerCase() === initialCategory.toLowerCase()
         );
         if (found) {
-          setCategory(found.category);
-          setWeeklyLimit(String(found.weekly_limit));
-          setMonthlyLimit(String(found.monthly_limit));
+          syncFromRule(found);
         } else {
           setCategory(initialCategory);
         }
@@ -81,12 +90,21 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
     setWeeklyLimit(val);
     const num = parseFloat(val);
     setMonthlyLimit(!isNaN(num) && num > 0 ? ((num * 52) / 12).toFixed(2) : '');
+    setAnnualLimit(!isNaN(num) && num > 0 ? (num * 52).toFixed(2) : '');
   };
 
   const handleMonthlyChange = (val: string) => {
     setMonthlyLimit(val);
     const num = parseFloat(val);
     setWeeklyLimit(!isNaN(num) && num > 0 ? ((num * 12) / 52).toFixed(2) : '');
+    setAnnualLimit(!isNaN(num) && num > 0 ? (num * 12).toFixed(2) : '');
+  };
+
+  const handleAnnualChange = (val: string) => {
+    setAnnualLimit(val);
+    const num = parseFloat(val);
+    setWeeklyLimit(!isNaN(num) && num > 0 ? (num / 52).toFixed(2) : '');
+    setMonthlyLimit(!isNaN(num) && num > 0 ? (num / 12).toFixed(2) : '');
   };
 
   const handleSave = async (e?: React.FormEvent) => {
@@ -97,21 +115,56 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
     }
     const w = parseFloat(weeklyLimit);
     const m = parseFloat(monthlyLimit);
-    if (isNaN(w) && isNaN(m)) {
-      setError('Please provide a weekly or monthly budget limit');
+    const a = parseFloat(annualLimit);
+    if (isNaN(w) && isNaN(m) && isNaN(a)) {
+      setError('Please provide a weekly, monthly, or annual budget limit');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await upsertBudgetRule(category.trim(), isNaN(w) ? undefined : w, isNaN(m) ? undefined : m);
-      setSuccessMsg(`Budget for ${category} saved!`);
+      await upsertBudgetRule(
+        category.trim(),
+        isNaN(w) ? undefined : w,
+        isNaN(m) ? undefined : m,
+        isNaN(a) ? undefined : a,
+        budgetPeriod
+      );
+      setSuccessMsg(`Budget for ${category} saved (${budgetPeriod})!`);
       await loadRules();
       onSuccess();
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to save budget target');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleRulePeriod = async (rule: BudgetRule) => {
+    const nextPeriod: BudgetPeriod = rule.budget_period === 'annual' ? 'monthly' : 'annual';
+    setLoading(true);
+    setError(null);
+    try {
+      await upsertBudgetRule(
+        rule.category,
+        rule.weekly_limit,
+        rule.monthly_limit,
+        rule.annual_limit ?? Math.round(rule.weekly_limit * 52 * 100) / 100,
+        nextPeriod
+      );
+      setSuccessMsg(
+        nextPeriod === 'annual'
+          ? `${rule.category} spread over 52-week annual budget!`
+          : `${rule.category} switched to ${nextPeriod} budget!`
+      );
+      await loadRules();
+      onSuccess();
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to update budget period');
     } finally {
       setLoading(false);
     }
@@ -169,9 +222,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   };
 
   const handleSelectRule = (r: BudgetRule) => {
-    setCategory(r.category);
-    setWeeklyLimit(String(r.weekly_limit));
-    setMonthlyLimit(String(r.monthly_limit));
+    syncFromRule(r);
   };
 
   return (
@@ -230,6 +281,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                           type="button"
                           onClick={() => {
                             setCategory(cat.category);
+                            setBudgetPeriod(cat.budget_period || 'monthly');
                             handleWeeklyChange(String(cat.average_weekly_burn));
                           }}
                           className="px-1.5 py-0.5 rounded bg-background/70 border border-border/70 hover:border-amber-500/40 text-[10px] text-slate-200 font-mono transition-colors"
@@ -267,11 +319,15 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                               key={cat.category}
                               onClick={() => {
                                 setCategory(cat.category);
+                                setBudgetPeriod(cat.budget_period || 'monthly');
                                 handleWeeklyChange(String(cat.average_weekly_burn));
                               }}
                               className="flex items-center justify-between gap-2 px-2 py-1 rounded bg-background/60 border border-border/60 hover:border-amber-500/40 cursor-pointer"
                             >
-                              <span className="text-slate-200 truncate">{cat.category}</span>
+                              <span className="text-slate-200 truncate">
+                                {cat.category}
+                                {cat.budget_period === 'annual' ? ' (52w)' : ''}
+                              </span>
                               <span className="font-mono text-slate-300 shrink-0">
                                 <span className="text-amber-300">
                                   {getVarPct(cat.variable_weekly_burn, cat.variable_percentage).toFixed(1)}%
@@ -320,15 +376,15 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
           onSubmit={handleSave}
           className="p-3.5 bg-card/60 rounded-xl border border-border space-y-3"
         >
-          <div className="flex items-center justify-between text-xs text-slate-300">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
             <span className="font-semibold text-slate-200 flex items-center space-x-1.5">
               <Target className="w-3.5 h-3.5 text-amber-400" />
               <span>Target Budget Rule</span>
             </span>
-            <span className="text-[11px] text-slate-400">Auto-converts weekly/monthly</span>
+            <span className="text-[11px] text-slate-400">Auto-converts weekly/monthly/annual</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
             <div>
               <label className="text-[10px] text-slate-400 block mb-1">Category</label>
               <input
@@ -346,6 +402,25 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
               </datalist>
             </div>
 
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-1">Guardrail Cadence</label>
+              <SegmentedControl<BudgetPeriod>
+                idPrefix="budget-period-mode"
+                fullWidth
+                size="xs"
+                variant="amber"
+                value={budgetPeriod}
+                onChange={setBudgetPeriod}
+                options={[
+                  { id: 'weekly', label: 'Weekly' },
+                  { id: 'monthly', label: 'Monthly' },
+                  { id: 'annual', label: 'Annual (52w)' },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <label className="text-[10px] text-slate-400 block mb-1">Weekly Limit ($/wk)</label>
               <div className="relative">
@@ -371,6 +446,22 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                   placeholder="867"
                   value={monthlyLimit}
                   onChange={(e) => handleMonthlyChange(e.target.value)}
+                  className="w-full pl-6 pr-2.5 py-1.5 bg-background border border-border rounded text-base sm:text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-1">Annual Limit ($/yr)</label>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1.5 text-xs text-slate-400">$</span>
+                <input
+                  type="number"
+                  step="1"
+                  placeholder="4000"
+                  value={annualLimit}
+                  onChange={(e) => handleAnnualChange(e.target.value)}
+                  data-testid="budget-annual-limit-input"
                   className="w-full pl-6 pr-2.5 py-1.5 bg-background border border-border rounded text-base sm:text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
@@ -430,31 +521,60 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
             />
           ) : (
             <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-              {rules.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-card/40 border border-border text-xs hover:border-slate-600 transition-colors cursor-pointer"
-                  onClick={() => handleSelectRule(r)}
-                >
-                  <div>
-                    <span className="font-medium text-slate-200">{r.category}</span>
-                    <span className="text-[10px] text-slate-400 ml-2">
-                      {formatMoney(r.weekly_limit)}/wk · {formatMoney(r.monthly_limit)}/mo
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleDelete(r.id);
-                    }}
-                    className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                    title="Delete rule"
+              {rules.map((r) => {
+                const isAnnual = r.budget_period === 'annual';
+                const annualVal = r.annual_limit ?? Math.round(r.weekly_limit * 52 * 100) / 100;
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-2 p-2 rounded-lg bg-card/40 border border-border text-xs hover:border-slate-600 transition-colors cursor-pointer"
+                    onClick={() => handleSelectRule(r)}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-slate-200 truncate">{r.category}</span>
+                        {isAnnual && (
+                          <span className="px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30 text-[9px] text-sky-300 shrink-0">
+                            52w Annual
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        {formatMoney(r.weekly_limit)}/wk · {formatMoney(r.monthly_limit)}/mo · {formatMoney(annualVal)}/yr
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        data-testid={`rule-toggle-annual-${r.category.toLowerCase().replace(/\s+/g, '-')}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleToggleRulePeriod(r);
+                        }}
+                        className={`px-1.5 py-0.5 rounded border text-[10px] transition-colors ${
+                          isAnnual
+                            ? 'border-sky-500/30 bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
+                            : 'border-border/70 text-slate-400 hover:text-amber-300 hover:border-amber-500/40'
+                        }`}
+                        title="Toggle 52-week annual budget spread"
+                      >
+                        {isAnnual ? '52w On' : 'Spread 52w'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDelete(r.id);
+                        }}
+                        className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        title="Delete rule"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

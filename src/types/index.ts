@@ -187,11 +187,15 @@ export interface Transaction {
   created_at?: string;
 }
 
+export type BudgetPeriod = 'weekly' | 'monthly' | 'annual';
+
 export interface BudgetRule {
   id: number;
   category: string;
   weekly_limit: number;
   monthly_limit: number;
+  annual_limit?: number;
+  budget_period?: BudgetPeriod;
   is_active: boolean;
 }
 
@@ -201,6 +205,8 @@ export interface CategoryBurnEstimate {
   recurring_weekly_burn: number;
   average_weekly_burn: number;
   suggested_monthly_limit: number;
+  suggested_annual_limit?: number;
+  budget_period?: BudgetPeriod;
   variable_percentage?: number;
   total_percentage?: number;
 }
@@ -239,6 +245,8 @@ export interface CategorySpendingReport {
   is_over_budget: boolean;
   warning_level: 'normal' | 'warning' | 'danger';
   is_transfer?: boolean;
+  budget_period?: BudgetPeriod;
+  annual_limit?: number | null;
 }
 
 export interface SpendingBreakdownResponse {

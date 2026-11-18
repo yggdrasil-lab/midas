@@ -13,9 +13,10 @@ import {
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
-import { fetchAverageBurn, fetchLoans } from '../services/api';
+import { fetchAverageBurn, fetchLoans, upsertBudgetRule } from '../services/api';
 import {
   AverageBurnReportResponse,
+  BudgetPeriod,
   CategoryBurnEstimate,
   LoanItem,
   RecurringCommitmentItem,
@@ -29,6 +30,7 @@ interface BurnBreakdownModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialTab?: BurnBreakdownTab;
+  onBudgetChanged?: () => void;
 }
 
 const LOOKBACK_OPTIONS: Array<{ id: LookbackOption; label: string }> = [
@@ -238,7 +240,16 @@ const VariableCategorySection: React.FC<{
   lookbackWeeks: number;
   totalVariableBurn: number;
   totalEffectiveBurn: number;
-}> = ({ categories, lookbackWeeks, totalVariableBurn, totalEffectiveBurn }) => {
+  togglingCategory: string | null;
+  onTogglePeriod: (cat: CategoryBurnEstimate) => void;
+}> = ({
+  categories,
+  lookbackWeeks,
+  totalVariableBurn,
+  totalEffectiveBurn,
+  togglingCategory,
+  onTogglePeriod,
+}) => {
   const variableCategories = useMemo(
     () =>
       categories
@@ -293,6 +304,10 @@ const VariableCategorySection: React.FC<{
           const varPct = resolveVariablePct(cat, totalVariableBurn);
           const totalPct = resolveTotalPct(cat, totalWeeklyCategorySum);
           const barWidth = Math.min(100, Math.max(0, varPct));
+          const isAnnual = cat.budget_period === 'annual';
+          const annualEst =
+            cat.suggested_annual_limit ?? Math.round(cat.average_weekly_burn * 52 * 100) / 100;
+          const isToggling = togglingCategory === cat.category;
 
           return (
             <div
@@ -306,8 +321,15 @@ const VariableCategorySection: React.FC<{
                     {getCategoryIcon(cat.category)}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-semibold text-slate-100 truncate">
-                      {cat.category}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs font-semibold text-slate-100 truncate">
+                        {cat.category}
+                      </span>
+                      {isAnnual && (
+                        <span className="px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30 text-[9px] font-medium text-sky-300 shrink-0">
+                          52w Annual
+                        </span>
+                      )}
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono">
                       {totalPct.toFixed(1)}% of total burn
@@ -328,16 +350,35 @@ const VariableCategorySection: React.FC<{
                     </span>
                   </div>
                   <div className="text-[10px] font-mono text-slate-400">
-                    Est. {formatMoney(cat.suggested_monthly_limit)}/mo total
+                    {isAnnual
+                      ? `Est. ${formatMoney(annualEst)}/yr spread`
+                      : `Est. ${formatMoney(cat.suggested_monthly_limit)}/mo total`}
                   </div>
                 </div>
               </div>
 
-              <div className="w-full h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all duration-300"
-                  style={{ width: `${barWidth}%` }}
-                />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      isAnnual ? 'bg-sky-400' : 'bg-amber-500'
+                    }`}
+                    style={{ width: `${barWidth}%` }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={isToggling}
+                  data-testid={`toggle-annual-${cat.category.toLowerCase().replace(/\s+/g, '-')}`}
+                  onClick={() => onTogglePeriod(cat)}
+                  className={`px-2 py-0.5 rounded border text-[10px] font-medium transition-colors shrink-0 cursor-pointer disabled:opacity-50 ${
+                    isAnnual
+                      ? 'bg-sky-500/15 border-sky-500/30 text-sky-300 hover:bg-sky-500/25'
+                      : 'bg-background/60 border-border/70 text-slate-400 hover:text-amber-300 hover:border-amber-500/40'
+                  }`}
+                >
+                  {isToggling ? 'Saving...' : isAnnual ? 'Spread 52w On' : 'Spread over 52w'}
+                </button>
               </div>
             </div>
           );
@@ -355,11 +396,13 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
   isOpen,
   onClose,
   initialTab = 'recurring',
+  onBudgetChanged,
 }) => {
   const [activeTab, setActiveTab] = useState<BurnBreakdownTab>(initialTab);
   const [lookback, setLookback] = useState<LookbackOption>('12');
   const [report, setReport] = useState<AverageBurnReportResponse | null>(null);
   const [loans, setLoans] = useState<LoanItem[]>([]);
+  const [togglingCategory, setTogglingCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -384,6 +427,30 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to load burn breakdown');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleCategoryPeriod = async (cat: CategoryBurnEstimate) => {
+    const nextPeriod: BudgetPeriod = cat.budget_period === 'annual' ? 'monthly' : 'annual';
+    const annualTarget =
+      cat.suggested_annual_limit ?? Math.round(cat.average_weekly_burn * 52 * 100) / 100;
+    setTogglingCategory(cat.category);
+    setError(null);
+    try {
+      await upsertBudgetRule(
+        cat.category,
+        undefined,
+        undefined,
+        annualTarget > 0 ? annualTarget : 100,
+        nextPeriod
+      );
+      await loadReport(Number(lookback));
+      onBudgetChanged?.();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to update category budget cadence');
+    } finally {
+      setTogglingCategory(null);
     }
   };
 
@@ -513,6 +580,8 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
               lookbackWeeks={report.lookback_weeks}
               totalVariableBurn={variableWeekly}
               totalEffectiveBurn={totalWeekly}
+              togglingCategory={togglingCategory}
+              onTogglePeriod={(cat) => void handleToggleCategoryPeriod(cat)}
             />
           )
         ) : null}

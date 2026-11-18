@@ -386,6 +386,8 @@ export async function setupMockApi(page: Page) {
             transaction_count: 4,
             percentage: 46.7,
             budget_limit: 300.0,
+            annual_limit: 3900.0,
+            budget_period: 'monthly',
             percent_used: 116.7,
             is_over_budget: true,
             warning_level: 'danger',
@@ -397,6 +399,8 @@ export async function setupMockApi(page: Page) {
             transaction_count: 5,
             percentage: 16.0,
             budget_limit: 200.0,
+            annual_limit: 2600.0,
+            budget_period: 'monthly',
             percent_used: 60.0,
             is_over_budget: false,
             warning_level: 'normal',
@@ -408,6 +412,8 @@ export async function setupMockApi(page: Page) {
             transaction_count: 3,
             percentage: 11.3,
             budget_limit: 100.0,
+            annual_limit: 1300.0,
+            budget_period: 'monthly',
             percent_used: 85.0,
             is_over_budget: false,
             warning_level: 'warning',
@@ -426,6 +432,42 @@ export async function setupMockApi(page: Page) {
       }),
     });
   });
+
+  const mockBudgetRules: Array<{
+    id: number;
+    category: string;
+    weekly_limit: number;
+    monthly_limit: number;
+    annual_limit: number;
+    budget_period: 'weekly' | 'monthly' | 'annual';
+    is_active: boolean;
+  }> = [
+    {
+      id: 1,
+      category: 'Groceries',
+      weekly_limit: 75.0,
+      monthly_limit: 300.0,
+      annual_limit: 3900.0,
+      budget_period: 'monthly',
+      is_active: true,
+    },
+    {
+      id: 2,
+      category: 'Transport',
+      weekly_limit: 50.0,
+      monthly_limit: 200.0,
+      annual_limit: 2600.0,
+      budget_period: 'monthly',
+      is_active: true,
+    },
+  ];
+
+  const getRulePeriod = (categoryName: string): 'weekly' | 'monthly' | 'annual' => {
+    const matched = mockBudgetRules.find(
+      (rule) => rule.category.toLowerCase() === categoryName.toLowerCase()
+    );
+    return matched ? matched.budget_period : 'monthly';
+  };
 
   await page.route('**/api/budgets/average-burn**', async (route) => {
     const url = new URL(route.request().url());
@@ -452,6 +494,8 @@ export async function setupMockApi(page: Page) {
             recurring_weekly_burn: 400.0,
             average_weekly_burn: 400.0,
             suggested_monthly_limit: 1733.33,
+            suggested_annual_limit: 20800.0,
+            budget_period: getRulePeriod('Housing'),
             variable_percentage: 0.0,
             total_percentage: 40.0,
           },
@@ -461,6 +505,8 @@ export async function setupMockApi(page: Page) {
             recurring_weekly_burn: 0.0,
             average_weekly_burn: grocVar,
             suggested_monthly_limit: Math.round((grocVar * 52) / 12 * 100) / 100,
+            suggested_annual_limit: Math.round(grocVar * 52 * 100) / 100,
+            budget_period: getRulePeriod('Groceries'),
             variable_percentage: Math.round((grocVar / variableTotal) * 1000) / 10,
             total_percentage: Math.round((grocVar / effectiveTotal) * 1000) / 10,
           },
@@ -470,6 +516,8 @@ export async function setupMockApi(page: Page) {
             recurring_weekly_burn: 0.0,
             average_weekly_burn: foodVar,
             suggested_monthly_limit: Math.round((foodVar * 52) / 12 * 100) / 100,
+            suggested_annual_limit: Math.round(foodVar * 52 * 100) / 100,
+            budget_period: getRulePeriod('Food'),
             variable_percentage: Math.round((foodVar / variableTotal) * 1000) / 10,
             total_percentage: Math.round((foodVar / effectiveTotal) * 1000) / 10,
           },
@@ -479,6 +527,8 @@ export async function setupMockApi(page: Page) {
             recurring_weekly_burn: 95.59,
             average_weekly_burn: 95.59,
             suggested_monthly_limit: 414.22,
+            suggested_annual_limit: 4970.68,
+            budget_period: getRulePeriod('Insurance'),
             variable_percentage: 0.0,
             total_percentage: 9.6,
           },
@@ -488,6 +538,8 @@ export async function setupMockApi(page: Page) {
             recurring_weekly_burn: 14.41,
             average_weekly_burn: 14.41,
             suggested_monthly_limit: 62.44,
+            suggested_annual_limit: 749.32,
+            budget_period: getRulePeriod('Health'),
             variable_percentage: 0.0,
             total_percentage: 1.4,
           },
@@ -542,20 +594,83 @@ export async function setupMockApi(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([
-        { id: 1, category: 'Groceries', weekly_limit: 85.0, monthly_limit: 368.33, is_active: true },
-        { id: 2, category: 'Housing', weekly_limit: 400.0, monthly_limit: 1733.33, is_active: true },
+        {
+          id: 1,
+          category: 'Groceries',
+          weekly_limit: 85.0,
+          monthly_limit: 368.33,
+          annual_limit: 4420.0,
+          budget_period: 'monthly',
+          is_active: true,
+        },
+        {
+          id: 2,
+          category: 'Housing',
+          weekly_limit: 400.0,
+          monthly_limit: 1733.33,
+          annual_limit: 20800.0,
+          budget_period: 'monthly',
+          is_active: true,
+        },
       ]),
     });
   });
 
   await page.route(/\/api\/budgets(\?.*)?$/, async (route) => {
+    if (route.request().method() === 'POST') {
+      const payload = route.request().postDataJSON() as {
+        category: string;
+        weekly_limit?: number;
+        monthly_limit?: number;
+        annual_limit?: number;
+        budget_period?: 'weekly' | 'monthly' | 'annual';
+      };
+      const period = payload.budget_period ?? 'monthly';
+      const weeklyLimit =
+        payload.weekly_limit != null
+          ? payload.weekly_limit
+          : payload.annual_limit != null
+            ? Math.round((payload.annual_limit / 52) * 100) / 100
+            : Math.round((((payload.monthly_limit ?? 0) * 12) / 52) * 100) / 100;
+      const monthlyLimit =
+        payload.monthly_limit != null
+          ? payload.monthly_limit
+          : Math.round(((weeklyLimit * 52) / 12) * 100) / 100;
+      const annualLimit =
+        payload.annual_limit != null
+          ? payload.annual_limit
+          : Math.round(weeklyLimit * 52 * 100) / 100;
+
+      const existingIdx = mockBudgetRules.findIndex(
+        (r) => r.category.toLowerCase() === payload.category.toLowerCase()
+      );
+      const updated = {
+        id: existingIdx >= 0 ? mockBudgetRules[existingIdx].id : mockBudgetRules.length + 1,
+        category: payload.category,
+        weekly_limit: weeklyLimit,
+        monthly_limit: monthlyLimit,
+        annual_limit: annualLimit,
+        budget_period: period,
+        is_active: true,
+      };
+      if (existingIdx >= 0) {
+        mockBudgetRules[existingIdx] = updated;
+      } else {
+        mockBudgetRules.push(updated);
+      }
+
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(updated),
+      });
+      return;
+    }
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([
-        { id: 1, category: 'Groceries', weekly_limit: 75.0, monthly_limit: 300.0, is_active: true },
-        { id: 2, category: 'Transport', weekly_limit: 50.0, monthly_limit: 200.0, is_active: true },
-      ]),
+      body: JSON.stringify(mockBudgetRules),
     });
   });
 

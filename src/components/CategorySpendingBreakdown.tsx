@@ -261,6 +261,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             : data.categories
           ).map((cat) => {
             const isTransfer = Boolean(cat.is_transfer);
+            const isAnnual = !isTransfer && cat.budget_period === 'annual';
             const hasBudget =
               !isTransfer &&
               cat.budget_limit !== null &&
@@ -273,7 +274,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
               <BudgetProgressRow
                 key={cat.category}
                 data-testid={`category-row-${cat.category.toLowerCase()}`}
-                category={cat.category}
+                category={isAnnual ? `${cat.category} (Annual 52w)` : cat.category}
                 icon={getCategoryIcon(cat.category)}
                 spendFormatted={`${formatMoney(cat.total_spend, {
                   minimumFractionDigits: 2,
@@ -283,14 +284,16 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                 percentage={cat.percentage}
                 budgetSummaryLabel={
                   hasBudget
-                    ? `${formatMoney(cat.total_spend)} of ${formatMoney(limitValue)} (${percentUsed.toFixed(0)}%)`
+                    ? isAnnual
+                      ? `${formatMoney(cat.total_spend)} of ${formatMoney(limitValue)}/yr (${percentUsed.toFixed(0)}% of 52w)`
+                      : `${formatMoney(cat.total_spend)} of ${formatMoney(limitValue)} (${percentUsed.toFixed(0)}%)`
                     : null
                 }
                 remainingOrOverFormatted={
                   hasBudget
                     ? cat.is_over_budget
-                      ? `${formatMoney(cat.total_spend - limitValue)} OVER BUDGET`
-                      : `${formatMoney(limitValue - cat.total_spend)} left`
+                      ? `${formatMoney(cat.total_spend - limitValue)} ${isAnnual ? 'OVER ANNUAL' : 'OVER BUDGET'}`
+                      : `${formatMoney(limitValue - cat.total_spend)}${isAnnual ? '/yr left' : ' left'}`
                     : null
                 }
                 percentUsed={percentUsed}
