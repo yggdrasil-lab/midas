@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Sparkles, UploadCloud } from 'lucide-react';
+import { ArrowRight, UploadCloud } from 'lucide-react';
 import { AlertBanner, Button, FileDropzone, GlassCard } from '@yggdrasil-lab/ui';
 import {
   fetchAccounts,
   fetchInstitutions,
-  fetchSampleStatement,
   uploadStatement,
 } from '../services/api';
 import { Account, InstitutionInfo, StatementParseResult } from '../types';
@@ -42,24 +41,6 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
       })
       .catch((err) => console.warn('Could not load accounts or institutions:', err));
   }, []);
-
-  const handleLoadSampleStatement = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const csvText = await fetchSampleStatement('ASB');
-      const blob = new Blob([csvText], { type: 'text/csv' });
-      const sampleFile = new File([blob], 'asb-sample-statement.csv', { type: 'text/csv' });
-      setFile(sampleFile);
-      setParseResult(null);
-      setCommitted(false);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load sample statement from Plutus');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleInstitutionChange = (val: string) => {
     setInstitution(val);
@@ -212,8 +193,8 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           description="Extracts official closing balances and deduplicated transactions with automatic institution detection"
           variant="amber"
         >
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {file ? (
+          {file && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <Button
                 variant="secondary"
                 size="sm"
@@ -225,19 +206,8 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
               >
                 Inspect Statement
               </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                loading={loading}
-                icon={<Sparkles className="w-3.5 h-3.5 text-amber-400" />}
-                onClick={handleLoadSampleStatement}
-                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-              >
-                Try Sample Statement
-              </Button>
-            )}
-          </div>
+            </div>
+          )}
         </FileDropzone>
       ) : (
         <StatementPreviewCard

@@ -274,15 +274,6 @@ export async function setupMockApi(page: Page) {
     });
   });
 
-  // 4b. Mock Sample Statement Endpoint
-  await page.route(/\/api\/integrations\/sample-statement(\?.*)?$/, async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/csv',
-      body: `Date,Amount,Payee,Description\n2026-10-02,-145.50,Pak n Save Albany,Groceries\n2026-10-05,-12.50,Columbus Coffee,Cafe\n`,
-    });
-  });
-
   // 5. Mock Accounts & Snapshots Endpoint
   await page.route(/\/api\/accounts\/\d+\/snapshots(\?.*)?$/, async (route) => {
     if (route.request().method() === 'POST') {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Database,
+  ArrowRightLeft,
   Receipt as ReceiptIcon,
   Sliders,
   SlidersHorizontal,
@@ -86,12 +86,12 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
             className="p-3 rounded-xl bg-background/60 border border-border/80 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors text-left flex items-start gap-3 cursor-pointer"
           >
             <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
-              <Database className="w-4 h-4" />
+              <ArrowRightLeft className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-100">Data &amp; Ledger Controls</div>
+              <div className="text-xs font-semibold text-slate-100">Transfer &amp; FX Reconciliation</div>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                Reconcile, export, or reset ledger
+                Pair internal transfers &amp; cross-currency legs
               </div>
             </div>
           </button>

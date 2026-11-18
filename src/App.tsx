@@ -252,14 +252,14 @@ export const App: React.FC = () => {
                 <Button
                   variant="amber"
                   size="sm"
-                  onClick={() => setIsDataModalOpen(true)}
+                  onClick={() => setActiveTab('tools')}
                   className="shrink-0"
                 >
-                  Data Controls
+                  Open Statement Hub
                 </Button>
               }
             >
-              Your ledger has zero balances. Ingest bank statements below or seed test data to explore.
+              Your ledger has zero balances. Upload a bank statement in the Tools tab to get started.
             </AlertBanner>
           )}
           {renderTabContent(data)}

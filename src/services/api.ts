@@ -164,14 +164,6 @@ export async function fetchInstitutions(): Promise<InstitutionInfo[]> {
   ];
 }
 
-export async function fetchSampleStatement(institution = 'ASB'): Promise<string> {
-  const res = await authFetch(`${API_BASE}/integrations/sample-statement?institution=${encodeURIComponent(institution)}`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch sample statement: ${res.statusText}`);
-  }
-  return res.text();
-}
-
 export async function fetchAccounts(): Promise<Account[]> {
   const res = await authFetch(`${API_BASE}/accounts`);
   if (!res.ok) {
@@ -233,39 +225,6 @@ export async function fetchAccountTransactions(params?: {
     return txs.filter((tx) => tx.account_id === params.accountId);
   }
   return txs;
-}
-
-export async function seedTestData(): Promise<{
-  status: string;
-  message: string;
-  cash_balance: number;
-  growth_balance: number;
-  locked_balance: number;
-  total_liquid: number;
-}> {
-  const res = await authFetch(`${API_BASE}/admin/seed`, {
-    method: 'POST',
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to seed test data: ${res.statusText}`);
-  }
-  return res.json();
-}
-
-export async function resetDatabase(clearAccounts = false): Promise<{
-  status: string;
-  message: string;
-  cleared_transactions: number;
-  cleared_snapshots: number;
-  cleared_accounts: number;
-}> {
-  const res = await authFetch(`${API_BASE}/admin/reset?clear_accounts=${clearAccounts}`, {
-    method: 'POST',
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to reset data: ${res.statusText}`);
-  }
-  return res.json();
 }
 
 export async function fetchSpendingBreakdown(
