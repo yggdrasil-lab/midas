@@ -755,6 +755,7 @@ export async function setupMockApi(page: Page) {
       linked_amount: 0.04884012,
       linked_currency: 'BTC',
       exchange_rate: 122849.82,
+      fee_amount: 100.81,
     },
     {
       id: 108,
@@ -769,6 +770,18 @@ export async function setupMockApi(page: Page) {
       linked_account_name: 'ANZ Freedom',
       linked_amount: -6000.0,
       linked_currency: 'NZD',
+      exchange_rate: 120810.25,
+    },
+    {
+      id: 109,
+      transaction_date: '2026-11-01',
+      account_id: 4,
+      account_name: 'BitBox02 Savings',
+      amount: -0.005005,
+      currency: 'BTC',
+      merchant: 'Bitcoin On-Chain Withdrawal (1a2b3c4d5e6f)',
+      category: 'Transfers',
+      fee_amount: 0.000005,
       exchange_rate: 120810.25,
     },
     {

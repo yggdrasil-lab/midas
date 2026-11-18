@@ -9,7 +9,11 @@ import {
 import { TagPillList } from '@yggdrasil-lab/ui';
 import { RecurrenceType, Transaction } from '../types';
 import { isTransferCategory, RECURRENCE_OPTIONS } from '../constants/categories';
-import { formatMoney, formatSignedTransactionAmount } from '../utils/format';
+import {
+  formatMoney,
+  formatSignedTransactionAmount,
+  formatTransactionFee,
+} from '../utils/format';
 
 interface TransactionRowProps {
   transaction: Transaction;
@@ -121,12 +125,13 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
               </span>
             </span>
           )}
-          {Boolean(tx.fee_amount) && (
+          {tx.fee_amount != null && Number(tx.fee_amount) > 0 && (
             <span
+              data-testid={`tx-fee-${tx.id}`}
               className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium"
-              title={`Transfer Fee: ${formatMoney(Number(tx.fee_amount), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${txCurrency}`}
+              title={`Transfer Fee: ${formatTransactionFee(Number(tx.fee_amount), txCurrency, true)}`}
             >
-              Fee: {formatMoney(Number(tx.fee_amount), { minimumFractionDigits: 0, maximumFractionDigits: 2 })} {txCurrency}
+              Fee: {formatTransactionFee(Number(tx.fee_amount), txCurrency)}
             </span>
           )}
         </div>
