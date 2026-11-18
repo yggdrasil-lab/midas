@@ -58,7 +58,7 @@ export const AccountTierSection: React.FC<AccountTierSectionProps> = ({
           </div>
         </div>
         <div className={`font-mono font-semibold text-xs ${meta.totalTextColor}`}>
-          {formatMoney(totalNzd)} NZD
+          {formatMoney(totalNzd, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD
         </div>
       </div>
 
@@ -70,6 +70,8 @@ export const AccountTierSection: React.FC<AccountTierSectionProps> = ({
           const delta = snaps && snaps.length >= 2 ? snaps[0].balance_nzd - snaps[1].balance_nzd : null;
           const hasDelta = delta !== null && delta !== 0;
 
+          const isCrypto = acc.account_type === 'crypto' || acc.currency === 'BTC';
+          const valueMaxDecimals = isCrypto ? 8 : 2;
           const returnHint =
             tier === 'growth' && acc.expected_annual_return > 0
               ? ` • ${(acc.expected_annual_return * 100).toFixed(1)}% p.a.`
@@ -89,12 +91,19 @@ export const AccountTierSection: React.FC<AccountTierSectionProps> = ({
                   icon={icons.badge}
                 />
               }
-              value={formatMoney(balance)}
+              value={formatMoney(balance, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: valueMaxDecimals,
+              })}
               valueSuffix={acc.currency || 'NZD'}
               subtitle={`${acc.institution} • ${acc.account_type.replace('_', ' ')}${returnHint}`}
               subvalue={
                 hasDelta
-                  ? formatMoney(delta, { showPlusSign: true })
+                  ? formatMoney(delta, {
+                      showPlusSign: true,
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                   : latestSnap
                   ? latestSnap.snapshot_date
                   : 'Inspect Ledger ->'
