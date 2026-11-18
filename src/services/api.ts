@@ -257,7 +257,9 @@ export async function fetchBudgetRules(): Promise<BudgetRule[]> {
 export async function upsertBudgetRule(
   category: string,
   weeklyLimit?: number,
-  monthlyLimit?: number
+  monthlyLimit?: number,
+  annualLimit?: number,
+  budgetPeriod?: 'weekly' | 'monthly' | 'annual'
 ): Promise<BudgetRule> {
   const res = await authFetch(`${API_BASE}/budgets`, {
     method: 'POST',
@@ -268,6 +270,8 @@ export async function upsertBudgetRule(
       category,
       weekly_limit: weeklyLimit,
       monthly_limit: monthlyLimit,
+      annual_limit: annualLimit,
+      budget_period: budgetPeriod,
       is_active: true,
     }),
   });

@@ -12,6 +12,7 @@ import { BurnBreakdownModal, BurnBreakdownTab } from './BurnBreakdownModal';
 interface WeeklyBurnTrackerProps {
   data: RunwayData;
   onQuickLogClick: () => void;
+  onBudgetChanged?: () => void;
 }
 
 /**
@@ -19,7 +20,11 @@ interface WeeklyBurnTrackerProps {
  * interactive average weekly burn metrics that drill into recurring commitments
  * and estimated per-category variable burn percentages.
  */
-export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({ data, onQuickLogClick }) => {
+export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({
+  data,
+  onQuickLogClick,
+  onBudgetChanged,
+}) => {
   const { weekly_spend_this_week, weekly_budget_target, time_banked_this_week, breakdown } = data;
   const isBankedPositive = time_banked_this_week >= 0;
 
@@ -127,6 +132,7 @@ export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({ data, onQu
         isOpen={breakdownOpen}
         onClose={() => setBreakdownOpen(false)}
         initialTab={breakdownTab}
+        onBudgetChanged={onBudgetChanged}
       />
     </div>
   );
