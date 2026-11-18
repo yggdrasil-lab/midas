@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowRight,
   ArrowRightLeft,
   PieChart,
-  Receipt as ReceiptIcon,
-  SlidersHorizontal,
   Target,
 } from 'lucide-react';
 import {
@@ -23,20 +22,21 @@ import { formatMoney } from '../utils/format';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
-import { RulesManagerModal } from './RulesManagerModal';
 
 interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
-  onOpenReceiptsClick?: () => void;
+  compact?: boolean;
+  onViewAllBudgetsClick?: () => void;
 }
 
 /**
  * Category spending breakdown with overspending guardrails, budget configuration,
- * rules manager, and category drill-down inspection.
+ * and category drill-down inspection. Supports a compact mode for mobile overview.
  */
 export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps> = ({
   onRefreshRunway,
-  onOpenReceiptsClick,
+  compact = false,
+  onViewAllBudgetsClick,
 }) => {
   const defaultRange = useMemo(() => getDefaultCustomRange(), []);
   const [period, setPeriod] = useState<PeriodType>('month');
@@ -49,7 +49,6 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [inspectCategory, setInspectCategory] = useState<string | undefined>(undefined);
   const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
-  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
 
   const loadBreakdown = async () => {
     setLoading(true);
@@ -96,59 +95,54 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
     <GlassCard className="space-y-4">
       <SectionHeader
         title="Category Spending & Budgets"
-        subtitle="Track where your money goes and set overspending guardrails"
+        subtitle={
+          compact
+            ? 'Top categories this month & budget guardrails'
+            : 'Track where your money goes and set overspending guardrails'
+        }
         icon={<PieChart className="w-4 h-4" />}
         variant="amber"
         actions={
-          <>
-            <PeriodFilterBar
-              period={period}
-              onPeriodChange={setPeriod}
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
-              idPrefix="budget-period"
-            />
-
-            <Button
-              variant="outline"
-              size="xs"
-              icon={<Target className="w-3 h-3 text-amber-400" />}
-              onClick={() => {
-                setSelectedCategory(undefined);
-                setIsConfigModalOpen(true);
-              }}
-              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-            >
-              <span className="hidden sm:inline">Manage Limits</span>
-              <span className="sm:hidden">Limits</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="xs"
-              icon={<SlidersHorizontal className="w-3 h-3 text-amber-400" />}
-              onClick={() => setIsRulesModalOpen(true)}
-              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-              data-testid="rules-manager-btn"
-            >
-              Rules
-            </Button>
-
-            {onOpenReceiptsClick && (
+          compact ? (
+            onViewAllBudgetsClick ? (
               <Button
                 variant="outline"
                 size="xs"
-                icon={<ReceiptIcon className="w-3 h-3 text-amber-400" />}
-                onClick={onOpenReceiptsClick}
+                icon={<ArrowRight className="w-3 h-3 text-amber-400" />}
+                onClick={onViewAllBudgetsClick}
                 className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                data-testid="receipts-hub-btn"
+                data-testid="view-all-budgets-btn"
               >
-                Receipts
+                View All Budgets
               </Button>
-            )}
-          </>
+            ) : undefined
+          ) : (
+            <>
+              <PeriodFilterBar
+                period={period}
+                onPeriodChange={setPeriod}
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+                idPrefix="budget-period"
+              />
+
+              <Button
+                variant="outline"
+                size="xs"
+                icon={<Target className="w-3 h-3 text-amber-400" />}
+                onClick={() => {
+                  setSelectedCategory(undefined);
+                  setIsConfigModalOpen(true);
+                }}
+                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+              >
+                <span className="hidden sm:inline">Manage Limits</span>
+                <span className="sm:hidden">Limits</span>
+              </Button>
+            </>
+          )
         }
       />
 
@@ -227,7 +221,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             ]}
           />
 
-          {Boolean(data.total_transfers && data.total_transfers > 0) && (
+          {!compact && Boolean(data.total_transfers && data.total_transfers > 0) && (
             <div className="flex items-center justify-between px-3 py-1.5 bg-card/30 rounded-lg border border-border/60 text-[11px] text-slate-400">
               <div className="flex items-center space-x-1.5">
                 <ArrowRightLeft className="w-3 h-3 text-sky-400" />
@@ -256,11 +250,16 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
       ) : (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
-            <span className="truncate">Click any category to inspect</span>
+            <span className="truncate">
+              {compact ? 'Top categories (tap to inspect)' : 'Click any category to inspect'}
+            </span>
             <span className="shrink-0 text-right">Target / Spend</span>
           </div>
 
-          {data.categories.map((cat) => {
+          {(compact
+            ? data.categories.filter((c) => !c.is_transfer).slice(0, 3)
+            : data.categories
+          ).map((cat) => {
             const isTransfer = Boolean(cat.is_transfer);
             const hasBudget =
               !isTransfer &&
@@ -303,6 +302,20 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
               />
             );
           })}
+
+          {compact && onViewAllBudgetsClick && (
+            <Button
+              variant="ghost"
+              size="sm"
+              fullWidth
+              icon={<ArrowRight className="w-3.5 h-3.5 text-amber-400" />}
+              onClick={onViewAllBudgetsClick}
+              className="border border-border/70 text-amber-300 hover:bg-amber-500/10"
+              data-testid="view-all-budgets-footer-btn"
+            >
+              View all categories &amp; budgets
+            </Button>
+          )}
         </div>
       )}
 
@@ -321,12 +334,6 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         onClose={() => setIsConfigModalOpen(false)}
         onSuccess={refreshAll}
         initialCategory={selectedCategory}
-      />
-
-      <RulesManagerModal
-        isOpen={isRulesModalOpen}
-        onClose={() => setIsRulesModalOpen(false)}
-        onRulesApplied={refreshAll}
       />
     </GlassCard>
   );

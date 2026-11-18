@@ -117,11 +117,11 @@ for (const { name: platform, options } of PLATFORMS) {
       }
       await page.waitForTimeout(200);
 
-      // 3. Time Machine Simulator
-      const simTab = page.locator('header nav button:has-text("Time Machine"), nav button:has-text("Simulator")').locator('visible=true').first();
-      if (await simTab.isVisible()) {
-        await simTab.click();
-      }
+      // 3. Tools Hub & Time Machine Simulator
+      const toolsTab = page.locator('header nav button:has-text("Tools"), nav button:has-text("Tools")').locator('visible=true').first();
+      await expect(toolsTab).toBeVisible();
+      await toolsTab.click();
+      await expect(page.locator('text=Tools & Power Utilities >> visible=true').first()).toBeVisible();
       await expect(page.locator('text=Time Machine & Scenario Modeler >> visible=true').first()).toBeVisible();
       // Trigger simulation to display simulated horizon
       await page.locator('button:has-text("Recalculate Freedom Horizon") >> visible=true').first().click();
@@ -131,11 +131,8 @@ for (const { name: platform, options } of PLATFORMS) {
         path: `screenshots/${platform}/03-time-machine-simulator.png`,
       });
 
-      // 4. Statement Ingestion Hub
-      const stmtTab = page.locator('header nav button:has-text("Statement Hub"), nav button:has-text("Statement")').locator('visible=true').first();
-      if (await stmtTab.isVisible()) {
-        await stmtTab.click();
-      }
+      // 4. Statement Ingestion Hub inside Tools
+      await page.getByTestId('tools-workspace-statement').click();
       await expect(page.locator('text=Statement Ingestion Hub >> visible=true').first()).toBeVisible();
       await page.waitForTimeout(300);
       await page.screenshot({
@@ -143,9 +140,7 @@ for (const { name: platform, options } of PLATFORMS) {
       });
 
       // 5. AI Freedom Advisor Modal
-      if (await simTab.isVisible()) {
-        await simTab.click();
-      }
+      await page.getByTestId('tools-workspace-simulator').click();
       const aiAdvisorBtn = page.locator('button:has-text("AI Freedom Advisor") >> visible=true').first();
       if (await aiAdvisorBtn.isVisible()) {
         await aiAdvisorBtn.click();
@@ -305,7 +300,9 @@ for (const { name: platform, options } of PLATFORMS) {
           }
         }
 
-        // 9. Outlook-Style Categorization Rules Manager Modal
+        // 9. Outlook-Style Categorization Rules Manager Modal (inside Tools Hub)
+        await toolsTab.click();
+        await expect(page.locator('text=Tools & Power Utilities >> visible=true').first()).toBeVisible();
         const rulesBtn = page.locator('[data-testid="rules-manager-btn"] >> visible=true').first();
         if (await rulesBtn.isVisible()) {
           await rulesBtn.click();
