@@ -36,3 +36,20 @@ export function formatSignedTransactionAmount(
   const resolvedCurrency = currency?.trim() || 'NZD';
   return `${prefixed} ${resolvedCurrency}`;
 }
+
+/**
+ * Returns the absolute NZD-normalized transaction amount using exchange_rate when foreign currency.
+ */
+export function getTransactionNzdAmount(tx: {
+  amount: number;
+  currency?: string | null;
+  exchange_rate?: number | null;
+}): number {
+  const absAmount = Math.abs(Number(tx.amount) || 0);
+  const currencyCode = (tx.currency || 'NZD').trim().toUpperCase();
+  const rate = Number(tx.exchange_rate);
+  if (currencyCode !== 'NZD' && Number.isFinite(rate) && rate > 0) {
+    return absAmount * rate;
+  }
+  return absAmount;
+}

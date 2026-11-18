@@ -420,6 +420,19 @@ export async function setupMockApi(page: Page) {
             is_transfer: false,
           },
           {
+            category: 'Travel',
+            total_spend: 1200.0,
+            transaction_count: 2,
+            percentage: 14.5,
+            budget_limit: 2600.0,
+            annual_limit: 2600.0,
+            budget_period: 'annual',
+            percent_used: 46.2,
+            is_over_budget: false,
+            warning_level: 'normal',
+            is_transfer: false,
+          },
+          {
             category: 'Transfers',
             total_spend: 600.0,
             transaction_count: 2,
@@ -674,6 +687,95 @@ export async function setupMockApi(page: Page) {
     });
   });
 
+  const mockTransactions = [
+    {
+      id: 101,
+      transaction_date: '2026-11-04',
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      amount: -120.5,
+      currency: 'NZD',
+      merchant: 'Pak n Save Albany',
+      category: 'Groceries',
+      tags: ['weekly-shop', 'pantry'],
+      has_receipt: true,
+    },
+    {
+      id: 102,
+      transaction_date: '2026-11-02',
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      amount: -85.2,
+      currency: 'NZD',
+      merchant: 'Woolworths Silverdale',
+      category: 'Groceries',
+    },
+    {
+      id: 103,
+      transaction_date: '2026-11-01',
+      account_id: 1,
+      account_name: 'ASB Checking',
+      amount: -500.0,
+      currency: 'NZD',
+      merchant: 'Wise Transfer to USD',
+      category: 'Transfers',
+      linked_transaction_id: 104,
+      linked_account_name: 'Wise USD (Personal)',
+      linked_amount: 300.0,
+      linked_currency: 'USD',
+      exchange_rate: 0.6061,
+      fee_amount: 5.0,
+    },
+    {
+      id: 104,
+      transaction_date: '2026-11-01',
+      account_id: 2,
+      account_name: 'Wise USD (Personal)',
+      amount: 300.0,
+      currency: 'USD',
+      merchant: 'Wise Transfer from ASB',
+      category: 'Transfers',
+      linked_transaction_id: 103,
+      linked_account_name: 'ASB Checking',
+      linked_amount: -500.0,
+      linked_currency: 'NZD',
+      exchange_rate: 0.6061,
+    },
+    {
+      id: 105,
+      transaction_date: '2026-08-14',
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      amount: -1050.0,
+      currency: 'NZD',
+      merchant: 'Air New Zealand',
+      category: 'Travel',
+      tags: ['queenstown-trip'],
+    },
+    {
+      id: 106,
+      transaction_date: '2026-08-15',
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      amount: -250.0,
+      currency: 'NZD',
+      merchant: 'Fergburger Queenstown',
+      category: 'Food',
+      tags: ['queenstown-trip'],
+    },
+    {
+      id: 107,
+      transaction_date: '2026-08-16',
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      amount: -150.0,
+      currency: 'NZD',
+      merchant: 'Queenstown Airport Shuttle',
+      category: 'Transport',
+      tags: ['queenstown-trip'],
+    },
+  ];
+
   // 7. Mock Transactions Endpoints for Inspection & Category Correction
   await page.route(/\/api\/transactions(\/.*|\?.*)?$/, async (route) => {
     if (route.request().method() === 'PATCH') {
@@ -694,66 +796,90 @@ export async function setupMockApi(page: Page) {
         }),
       });
     } else {
+      const url = new URL(route.request().url());
+      const categoryParam = url.searchParams.get('category');
+      const tagParam = url.searchParams.get('tag');
+      const periodParam = url.searchParams.get('period');
+      const accountIdParam = url.searchParams.get('account_id');
+
+      let filtered = mockTransactions;
+      if (accountIdParam) {
+        filtered = filtered.filter((tx) => String(tx.account_id) === accountIdParam);
+      }
+      if (categoryParam) {
+        filtered = filtered.filter(
+          (tx) => tx.category.toLowerCase() === categoryParam.toLowerCase()
+        );
+      }
+      if (tagParam) {
+        filtered = filtered.filter((tx) => (tx.tags || []).includes(tagParam));
+      }
+      if (periodParam === 'week' || periodParam === 'last_week' || periodParam === 'month') {
+        filtered = filtered.filter((tx) => tx.transaction_date >= '2026-11-01');
+      }
+
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 101,
-            transaction_date: '2026-11-04',
-            account_id: 1,
-            account_name: 'ANZ Freedom',
-            amount: -120.5,
-            currency: 'NZD',
-            merchant: 'Pak n Save Albany',
-            category: 'Groceries',
-            tags: ['weekly-shop', 'pantry'],
-            has_receipt: true,
-          },
-          {
-            id: 102,
-            transaction_date: '2026-11-02',
-            account_id: 1,
-            account_name: 'ANZ Freedom',
-            amount: -85.2,
-            currency: 'NZD',
-            merchant: 'Woolworths Silverdale',
-            category: 'Groceries',
-          },
-          {
-            id: 103,
-            transaction_date: '2026-11-01',
-            account_id: 1,
-            account_name: 'ASB Checking',
-            amount: -500.0,
-            currency: 'NZD',
-            merchant: 'Wise Transfer to USD',
-            category: 'Transfers',
-            linked_transaction_id: 104,
-            linked_account_name: 'Wise USD (Personal)',
-            linked_amount: 300.0,
-            linked_currency: 'USD',
-            exchange_rate: 0.6061,
-            fee_amount: 5.0,
-          },
-          {
-            id: 104,
-            transaction_date: '2026-11-01',
-            account_id: 2,
-            account_name: 'Wise USD (Personal)',
-            amount: 300.0,
-            currency: 'USD',
-            merchant: 'Wise Transfer from ASB',
-            category: 'Transfers',
-            linked_transaction_id: 103,
-            linked_account_name: 'ASB Checking',
-            linked_amount: -500.0,
-            linked_currency: 'NZD',
-            exchange_rate: 0.6061,
-          },
-        ]),
+        body: JSON.stringify(filtered),
       });
     }
+  });
+
+  // 7a. Mock Tag Spending Summary Endpoint
+  await page.route('**/api/transactions/summary/tags**', async (route) => {
+    const url = new URL(route.request().url());
+    const periodParam = url.searchParams.get('period') || 'all';
+    const isShortMonth = periodParam === 'month' || periodParam === 'last_month';
+    const tags = isShortMonth
+      ? [
+          {
+            tag: 'weekly-shop',
+            total_spend: 120.5,
+            transaction_count: 1,
+            first_date: '2026-11-04',
+            last_date: '2026-11-04',
+            categories: [
+              { category: 'Groceries', total_spend: 120.5, transaction_count: 1, percentage: 100.0 },
+            ],
+          },
+        ]
+      : [
+          {
+            tag: 'queenstown-trip',
+            total_spend: 1450.0,
+            transaction_count: 3,
+            first_date: '2026-08-14',
+            last_date: '2026-08-16',
+            categories: [
+              { category: 'Travel', total_spend: 1050.0, transaction_count: 1, percentage: 72.4 },
+              { category: 'Food', total_spend: 250.0, transaction_count: 1, percentage: 17.2 },
+              { category: 'Transport', total_spend: 150.0, transaction_count: 1, percentage: 10.3 },
+            ],
+          },
+          {
+            tag: 'weekly-shop',
+            total_spend: 120.5,
+            transaction_count: 1,
+            first_date: '2026-11-04',
+            last_date: '2026-11-04',
+            categories: [
+              { category: 'Groceries', total_spend: 120.5, transaction_count: 1, percentage: 100.0 },
+            ],
+          },
+        ];
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        period: periodParam,
+        start_date: null,
+        end_date: null,
+        total_tagged_spend: isShortMonth ? 120.5 : 1570.5,
+        tags,
+      }),
+    });
   });
 
   // 7b. Mock Reconcile Transfers Endpoint

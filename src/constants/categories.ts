@@ -152,6 +152,12 @@ export function isTransferCategory(category: string, tx?: Transaction): boolean 
 
 /** Formats a period enum into a human-readable label. */
 export function formatPeriodLabel(period: PeriodType, startDate?: string, endDate?: string): string {
+  if (period === 'annual') {
+    return 'Trailing 52 Weeks (365d)';
+  }
+  if (period === 'all') {
+    return 'All Time';
+  }
   if (period === 'custom') {
     if (startDate && endDate) return `${startDate} to ${endDate}`;
     return 'Custom Range';

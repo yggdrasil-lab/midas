@@ -23,6 +23,7 @@ import {
   SpendingBreakdownResponse,
   StatementParseResult,
   SyncResult,
+  TagSpendingSummaryResponse,
   Transaction,
   PeriodType,
 } from '../types';
@@ -328,16 +329,58 @@ export async function fetchCategoryTransactions(
 ): Promise<Transaction[]> {
   const params = new URLSearchParams();
   if (category) params.set('category', category);
+  appendPeriodParams(params, period, startDate, endDate);
+  params.set('limit', '200');
+  const res = await authFetch(`${API_BASE}/transactions?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch transactions: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+function appendPeriodParams(
+  params: URLSearchParams,
+  period?: PeriodType,
+  startDate?: string,
+  endDate?: string
+): void {
   if (period && period !== 'custom') {
     params.set('period', period);
   } else if (period === 'custom') {
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
   }
-  params.set('limit', '200');
+}
+
+export async function fetchTagSpendingSummary(
+  period: PeriodType = 'all',
+  startDate?: string,
+  endDate?: string
+): Promise<TagSpendingSummaryResponse> {
+  const params = new URLSearchParams();
+  appendPeriodParams(params, period, startDate, endDate);
+  const res = await authFetch(`${API_BASE}/transactions/summary/tags?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch tag spending summary: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchTagTransactions(
+  tag: string,
+  period: PeriodType = 'all',
+  startDate?: string,
+  endDate?: string,
+  category?: string
+): Promise<Transaction[]> {
+  const params = new URLSearchParams();
+  if (tag) params.set('tag', tag);
+  if (category) params.set('category', category);
+  appendPeriodParams(params, period, startDate, endDate);
+  params.set('limit', '500');
   const res = await authFetch(`${API_BASE}/transactions?${params.toString()}`);
   if (!res.ok) {
-    throw new Error(`Failed to fetch transactions: ${res.statusText}`);
+    throw new Error(`Failed to fetch tagged transactions: ${res.statusText}`);
   }
   return res.json();
 }

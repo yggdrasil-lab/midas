@@ -51,12 +51,13 @@ export function useTransactionCategoryMutation({
       try {
         const updated = await updateTransactionTags(txId, newTags);
         onTransactionUpdated(txId, { tags: updated.tags ?? newTags });
+        onChanged();
       } catch (err) {
         console.error(err);
         onError?.(err instanceof Error ? err.message : 'Failed to update transaction tags');
       }
     },
-    [onTransactionUpdated, onError]
+    [onTransactionUpdated, onChanged, onError]
   );
 
   const handleRecurrenceChange = useCallback(

@@ -250,7 +250,7 @@ export interface CategorySpendingReport {
 }
 
 export interface SpendingBreakdownResponse {
-  period: 'week' | 'month' | 'all';
+  period: 'week' | 'month' | 'annual' | 'all';
   start_date?: string | null;
   end_date?: string | null;
   total_spend: number;
@@ -259,6 +259,30 @@ export interface SpendingBreakdownResponse {
   net_savings: number;
   categories: CategorySpendingReport[];
   over_budget_count: number;
+}
+
+export interface TagCategoryBreakdownItem {
+  category: string;
+  total_spend: number;
+  transaction_count: number;
+  percentage: number;
+}
+
+export interface TagSpendingSummaryItem {
+  tag: string;
+  total_spend: number;
+  transaction_count: number;
+  first_date: string;
+  last_date: string;
+  categories: TagCategoryBreakdownItem[];
+}
+
+export interface TagSpendingSummaryResponse {
+  period: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  total_tagged_spend: number;
+  tags: TagSpendingSummaryItem[];
 }
 
 export interface CategorizationRule {
@@ -405,7 +429,7 @@ export interface ProductUpdatePayload {
   is_favorite?: boolean;
 }
 
-export type PeriodType = 'week' | 'last_week' | 'month' | 'last_month' | 'custom';
+export type PeriodType = 'week' | 'last_week' | 'month' | 'last_month' | 'annual' | 'custom' | 'all';
 
 export interface SyncAccountSummary {
   account_id: number;
