@@ -201,6 +201,22 @@ export interface CategoryBurnEstimate {
   recurring_weekly_burn: number;
   average_weekly_burn: number;
   suggested_monthly_limit: number;
+  variable_percentage?: number;
+  total_percentage?: number;
+}
+
+export interface RecurringCommitmentItem {
+  transaction_id: number;
+  merchant: string;
+  category: string;
+  recurrence: string;
+  last_charged_date: string;
+  original_amount: number;
+  currency: string;
+  amount_nzd: number;
+  weekly_nzd: number;
+  monthly_nzd: number;
+  percentage_of_recurring: number;
 }
 
 export interface AverageBurnReportResponse {
@@ -210,6 +226,7 @@ export interface AverageBurnReportResponse {
   recurring_weekly_burn: number;
   effective_weekly_burn: number;
   categories: CategoryBurnEstimate[];
+  recurring_commitments?: RecurringCommitmentItem[];
 }
 
 export interface CategorySpendingReport {

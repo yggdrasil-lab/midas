@@ -437,15 +437,23 @@ export async function setupMockApi(page: Page) {
   });
 
   await page.route('**/api/budgets/average-burn**', async (route) => {
+    const url = new URL(route.request().url());
+    const lookback = Number(url.searchParams.get('lookback_weeks') || '12');
+    const is4w = lookback === 4;
+    const variableTotal = is4w ? 450.0 : 490.0;
+    const grocVar = is4w ? 250.0 : 285.0;
+    const foodVar = is4w ? 200.0 : 205.0;
+    const effectiveTotal = 510.0 + variableTotal;
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        lookback_weeks: 12,
+        lookback_weeks: lookback,
         as_of_date: '2026-11-18',
-        variable_weekly_burn: 490.0,
+        variable_weekly_burn: variableTotal,
         recurring_weekly_burn: 510.0,
-        effective_weekly_burn: 1000.0,
+        effective_weekly_burn: effectiveTotal,
         categories: [
           {
             category: 'Housing',
@@ -453,13 +461,85 @@ export async function setupMockApi(page: Page) {
             recurring_weekly_burn: 400.0,
             average_weekly_burn: 400.0,
             suggested_monthly_limit: 1733.33,
+            variable_percentage: 0.0,
+            total_percentage: 40.0,
           },
           {
             category: 'Groceries',
-            variable_weekly_burn: 85.0,
+            variable_weekly_burn: grocVar,
             recurring_weekly_burn: 0.0,
-            average_weekly_burn: 85.0,
-            suggested_monthly_limit: 368.33,
+            average_weekly_burn: grocVar,
+            suggested_monthly_limit: Math.round((grocVar * 52) / 12 * 100) / 100,
+            variable_percentage: Math.round((grocVar / variableTotal) * 1000) / 10,
+            total_percentage: Math.round((grocVar / effectiveTotal) * 1000) / 10,
+          },
+          {
+            category: 'Food',
+            variable_weekly_burn: foodVar,
+            recurring_weekly_burn: 0.0,
+            average_weekly_burn: foodVar,
+            suggested_monthly_limit: Math.round((foodVar * 52) / 12 * 100) / 100,
+            variable_percentage: Math.round((foodVar / variableTotal) * 1000) / 10,
+            total_percentage: Math.round((foodVar / effectiveTotal) * 1000) / 10,
+          },
+          {
+            category: 'Insurance',
+            variable_weekly_burn: 0.0,
+            recurring_weekly_burn: 95.59,
+            average_weekly_burn: 95.59,
+            suggested_monthly_limit: 414.22,
+            variable_percentage: 0.0,
+            total_percentage: 9.6,
+          },
+          {
+            category: 'Health',
+            variable_weekly_burn: 0.0,
+            recurring_weekly_burn: 14.41,
+            average_weekly_burn: 14.41,
+            suggested_monthly_limit: 62.44,
+            variable_percentage: 0.0,
+            total_percentage: 1.4,
+          },
+        ],
+        recurring_commitments: [
+          {
+            transaction_id: 201,
+            merchant: 'Home rent',
+            category: 'Housing',
+            recurrence: 'weekly',
+            last_charged_date: '2026-11-12',
+            original_amount: 400.0,
+            currency: 'NZD',
+            amount_nzd: 400.0,
+            weekly_nzd: 400.0,
+            monthly_nzd: 1733.33,
+            percentage_of_recurring: 78.4,
+          },
+          {
+            transaction_id: 202,
+            merchant: 'Southern Cross',
+            category: 'Insurance',
+            recurrence: 'fortnightly',
+            last_charged_date: '2026-11-10',
+            original_amount: 191.18,
+            currency: 'NZD',
+            amount_nzd: 191.18,
+            weekly_nzd: 95.59,
+            monthly_nzd: 414.22,
+            percentage_of_recurring: 18.7,
+          },
+          {
+            transaction_id: 203,
+            merchant: 'CityFitness',
+            category: 'Health',
+            recurrence: 'fortnightly',
+            last_charged_date: '2026-11-08',
+            original_amount: 28.81,
+            currency: 'NZD',
+            amount_nzd: 28.81,
+            weekly_nzd: 14.41,
+            monthly_nzd: 62.44,
+            percentage_of_recurring: 2.8,
           },
         ],
       }),

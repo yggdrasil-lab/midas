@@ -238,4 +238,26 @@ test.describe('Midas App Shell & Navigation', () => {
 
     await expect(page.locator('text=Calculated category budgets from 12-week average burn!')).toBeVisible();
   });
+
+  test('displays itemized recurring commitments and variable category percentages in BurnBreakdownModal', async ({ page }) => {
+    const recurringBtn = page.getByTestId('inspect-recurring-burn-btn').locator('visible=true').first();
+    await recurringBtn.scrollIntoViewIfNeeded();
+    await recurringBtn.click();
+
+    await expect(page.getByRole('heading', { name: 'Weekly Burn Anatomy' })).toBeVisible();
+    await expect(page.getByTestId('recurring-commitment-row')).toHaveCount(3);
+    await expect(page.locator('text=Home rent')).toBeVisible();
+    await expect(page.locator('text=Southern Cross')).toBeVisible();
+    await expect(page.locator('text=CityFitness')).toBeVisible();
+
+    const varTab = page.getByTestId('burn-tab-variable');
+    await varTab.click();
+
+    const rows = page.getByTestId('variable-category-row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('Groceries');
+    await expect(rows.nth(0)).toContainText('58.2%');
+    await expect(rows.nth(1)).toContainText('Food');
+    await expect(rows.nth(1)).toContainText('41.8%');
+  });
 });

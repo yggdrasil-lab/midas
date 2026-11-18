@@ -64,6 +64,35 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.waitForTimeout(200);
       }
 
+      // 1c & 1d. Burn Breakdown Modal (Recurring Fixed Commitments & Variable Category %)
+      const inspectRecurringBtn = page.locator('[data-testid="inspect-recurring-burn-btn"] >> visible=true').first();
+      if (await inspectRecurringBtn.isVisible()) {
+        await inspectRecurringBtn.scrollIntoViewIfNeeded();
+        await inspectRecurringBtn.click();
+        await expect(page.getByRole('heading', { name: 'Weekly Burn Anatomy' })).toBeVisible();
+        await expect(page.getByTestId('recurring-commitment-row').first()).toBeVisible();
+        await page.waitForTimeout(250);
+        await page.screenshot({
+          path: `screenshots/${platform}/01c-burn-breakdown-recurring.png`,
+        });
+
+        await page.getByTestId('burn-tab-variable').click();
+        await expect(page.getByTestId('variable-category-row').first()).toBeVisible();
+        await page.waitForTimeout(250);
+        await page.screenshot({
+          path: `screenshots/${platform}/01d-burn-breakdown-variable-pct.png`,
+        });
+
+        const burnModalClose = page.locator('button[aria-label="Close dialog"] >> visible=true').first();
+        if (await burnModalClose.isVisible()) {
+          await burnModalClose.click();
+        } else {
+          await page.keyboard.press('Escape');
+        }
+        await expect(page.getByRole('heading', { name: 'Weekly Burn Anatomy' })).toBeHidden();
+        await page.waitForTimeout(200);
+      }
+
       // 2. Quick Log Modal
       const quickLogBtn = page.locator('button:has-text("Quick Log"), button:has-text("Log Expense")').locator('visible=true').first();
       await expect(quickLogBtn).toBeVisible();
