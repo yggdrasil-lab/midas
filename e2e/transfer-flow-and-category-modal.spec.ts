@@ -31,7 +31,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(catModal).toBeVisible();
       await page.waitForTimeout(300);
       await page.screenshot({
-        path: `screenshots/inspect-category-${name}.png`,
+        path: `screenshots/${name}/16-inspect-category.png`,
       });
       await catModal.getByRole('button', { name: 'Done' }).click();
 
@@ -47,7 +47,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(flowPill).toContainText('Wise USD (Personal)');
       await page.waitForTimeout(300);
       await page.screenshot({
-        path: `screenshots/transfer-flow-${name}.png`,
+        path: `screenshots/${name}/17-transfer-flow.png`,
       });
     });
   });

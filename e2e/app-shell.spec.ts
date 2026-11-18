@@ -72,12 +72,11 @@ test.describe('Midas App Shell & Navigation', () => {
   });
 
   test('runs scenario simulation in Time Machine', async ({ page }) => {
-    // Switch to simulator tab if on mobile or find it on desktop
-    const simTab = page.locator('button:has-text("Simulator"), button:has-text("Time Machine")').locator('visible=true').first();
-    if (await simTab.isVisible()) {
-      await simTab.click();
-    }
+    const toolsTab = page.locator('header nav button:has-text("Tools"), nav button:has-text("Tools")').locator('visible=true').first();
+    await expect(toolsTab).toBeVisible();
+    await toolsTab.click();
 
+    await expect(page.locator('text=Tools & Power Utilities >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=Time Machine & Scenario Modeler >> visible=true').first()).toBeVisible();
 
     // Click recalculate button
@@ -245,6 +244,8 @@ test.describe('Midas App Shell & Navigation', () => {
     await recurringBtn.click();
 
     await expect(page.getByRole('heading', { name: 'Weekly Burn Anatomy' })).toBeVisible();
+    await expect(page.getByTestId('recurring-loan-row')).toHaveCount(1);
+    await expect(page.locator('text=Toyota Corolla Cross (TFS)')).toBeVisible();
     await expect(page.getByTestId('recurring-commitment-row')).toHaveCount(3);
     await expect(page.locator('text=Home rent')).toBeVisible();
     await expect(page.locator('text=Southern Cross')).toBeVisible();

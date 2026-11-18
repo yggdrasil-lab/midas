@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   Clock,
-  Database,
   Landmark,
   LayoutDashboard,
   PieChart,
   PlusCircle,
-  Receipt as ReceiptIcon,
-  Sliders,
-  UploadCloud,
+  Wrench,
 } from 'lucide-react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import {
@@ -31,8 +28,7 @@ import { DataManagementModal } from './components/DataManagementModal';
 import { QuickLogModal } from './components/QuickLogModal';
 import { ReceiptsHubModal } from './components/ReceiptsHubModal';
 import { RunwayClock } from './components/RunwayClock';
-import { ScenarioSimulator } from './components/ScenarioSimulator';
-import { StatementDropzone } from './components/StatementDropzone';
+import { ToolsHubView } from './components/ToolsHubView';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
 import { fetchRunway } from './services/api';
 import { RunwayData } from './types';
@@ -41,16 +37,14 @@ const DESKTOP_TABS = [
   { id: 'overview', label: 'Full Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
   { id: 'accounts', label: 'Accounts', icon: <Landmark className="w-3.5 h-3.5" /> },
   { id: 'budgets', label: 'Spending & Budgets', icon: <PieChart className="w-3.5 h-3.5" /> },
-  { id: 'simulator', label: 'Time Machine', icon: <Sliders className="w-3.5 h-3.5" /> },
-  { id: 'statement', label: 'Statement Hub', icon: <UploadCloud className="w-3.5 h-3.5" /> },
+  { id: 'tools', label: 'Tools', icon: <Wrench className="w-3.5 h-3.5" /> },
 ];
 
 const MOBILE_NAV_TABS = [
   { id: 'overview', label: 'Freedom', icon: <Clock className="w-4 h-4" /> },
   { id: 'accounts', label: 'Accounts', icon: <Landmark className="w-4 h-4" /> },
   { id: 'budgets', label: 'Budgets', icon: <PieChart className="w-4 h-4" /> },
-  { id: 'simulator', label: 'Simulator', icon: <Sliders className="w-4 h-4" /> },
-  { id: 'statement', label: 'Statement', icon: <UploadCloud className="w-4 h-4" /> },
+  { id: 'tools', label: 'Tools', icon: <Wrench className="w-4 h-4" /> },
 ];
 
 /**
@@ -123,20 +117,22 @@ export const App: React.FC = () => {
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start max-w-lg lg:max-w-none mx-auto pb-24 lg:pb-0">
-            <div className="lg:col-span-7 space-y-4 lg:space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start max-w-lg lg:max-w-7xl mx-auto pb-24 lg:pb-0">
+            <div className="lg:col-span-5 space-y-4 lg:space-y-6">
               <RunwayClock data={runway} />
               <WeeklyBurnTracker data={runway} onQuickLogClick={() => setIsQuickLogOpen(true)} />
-              <CategorySpendingBreakdown
-                onRefreshRunway={loadData}
-                onOpenReceiptsClick={() => setIsReceiptsModalOpen(true)}
-              />
-              <div className="hidden lg:block">
-                <StatementDropzone onSuccess={loadData} />
-              </div>
             </div>
-            <div className="hidden lg:block lg:col-span-5 space-y-6 lg:sticky lg:top-20">
-              <ScenarioSimulator baselineBurn={runway.breakdown.weekly_burn_rate} />
+            <div className="lg:col-span-7 space-y-4 lg:space-y-6">
+              <div className="hidden lg:block">
+                <CategorySpendingBreakdown onRefreshRunway={loadData} />
+              </div>
+              <div className="lg:hidden">
+                <CategorySpendingBreakdown
+                  compact
+                  onRefreshRunway={loadData}
+                  onViewAllBudgetsClick={() => setActiveTab('budgets')}
+                />
+              </div>
             </div>
           </div>
         );
@@ -148,24 +144,20 @@ export const App: React.FC = () => {
         );
       case 'budgets':
         return (
-          <div className="max-w-lg lg:max-w-2xl mx-auto space-y-4 lg:space-y-6 pb-24 lg:pb-0">
+          <div className="max-w-lg lg:max-w-3xl mx-auto space-y-4 lg:space-y-6 pb-24 lg:pb-0">
             <WeeklyBurnTracker data={runway} onQuickLogClick={() => setIsQuickLogOpen(true)} />
-            <CategorySpendingBreakdown
+            <CategorySpendingBreakdown onRefreshRunway={loadData} />
+          </div>
+        );
+      case 'tools':
+        return (
+          <div className="max-w-lg lg:max-w-3xl mx-auto pb-24 lg:pb-0">
+            <ToolsHubView
+              baselineBurn={runway.breakdown.weekly_burn_rate}
               onRefreshRunway={loadData}
               onOpenReceiptsClick={() => setIsReceiptsModalOpen(true)}
+              onOpenDataClick={() => setIsDataModalOpen(true)}
             />
-          </div>
-        );
-      case 'simulator':
-        return (
-          <div className="max-w-lg lg:max-w-2xl mx-auto pb-24 lg:pb-0">
-            <ScenarioSimulator baselineBurn={runway.breakdown.weekly_burn_rate} />
-          </div>
-        );
-      case 'statement':
-        return (
-          <div className="max-w-lg lg:max-w-2xl mx-auto pb-24 lg:pb-0">
-            <StatementDropzone onSuccess={loadData} />
           </div>
         );
     }
@@ -193,36 +185,15 @@ export const App: React.FC = () => {
           onRefresh={handleRefresh}
           isRefreshing={loading}
           actions={
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<ReceiptIcon className="w-3.5 h-3.5 text-amber-400" />}
-                onClick={() => setIsReceiptsModalOpen(true)}
-                title="Receipts & Product Longevity"
-                data-testid="header-receipts-btn"
-              >
-                <span className="hidden sm:inline">Receipts</span>
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Database className="w-3.5 h-3.5 text-amber-400" />}
-                onClick={() => setIsDataModalOpen(true)}
-                title="Data & Ledger Controls"
-              >
-                <span className="hidden sm:inline">Data</span>
-              </Button>
-              <Button
-                variant="amber"
-                size="sm"
-                icon={<PlusCircle className="w-3.5 h-3.5" />}
-                onClick={() => setIsQuickLogOpen(true)}
-                className="hidden sm:inline-flex"
-              >
-                Log Expense
-              </Button>
-            </div>
+            <Button
+              variant="amber"
+              size="sm"
+              icon={<PlusCircle className="w-3.5 h-3.5" />}
+              onClick={() => setIsQuickLogOpen(true)}
+              className="hidden sm:inline-flex"
+            >
+              Log Expense
+            </Button>
           }
         />
       }

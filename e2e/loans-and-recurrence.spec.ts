@@ -22,8 +22,8 @@ for (const { name, device } of MOBILE_PLATFORMS) {
     });
 
     test(`renders loans countdown, recurrence selector, and time machine loan toggle on ${name}`, async ({ page }) => {
-      // 1. Time Machine loan payoff toggle + relief readout
-      await page.locator('nav button:has-text("Simulator")').locator('visible=true').first().click();
+      // 1. Time Machine loan payoff toggle + relief readout inside Tools tab
+      await page.locator('nav button:has-text("Tools")').locator('visible=true').first().click();
       const loanToggle = page.getByTestId('time-machine-payoff-loans');
       await loanToggle.scrollIntoViewIfNeeded();
       await expect(loanToggle).toBeVisible();
@@ -32,7 +32,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(page.locator('text=Loan relief:')).toBeVisible();
       await page.waitForTimeout(300);
       await page.screenshot({
-        path: `screenshots/time-machine-loans-${name}.png`,
+        path: `screenshots/${name}/13-time-machine-loans.png`,
       });
 
       // 2. Accounts tab -> Net Worth with Loans & Financing & Loans countdown card
@@ -44,7 +44,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await loansHeading.scrollIntoViewIfNeeded();
       await page.waitForTimeout(300);
       await page.screenshot({
-        path: `screenshots/loans-${name}.png`,
+        path: `screenshots/${name}/14-loans-overview.png`,
       });
 
       // 3. Account modal -> TransactionRow inline recurrence selector
@@ -54,7 +54,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await recSelect.selectOption('annual');
       await page.waitForTimeout(300);
       await page.screenshot({
-        path: `screenshots/transactions-recurrence-${name}.png`,
+        path: `screenshots/${name}/15-transactions-recurrence.png`,
       });
     });
   });
