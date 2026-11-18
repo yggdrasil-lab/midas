@@ -45,6 +45,11 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(flowPill).toBeVisible();
       await expect(flowPill).toContainText('ASB Checking');
       await expect(flowPill).toContainText('Wise USD (Personal)');
+      const btcFlowPill = page.getByTestId('transfer-flow-107');
+      await btcFlowPill.scrollIntoViewIfNeeded();
+      await expect(btcFlowPill).toBeVisible();
+      await expect(btcFlowPill).toContainText('0.04884012 BTC');
+      await expect(page.getByTestId('account-modal-tx-row-107')).toContainText('FX (122,849.82)');
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${name}/17-transfer-flow.png`,

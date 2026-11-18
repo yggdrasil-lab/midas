@@ -51,6 +51,12 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const formattedAmt = formatSignedTransactionAmount(amt, txCurrency);
   const hasLinkedTransfer = tx.linked_transaction_id != null;
   const hasFxRate = Boolean(tx.exchange_rate && tx.exchange_rate !== 1.0);
+  const formattedFxRate = hasFxRate
+    ? new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: Number(tx.exchange_rate) >= 100 ? 2 : 0,
+        maximumFractionDigits: Number(tx.exchange_rate) >= 100 ? 2 : 6,
+      }).format(Number(tx.exchange_rate))
+    : '';
   const transferFromAccount = isDebit
     ? tx.account_name || 'Source Account'
     : tx.linked_account_name || 'Source Account';
@@ -62,6 +68,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     tx.linked_amount != null &&
     tx.linked_currency &&
     tx.linked_currency !== txCurrency;
+  const isLinkedBtc = (tx.linked_currency || '').toUpperCase() === 'BTC';
   const tags = tx.tags || [];
 
   return (
@@ -99,7 +106,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
               title={
                 hasLinkedTransfer
                   ? hasFxRate
-                    ? `Linked Transfer (Rate: ${tx.exchange_rate})`
+                    ? `Linked Transfer (Rate: ${formattedFxRate})`
                     : 'Linked Account Transfer'
                   : 'Inter-Account Transfer'
               }
@@ -108,7 +115,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
               <span>
                 {hasLinkedTransfer
                   ? hasFxRate
-                    ? `FX (${tx.exchange_rate})`
+                    ? `FX (${formattedFxRate})`
                     : 'Transfer Linked'
                   : 'Transfer'}
               </span>
@@ -150,7 +157,17 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             </span>
             {hasCrossCurrencyLeg && (
               <span className="text-[10px] font-mono text-sky-300/90">
-                ({formatMoney(Math.abs(Number(tx.linked_amount)))} {tx.linked_currency})
+                (
+                {isLinkedBtc
+                  ? new Intl.NumberFormat('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 8,
+                    }).format(Math.abs(Number(tx.linked_amount)))
+                  : formatMoney(Math.abs(Number(tx.linked_amount)), {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                {tx.linked_currency})
               </span>
             )}
           </div>
