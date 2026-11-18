@@ -54,6 +54,7 @@ export const PERIOD_OPTIONS: SegmentedControlOption<PeriodType>[] = [
   { id: 'last_week', label: 'Last Week' },
   { id: 'month', label: 'This Month' },
   { id: 'last_month', label: 'Last Month' },
+  { id: 'all', label: 'All Time' },
 ];
 
 /** Known financial institutions for statement ingestion autocomplete. */

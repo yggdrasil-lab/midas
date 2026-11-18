@@ -88,6 +88,11 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
 
   const currentBalance = latestBalance !== undefined ? latestBalance : latestBalanceNzd;
   const displayCurrency = account?.currency || 'NZD';
+  const isCrypto =
+    account?.account_type === 'crypto' || displayCurrency.toUpperCase() === 'BTC';
+  const amountFormatOpts = isCrypto
+    ? { minimumFractionDigits: 2, maximumFractionDigits: 8 }
+    : {};
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,7 +206,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
             label: 'Balance',
             value: (
               <span className="text-xs tracking-tight">
-                {`${formatMoney(currentBalance)} ${displayCurrency}`}
+                {`${formatMoney(currentBalance, amountFormatOpts)} ${displayCurrency}`}
               </span>
             ),
             valueClassName: 'text-slate-100 font-mono text-xs',
@@ -212,7 +217,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       id: 'outflow',
       label: 'Outflow',
       value: (
-        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalSpend)} ${displayCurrency}`}</span>
+        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalSpend, amountFormatOpts)} ${displayCurrency}`}</span>
       ),
       valueClassName: 'text-slate-200 font-mono text-xs',
     },
@@ -220,7 +225,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       id: 'inflow',
       label: 'Inflow',
       value: (
-        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalIncome)} ${displayCurrency}`}</span>
+        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalIncome, amountFormatOpts)} ${displayCurrency}`}</span>
       ),
       valueClassName: 'text-emerald-400 font-mono text-xs',
     },
@@ -228,7 +233,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       id: 'transfers',
       label: 'Transfers',
       value: (
-        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalTransfers)} ${displayCurrency}`}</span>
+        <span className="text-xs tracking-tight">{`${formatMoney(analytics.totalTransfers, amountFormatOpts)} ${displayCurrency}`}</span>
       ),
       valueClassName: 'text-sky-300 font-mono text-xs',
     },

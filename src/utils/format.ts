@@ -27,13 +27,14 @@ export function formatSignedTransactionAmount(
   decimals = 2
 ): string {
   const numeric = Number(amount);
+  const resolvedCurrency = currency?.trim() || 'NZD';
+  const isBtc = resolvedCurrency.toUpperCase() === 'BTC';
   const formatted = formatMoney(numeric, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: isBtc ? 2 : decimals,
+    maximumFractionDigits: isBtc ? 8 : decimals,
     showPlusSign: true,
   });
   const prefixed = numeric === 0 ? `+${formatted}` : formatted;
-  const resolvedCurrency = currency?.trim() || 'NZD';
   return `${prefixed} ${resolvedCurrency}`;
 }
 
