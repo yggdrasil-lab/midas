@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import {
   Calendar,
-  Check,
   ChevronDown,
   ChevronUp,
   Clock,
   Edit3,
-  Plus,
   Save,
   Star,
   TrendingDown,
   TrendingUp,
-  X,
 } from 'lucide-react';
-import { Button } from '@yggdrasil-lab/ui';
+import { Button, TagPillList } from '@yggdrasil-lab/ui';
 import { Product } from '../../types';
 import { formatMoney } from '../../utils/format';
 
@@ -48,8 +45,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState(p.notes || '');
   const [savingNote, setSavingNote] = useState(false);
-  const [isAddingTag, setIsAddingTag] = useState(false);
-  const [newTagInput, setNewTagInput] = useState('');
 
   const hasPriceChange =
     p.price_change_latest !== null && p.price_change_latest !== undefined;
@@ -64,12 +59,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     } finally {
       setSavingNote(false);
     }
-  };
-
-  const submitTag = async () => {
-    await onAddTag(p.id, newTagInput);
-    setIsAddingTag(false);
-    setNewTagInput('');
   };
 
   return (
@@ -148,70 +137,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Tag Pill Badges & Add Tag */}
-      <div className="flex flex-wrap items-center gap-1 pt-0.5">
-        {p.tags.map((t) => (
-          <span
-            key={t}
-            className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700/80 group"
-          >
-            #{t}
-            <button
-              type="button"
-              onClick={() => void onRemoveTag(p.id, t)}
-              className="ml-1 opacity-60 hover:opacity-100 text-slate-400 hover:text-rose-400"
-              title={`Remove tag #${t}`}
-            >
-              <X className="w-2.5 h-2.5" />
-            </button>
-          </span>
-        ))}
-
-        {isAddingTag ? (
-          <div className="inline-flex items-center space-x-1">
-            <input
-              type="text"
-              value={newTagInput}
-              onChange={(e) => setNewTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void submitTag();
-                } else if (e.key === 'Escape') {
-                  setIsAddingTag(false);
-                }
-              }}
-              placeholder="tag..."
-              autoFocus
-              className="px-1.5 py-0.5 text-[10px] bg-slate-900 border border-amber-500/50 rounded text-slate-100 w-16 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => void submitTag()}
-              className="p-0.5 text-emerald-400 hover:text-emerald-300"
-            >
-              <Check className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsAddingTag(false)}
-              className="p-0.5 text-slate-400 hover:text-slate-300"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setIsAddingTag(true);
-              setNewTagInput('');
-            }}
-            className="inline-flex items-center px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-amber-400 border border-dashed border-slate-700 rounded-md transition-colors"
-          >
-            <Plus className="w-2.5 h-2.5 mr-0.5" /> tag
-          </button>
-        )}
-      </div>
+      <TagPillList
+        tags={p.tags}
+        variant="slate"
+        placeholder="tag..."
+        onAddTag={(tag) => onAddTag(p.id, tag)}
+        onRemoveTag={(tag) => onRemoveTag(p.id, tag)}
+        className="pt-0.5"
+      />
 
       {/* Longevity & Restock Projection */}
       <div className="p-2 bg-background/80 rounded-lg border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] gap-2">

@@ -18,6 +18,9 @@ export const MOCK_RUNWAY_DATA = {
     is_perpetual: false,
     perpetual_threshold_weekly_income: 173.0,
     weekly_burn_rate: 1000.0,
+    variable_weekly_burn: 490.0,
+    recurring_weekly_burn: 510.0,
+    this_week_variable_spend: 240.0,
   },
 };
 
@@ -430,6 +433,47 @@ export async function setupMockApi(page: Page) {
           },
         ],
       }),
+    });
+  });
+
+  await page.route('**/api/budgets/average-burn**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        lookback_weeks: 12,
+        as_of_date: '2026-11-18',
+        variable_weekly_burn: 490.0,
+        recurring_weekly_burn: 510.0,
+        effective_weekly_burn: 1000.0,
+        categories: [
+          {
+            category: 'Housing',
+            variable_weekly_burn: 0.0,
+            recurring_weekly_burn: 400.0,
+            average_weekly_burn: 400.0,
+            suggested_monthly_limit: 1733.33,
+          },
+          {
+            category: 'Groceries',
+            variable_weekly_burn: 85.0,
+            recurring_weekly_burn: 0.0,
+            average_weekly_burn: 85.0,
+            suggested_monthly_limit: 368.33,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route('**/api/budgets/sync-from-burn**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { id: 1, category: 'Groceries', weekly_limit: 85.0, monthly_limit: 368.33, is_active: true },
+        { id: 2, category: 'Housing', weekly_limit: 400.0, monthly_limit: 1733.33, is_active: true },
+      ]),
     });
   });
 
