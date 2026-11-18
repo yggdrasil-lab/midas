@@ -3,6 +3,7 @@ import {
   Account,
   AssetSnapshot,
   AssetSnapshotCreatePayload,
+  AverageBurnReportResponse,
   BudgetRule,
   CategorizationRule,
   CategorizationRuleCreate,
@@ -332,6 +333,26 @@ export async function initDefaultBudgets(): Promise<BudgetRule[]> {
   });
   if (!res.ok) {
     throw new Error(`Failed to initialize default budgets: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchAverageBurn(
+  lookbackWeeks = 12
+): Promise<AverageBurnReportResponse> {
+  const res = await authFetch(`${API_BASE}/budgets/average-burn?lookback_weeks=${lookbackWeeks}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch average weekly burn: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function syncBudgetsFromBurn(lookbackWeeks = 12): Promise<BudgetRule[]> {
+  const res = await authFetch(`${API_BASE}/budgets/sync-from-burn?lookback_weeks=${lookbackWeeks}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to calculate budgets from average burn: ${res.statusText}`);
   }
   return res.json();
 }

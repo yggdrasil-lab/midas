@@ -31,10 +31,12 @@ test.describe('Midas App Shell & Navigation', () => {
 
     await expect(page.locator('text=/KiwiSaver|Locked Reserve|Locked/ >> visible=true').first()).toBeVisible();
 
-    // Check weekly burn
+    // Check weekly burn & average burn breakdown
     await expect(page.locator('text=Weekly Burn & Budget >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=/Spent \\$750 of \\$1,?000/ >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=+0.25 weeks banked >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Avg Burn/wk >> visible=true').first()).toBeVisible();
+    await expect(page.locator('text=Recurring >> visible=true').first()).toBeVisible();
   });
 
   test('opens quick log modal, enters amount via tactile keypad, and submits', async ({ page }) => {
@@ -220,5 +222,20 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect
       .poll(async () => page.evaluate(() => window.caches.keys()))
       .toEqual([]);
+  });
+
+  test('auto-calculates category budget limits from average weekly burn', async ({ page }) => {
+    const limitsBtn = page.locator('button:has-text("Manage Limits"), button:has-text("Limits")').locator('visible=true').first();
+    await limitsBtn.scrollIntoViewIfNeeded();
+    await limitsBtn.click();
+
+    await expect(page.getByRole('heading', { name: 'Category Budget Guardrails' })).toBeVisible();
+    await expect(page.locator('text=12w Average Burn:')).toBeVisible();
+
+    const syncBtn = page.getByTestId('sync-from-burn-btn');
+    await expect(syncBtn).toBeVisible();
+    await syncBtn.click();
+
+    await expect(page.locator('text=Calculated category budgets from 12-week average burn!')).toBeVisible();
   });
 });

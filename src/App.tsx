@@ -127,7 +127,10 @@ export const App: React.FC = () => {
             <div className="lg:col-span-7 space-y-4 lg:space-y-6">
               <RunwayClock data={runway} />
               <WeeklyBurnTracker data={runway} onQuickLogClick={() => setIsQuickLogOpen(true)} />
-              <CategorySpendingBreakdown onRefreshRunway={loadData} />
+              <CategorySpendingBreakdown
+                onRefreshRunway={loadData}
+                onOpenReceiptsClick={() => setIsReceiptsModalOpen(true)}
+              />
               <div className="hidden lg:block">
                 <StatementDropzone onSuccess={loadData} />
               </div>
@@ -147,7 +150,10 @@ export const App: React.FC = () => {
         return (
           <div className="max-w-lg lg:max-w-2xl mx-auto space-y-4 lg:space-y-6 pb-24 lg:pb-0">
             <WeeklyBurnTracker data={runway} onQuickLogClick={() => setIsQuickLogOpen(true)} />
-            <CategorySpendingBreakdown onRefreshRunway={loadData} />
+            <CategorySpendingBreakdown
+              onRefreshRunway={loadData}
+              onOpenReceiptsClick={() => setIsReceiptsModalOpen(true)}
+            />
           </div>
         );
       case 'simulator':

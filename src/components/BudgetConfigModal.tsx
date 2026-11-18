@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Sparkles, Target, Trash2 } from 'lucide-react';
+import { Calculator, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
 import { AlertBanner, Button, EmptyState, Modal } from '@yggdrasil-lab/ui';
 import { BUDGET_CATEGORY_CHOICES } from '../constants/categories';
 import {
   deleteBudgetRule,
+  fetchAverageBurn,
   fetchBudgetRules,
   initDefaultBudgets,
+  syncBudgetsFromBurn,
   upsertBudgetRule,
 } from '../services/api';
-import { BudgetRule } from '../types';
+import { AverageBurnReportResponse, BudgetRule } from '../types';
 import { formatMoney } from '../utils/format';
 
 interface BudgetConfigModalProps {
@@ -19,7 +21,8 @@ interface BudgetConfigModalProps {
 }
 
 /**
- * Modal for configuring weekly/monthly spending budget guardrails per category.
+ * Modal for configuring weekly/monthly spending budget guardrails per category
+ * or auto-calculating limits from trailing average weekly burn.
  */
 export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   isOpen,
@@ -28,6 +31,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   initialCategory,
 }) => {
   const [rules, setRules] = useState<BudgetRule[]>([]);
+  const [avgBurnReport, setAvgBurnReport] = useState<AverageBurnReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -40,8 +44,12 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchBudgetRules();
+      const [res, burnReport] = await Promise.all([
+        fetchBudgetRules(),
+        fetchAverageBurn(12).catch(() => null),
+      ]);
       setRules(res);
+      setAvgBurnReport(burnReport);
       if (initialCategory) {
         const found = res.find(
           (r) => r.category.toLowerCase() === initialCategory.toLowerCase()
@@ -123,6 +131,25 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
     }
   };
 
+  const handleSyncFromBurn = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await syncBudgetsFromBurn(12);
+      setSuccessMsg('Calculated category budgets from 12-week average burn!');
+      await loadRules();
+      onSuccess();
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to calculate budgets from average burn'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInitDefaults = async () => {
     setLoading(true);
     setError(null);
@@ -152,6 +179,31 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
         {error && <AlertBanner variant="error">{error}</AlertBanner>}
         {successMsg && <AlertBanner variant="success">{successMsg}</AlertBanner>}
 
+        {avgBurnReport && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="space-y-0.5">
+              <div className="font-semibold text-amber-300">
+                {avgBurnReport.lookback_weeks}w Average Burn:{' '}
+                <span className="font-mono">{formatMoney(avgBurnReport.effective_weekly_burn)}/wk</span>
+              </div>
+              <div className="text-[11px] text-slate-300 font-mono">
+                {formatMoney(avgBurnReport.recurring_weekly_burn)}/wk recurring +{' '}
+                {formatMoney(avgBurnReport.variable_weekly_burn)}/wk variable
+              </div>
+            </div>
+            <Button
+              variant="amber"
+              size="xs"
+              loading={loading}
+              icon={<Calculator className="w-3.5 h-3.5" />}
+              onClick={handleSyncFromBurn}
+              data-testid="sync-from-burn-btn"
+            >
+              Use Avg Burn
+            </Button>
+          </div>
+        )}
+
         <form
           onSubmit={handleSave}
           className="p-3.5 bg-card/60 rounded-xl border border-border space-y-3"
@@ -173,7 +225,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="Category"
                 list="budget-categories"
-                className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-base sm:text-xs text-slate-100 focus:outline-none focus:border-amber-500"
               />
               <datalist id="budget-categories">
                 {BUDGET_CATEGORY_CHOICES.map((cat) => (
@@ -192,7 +244,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                   placeholder="200"
                   value={weeklyLimit}
                   onChange={(e) => handleWeeklyChange(e.target.value)}
-                  className="w-full pl-6 pr-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                  className="w-full pl-6 pr-2.5 py-1.5 bg-background border border-border rounded text-base sm:text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
             </div>
@@ -207,7 +259,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                   placeholder="867"
                   value={monthlyLimit}
                   onChange={(e) => handleMonthlyChange(e.target.value)}
-                  className="w-full pl-6 pr-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                  className="w-full pl-6 pr-2.5 py-1.5 bg-background border border-border rounded text-base sm:text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
                 />
               </div>
             </div>
@@ -227,26 +279,41 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
         </form>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
             <span>Configured Categories ({rules.length})</span>
-            {rules.length === 0 && (
-              <Button
-                variant="outline"
-                size="xs"
-                loading={loading}
-                icon={<Sparkles className="w-3 h-3 text-amber-400" />}
-                onClick={handleInitDefaults}
-                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-              >
-                Load NZ Baseline Targets
-              </Button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {!avgBurnReport && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  loading={loading}
+                  icon={<Calculator className="w-3 h-3 text-amber-400" />}
+                  onClick={handleSyncFromBurn}
+                  className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                  data-testid="sync-from-burn-btn"
+                >
+                  Auto-Calculate Avg Burn
+                </Button>
+              )}
+              {rules.length === 0 && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  loading={loading}
+                  icon={<Sparkles className="w-3 h-3 text-amber-400" />}
+                  onClick={handleInitDefaults}
+                  className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                >
+                  Load NZ Baseline
+                </Button>
+              )}
+            </div>
           </div>
 
           {rules.length === 0 ? (
             <EmptyState
               title="No category budgets set yet"
-              description='Click "Load NZ Baseline Targets" to populate common limits.'
+              description='Click "Use Avg Burn" to derive limits from actual spend or "Load NZ Baseline" for starter targets.'
               variant="dashed"
             />
           ) : (

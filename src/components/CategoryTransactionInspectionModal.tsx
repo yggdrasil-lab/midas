@@ -16,10 +16,8 @@ import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryM
 import {
   fetchCategoryTransactions,
   triggerReconcileTransfers,
-  updateTransactionRecurrence,
-  updateTransactionTags,
 } from '../services/api';
-import { PeriodType, RecurrenceType, Transaction } from '../types';
+import { PeriodType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { RulesManagerModal } from './RulesManagerModal';
@@ -48,43 +46,11 @@ export const CategoryTransactionInspectionModal: React.FC<
   const [reconciling, setReconciling] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleTransactionUpdated = useCallback((txId: number, newCategory: string) => {
+  const handleTransactionUpdated = useCallback((txId: number, patch: Partial<Transaction>) => {
     setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
+      prev.map((t) => (t.id === txId ? { ...t, ...patch } : t))
     );
   }, []);
-
-  const handleTagsChange = useCallback(async (txId: number, newTags: string[]) => {
-    setError(null);
-    try {
-      const updated = await updateTransactionTags(txId, newTags);
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === txId ? { ...t, tags: updated.tags ?? newTags } : t))
-      );
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to update transaction tags');
-    }
-  }, []);
-
-  const handleRecurrenceChange = useCallback(
-    async (txId: number, recurrence: RecurrenceType | null) => {
-      setError(null);
-      try {
-        const updated = await updateTransactionRecurrence(txId, recurrence);
-        setTransactions((prev) =>
-          prev.map((t) =>
-            t.id === txId ? { ...t, recurrence: updated.recurrence ?? recurrence } : t
-          )
-        );
-        onCategoryChanged();
-      } catch (err) {
-        console.error(err);
-        setError(err instanceof Error ? err.message : 'Failed to update recurrence');
-      }
-    },
-    [onCategoryChanged]
-  );
 
   const {
     updatingId,
@@ -93,12 +59,14 @@ export const CategoryTransactionInspectionModal: React.FC<
     isRulesModalOpen,
     rulePrefill,
     handleCategoryChange,
+    handleTagsChange,
+    handleRecurrenceChange,
     handleCreateRuleFromTx,
     closeRulesModal,
   } = useTransactionCategoryMutation({
     onTransactionUpdated: handleTransactionUpdated,
     onChanged: onCategoryChanged,
-    onError: setError,
+    onError: (msg) => setError(msg || null),
   });
 
   const loadTransactions = async () => {

@@ -1,16 +1,20 @@
 import { useCallback, useState } from 'react';
-import { CategorizationRuleCreate, Transaction } from '../types';
-import { updateTransactionCategory } from '../services/api';
+import {
+  updateTransactionCategory,
+  updateTransactionRecurrence,
+  updateTransactionTags,
+} from '../services/api';
+import { CategorizationRuleCreate, RecurrenceType, Transaction } from '../types';
 
 interface UseTransactionCategoryMutationOptions {
-  onTransactionUpdated: (txId: number, newCategory: string) => void;
+  onTransactionUpdated: (txId: number, patch: Partial<Transaction>) => void;
   onChanged: () => void;
   onError?: (message: string) => void;
 }
 
 /**
- * Shared hook for mutating a transaction's category and launching the
- * categorization rule editor prefilled from a specific transaction.
+ * Shared hook for mutating a transaction's category, tags, and recurrence,
+ * and launching the categorization rule editor prefilled from a transaction.
  */
 export function useTransactionCategoryMutation({
   onTransactionUpdated,
@@ -29,13 +33,42 @@ export function useTransactionCategoryMutation({
       try {
         await updateTransactionCategory(txId, newCategory);
         setSuccessNote(`Moved transaction to "${newCategory}"`);
-        onTransactionUpdated(txId, newCategory);
+        onTransactionUpdated(txId, { category: newCategory });
         onChanged();
       } catch (err) {
         console.error(err);
         onError?.(err instanceof Error ? err.message : 'Failed to update transaction category');
       } finally {
         setUpdatingId(null);
+      }
+    },
+    [onTransactionUpdated, onChanged, onError]
+  );
+
+  const handleTagsChange = useCallback(
+    async (txId: number, newTags: string[]) => {
+      onError?.('');
+      try {
+        const updated = await updateTransactionTags(txId, newTags);
+        onTransactionUpdated(txId, { tags: updated.tags ?? newTags });
+      } catch (err) {
+        console.error(err);
+        onError?.(err instanceof Error ? err.message : 'Failed to update transaction tags');
+      }
+    },
+    [onTransactionUpdated, onError]
+  );
+
+  const handleRecurrenceChange = useCallback(
+    async (txId: number, recurrence: RecurrenceType | null) => {
+      onError?.('');
+      try {
+        const updated = await updateTransactionRecurrence(txId, recurrence);
+        onTransactionUpdated(txId, { recurrence: updated.recurrence ?? recurrence });
+        onChanged();
+      } catch (err) {
+        console.error(err);
+        onError?.(err instanceof Error ? err.message : 'Failed to update recurrence');
       }
     },
     [onTransactionUpdated, onChanged, onError]
@@ -69,6 +102,8 @@ export function useTransactionCategoryMutation({
     isRulesModalOpen,
     rulePrefill,
     handleCategoryChange,
+    handleTagsChange,
+    handleRecurrenceChange,
     handleCreateRuleFromTx,
     closeRulesModal,
   };

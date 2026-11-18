@@ -45,6 +45,9 @@ export interface RunwayTierBreakdown {
   is_perpetual: boolean;
   perpetual_threshold_weekly_income: number;
   weekly_burn_rate: number;
+  variable_weekly_burn?: number;
+  recurring_weekly_burn?: number;
+  this_week_variable_spend?: number;
   tier_labels?: Record<string, string>;
 }
 
@@ -190,6 +193,23 @@ export interface BudgetRule {
   weekly_limit: number;
   monthly_limit: number;
   is_active: boolean;
+}
+
+export interface CategoryBurnEstimate {
+  category: string;
+  variable_weekly_burn: number;
+  recurring_weekly_burn: number;
+  average_weekly_burn: number;
+  suggested_monthly_limit: number;
+}
+
+export interface AverageBurnReportResponse {
+  lookback_weeks: number;
+  as_of_date: string;
+  variable_weekly_burn: number;
+  recurring_weekly_burn: number;
+  effective_weekly_burn: number;
+  categories: CategoryBurnEstimate[];
 }
 
 export interface CategorySpendingReport {

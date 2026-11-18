@@ -22,8 +22,8 @@ import {
   isTransferCategory,
 } from '../constants/categories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchAccountTransactions, updateTransactionRecurrence, updateTransactionTags } from '../services/api';
-import { Account, PeriodType, RecurrenceType, Transaction } from '../types';
+import { fetchAccountTransactions } from '../services/api';
+import { Account, PeriodType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
@@ -94,43 +94,11 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
-  const handleTransactionUpdated = useCallback((txId: number, newCategory: string) => {
+  const handleTransactionUpdated = useCallback((txId: number, patch: Partial<Transaction>) => {
     setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, category: newCategory } : t))
+      prev.map((t) => (t.id === txId ? { ...t, ...patch } : t))
     );
   }, []);
-
-  const handleTagsChange = useCallback(async (txId: number, newTags: string[]) => {
-    setError(null);
-    try {
-      const updated = await updateTransactionTags(txId, newTags);
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === txId ? { ...t, tags: updated.tags ?? newTags } : t))
-      );
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to update transaction tags');
-    }
-  }, []);
-
-  const handleRecurrenceChange = useCallback(
-    async (txId: number, recurrence: RecurrenceType | null) => {
-      setError(null);
-      try {
-        const updated = await updateTransactionRecurrence(txId, recurrence);
-        setTransactions((prev) =>
-          prev.map((t) =>
-            t.id === txId ? { ...t, recurrence: updated.recurrence ?? recurrence } : t
-          )
-        );
-        onTransactionCategoryChanged();
-      } catch (err) {
-        console.error(err);
-        setError(err instanceof Error ? err.message : 'Failed to update recurrence');
-      }
-    },
-    [onTransactionCategoryChanged]
-  );
 
   const {
     updatingId,
@@ -139,12 +107,14 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     isRulesModalOpen,
     rulePrefill,
     handleCategoryChange,
+    handleTagsChange,
+    handleRecurrenceChange,
     handleCreateRuleFromTx,
     closeRulesModal,
   } = useTransactionCategoryMutation({
     onTransactionUpdated: handleTransactionUpdated,
     onChanged: onTransactionCategoryChanged,
-    onError: setError,
+    onError: (msg) => setError(msg || null),
   });
 
   const loadTransactions = async () => {
