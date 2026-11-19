@@ -32,6 +32,15 @@ function draftFromPrefill(prefill: Partial<CategorizationRuleCreate>): RuleFormD
       prefill.amount_equals !== undefined && prefill.amount_equals !== null
         ? String(prefill.amount_equals)
         : '',
+    minAmount:
+      prefill.min_amount !== undefined && prefill.min_amount !== null
+        ? String(prefill.min_amount)
+        : '',
+    maxAmount:
+      prefill.max_amount !== undefined && prefill.max_amount !== null
+        ? String(prefill.max_amount)
+        : '',
+    direction: prefill.direction || '',
     targetCategory: prefill.target_category || 'General',
     targetTags: (prefill.target_tags || []).join(', '),
     targetRecurrence: prefill.target_recurrence || '',
@@ -47,6 +56,9 @@ function draftFromRule(rule: CategorizationRule): RuleFormDraft {
     descriptionPattern: rule.description_pattern,
     matchType: rule.match_type,
     amountEquals: rule.amount_equals != null ? String(rule.amount_equals) : '',
+    minAmount: rule.min_amount != null ? String(rule.min_amount) : '',
+    maxAmount: rule.max_amount != null ? String(rule.max_amount) : '',
+    direction: rule.direction || '',
     targetCategory: rule.target_category,
     targetTags: (rule.target_tags || []).join(', '),
     targetRecurrence: rule.target_recurrence || '',
@@ -128,12 +140,24 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       return;
     }
 
+    const num = parseFloat(draft.amountEquals.trim());
+    const parsedAmt = !isNaN(num) && num > 0 ? Math.abs(num) : null;
+    const rawMin = draft.minAmount.trim();
+    const rawMax = draft.maxAmount.trim();
+    const minNum = rawMin !== '' ? parseFloat(rawMin) : NaN;
+    const maxNum = rawMax !== '' ? parseFloat(rawMax) : NaN;
+    const parsedMin = !isNaN(minNum) ? Math.abs(minNum) : null;
+    const parsedMax = !isNaN(maxNum) ? Math.abs(maxNum) : null;
+
+    if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax) {
+      setError('Min amount must be less than or equal to max amount.');
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     setStatusMsg(null);
 
-    const num = parseFloat(draft.amountEquals.trim());
-    const parsedAmt = !isNaN(num) && num > 0 ? Math.abs(num) : null;
     const parsedTags = draft.targetTags
       .split(',')
       .map((t) => t.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-'))
@@ -143,6 +167,9 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       description_pattern: draft.descriptionPattern.trim(),
       match_type: draft.matchType,
       amount_equals: parsedAmt,
+      min_amount: parsedMin,
+      max_amount: parsedMax,
+      direction: draft.direction || null,
       target_category: draft.targetCategory.trim(),
       target_tags: Array.from(new Set(parsedTags)),
       target_recurrence: draft.targetRecurrence || null,
@@ -229,6 +256,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       r.name.toLowerCase().includes(q) ||
       r.description_pattern.toLowerCase().includes(q) ||
       r.target_category.toLowerCase().includes(q) ||
+      (r.direction && r.direction.toLowerCase().includes(q)) ||
       (r.rename_merchant && r.rename_merchant.toLowerCase().includes(q))
     );
   });

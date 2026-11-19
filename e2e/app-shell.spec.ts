@@ -412,4 +412,51 @@ test.describe('Midas App Shell & Navigation', () => {
 
     await expect(page.getByTestId('category-row-coffee')).toHaveCount(0);
   });
+
+  test('manages categorization rule amount bounds and cashflow direction', async ({ page }) => {
+    const toolsTab = page
+      .locator('header nav button:has-text("Tools"), nav button:has-text("Tools")')
+      .locator('visible=true')
+      .first();
+    await toolsTab.click();
+
+    await page.getByTestId('rules-manager-btn').click();
+    await expect(page.getByRole('heading', { name: /Outlook-Style Categorization Rules/i })).toBeVisible();
+
+    await expect(page.getByTestId('rule-range-badge-3')).toContainText('>= $30.00');
+    await expect(page.getByTestId('rule-direction-badge-3')).toContainText('Outflow');
+    await expect(page.getByTestId('rule-range-badge-4')).toContainText('<= $29.99');
+    await expect(page.getByTestId('rule-direction-badge-4')).toContainText('Outflow');
+
+    await page.getByRole('button', { name: /New Rule/i }).click();
+    await page.getByTestId('rule-name-input').fill('BPme Fuel Refund');
+    await page.getByTestId('rule-pattern-input').fill('BPME');
+    await page.getByTestId('rule-min-amount-input').fill('50.00');
+    await page.getByTestId('rule-max-amount-input').fill('20.00');
+    await page.getByTestId('rule-direction-select').selectOption('inflow');
+    await page.getByTestId('rule-category-select').selectOption('Fuel');
+    await page.getByTestId('save-rule-btn').click();
+
+    await expect(page.locator('text=Min amount must be less than or equal to max amount.')).toBeVisible();
+
+    await page.getByTestId('rule-min-amount-input').fill('10.00');
+    await page.getByTestId('rule-max-amount-input').fill('200.00');
+    await page.getByTestId('save-rule-btn').click();
+
+    await expect(page.getByTestId('rule-row-5')).toBeVisible();
+    await expect(page.getByTestId('rule-range-badge-5')).toContainText('$10.00 - $200.00');
+    await expect(page.getByTestId('rule-direction-badge-5')).toContainText('Inflow');
+
+    await page.getByTestId('edit-rule-5').click();
+    await expect(page.getByTestId('rule-min-amount-input')).toHaveValue('10');
+    await expect(page.getByTestId('rule-max-amount-input')).toHaveValue('200');
+    await expect(page.getByTestId('rule-direction-select')).toHaveValue('inflow');
+
+    await page.getByTestId('rule-max-amount-input').fill('');
+    await page.getByTestId('rule-direction-select').selectOption('outflow');
+    await page.getByTestId('save-rule-btn').click();
+
+    await expect(page.getByTestId('rule-range-badge-5')).toContainText('>= $10.00');
+    await expect(page.getByTestId('rule-direction-badge-5')).toContainText('Outflow');
+  });
 });

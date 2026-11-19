@@ -1137,7 +1137,107 @@ export async function setupMockApi(page: Page) {
     });
   });
 
-  // 8. Mock Outlook-style Categorization Rules Endpoints
+  // 8. Mock Outlook-style Categorization Rules Endpoints (stateful)
+  interface MockRuleRecord {
+    id: number;
+    name: string;
+    description_pattern: string;
+    match_type: 'contains' | 'exact' | 'starts_with';
+    amount_equals: number | null;
+    min_amount: number | null;
+    max_amount: number | null;
+    direction: 'outflow' | 'inflow' | null;
+    target_category: string;
+    target_tags: string[];
+    target_recurrence: string | null;
+    rename_merchant: string | null;
+    priority: number;
+    is_active: boolean;
+    match_count: number;
+    created_at: string;
+    updated_at: string;
+  }
+
+  let mockRules: MockRuleRecord[] = [
+    {
+      id: 1,
+      name: 'Utilities Regular',
+      description_pattern: '12-0323-0895056',
+      match_type: 'contains',
+      amount_equals: 400.0,
+      min_amount: null,
+      max_amount: null,
+      direction: 'outflow',
+      target_category: 'Utilities',
+      target_tags: [],
+      target_recurrence: null,
+      rename_merchant: 'Power/Water Utilities',
+      priority: 10,
+      is_active: true,
+      match_count: 4,
+      created_at: '2026-11-01T00:00:00Z',
+      updated_at: '2026-11-01T00:00:00Z',
+    },
+    {
+      id: 2,
+      name: 'Wise Transfer',
+      description_pattern: 'WISE',
+      match_type: 'contains',
+      amount_equals: null,
+      min_amount: null,
+      max_amount: null,
+      direction: null,
+      target_category: 'Transfers',
+      target_tags: [],
+      target_recurrence: null,
+      rename_merchant: 'Wise Multi-Currency',
+      priority: 15,
+      is_active: true,
+      match_count: 8,
+      created_at: '2026-11-01T00:00:00Z',
+      updated_at: '2026-11-01T00:00:00Z',
+    },
+    {
+      id: 3,
+      name: 'BPme Fuel',
+      description_pattern: 'BPME',
+      match_type: 'contains',
+      amount_equals: null,
+      min_amount: 30.0,
+      max_amount: null,
+      direction: 'outflow',
+      target_category: 'Fuel',
+      target_tags: ['fuel'],
+      target_recurrence: null,
+      rename_merchant: 'BP',
+      priority: 5,
+      is_active: true,
+      match_count: 6,
+      created_at: '2026-11-01T00:00:00Z',
+      updated_at: '2026-11-01T00:00:00Z',
+    },
+    {
+      id: 4,
+      name: 'BPme Coffee & Snacks',
+      description_pattern: 'BPME',
+      match_type: 'contains',
+      amount_equals: null,
+      min_amount: null,
+      max_amount: 29.99,
+      direction: 'outflow',
+      target_category: 'Dining',
+      target_tags: ['cafe'],
+      target_recurrence: null,
+      rename_merchant: 'BP Wild Bean Cafe',
+      priority: 6,
+      is_active: true,
+      match_count: 3,
+      created_at: '2026-11-01T00:00:00Z',
+      updated_at: '2026-11-01T00:00:00Z',
+    },
+  ];
+  let nextRuleId = 5;
+
   await page.route(/\/api\/rules\/apply-all/, async (route) => {
     await route.fulfill({
       status: 200,
@@ -1150,83 +1250,107 @@ export async function setupMockApi(page: Page) {
     const method = route.request().method();
     if (method === 'POST') {
       const body = route.request().postDataJSON() || {};
+      const minAmt = body.min_amount !== undefined ? body.min_amount : null;
+      const maxAmt = body.max_amount !== undefined ? body.max_amount : null;
+      if (minAmt !== null && maxAmt !== null && Number(minAmt) > Number(maxAmt)) {
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'min_amount must be less than or equal to max_amount.' }),
+        });
+        return;
+      }
+      const created: MockRuleRecord = {
+        id: nextRuleId++,
+        name: body.name || 'New Custom Rule',
+        description_pattern: body.description_pattern || 'PATTERN',
+        match_type: body.match_type || 'contains',
+        amount_equals: body.amount_equals !== undefined ? body.amount_equals : null,
+        min_amount: minAmt,
+        max_amount: maxAmt,
+        direction: body.direction !== undefined ? body.direction : null,
+        target_category: body.target_category || 'General',
+        target_tags: Array.isArray(body.target_tags) ? body.target_tags : [],
+        target_recurrence: body.target_recurrence !== undefined ? body.target_recurrence : null,
+        rename_merchant: body.rename_merchant !== undefined ? body.rename_merchant : null,
+        priority: body.priority ?? 10,
+        is_active: body.is_active ?? true,
+        match_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      mockRules = [...mockRules, created];
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify({
-          id: 3,
-          name: body.name || 'New Custom Rule',
-          description_pattern: body.description_pattern || 'PATTERN',
-          match_type: body.match_type || 'contains',
-          amount_equals: body.amount_equals || null,
-          target_category: body.target_category || 'General',
-          rename_merchant: body.rename_merchant || null,
-          priority: body.priority || 10,
-          is_active: body.is_active ?? true,
-          match_count: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }),
+        body: JSON.stringify(created),
       });
     } else if (method === 'PUT') {
+      const match = route.request().url().match(/\/api\/rules\/(\d+)/);
+      const ruleId = match ? Number(match[1]) : 1;
+      const existing = mockRules.find((r) => r.id === ruleId);
+      if (!existing) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Categorization rule not found' }),
+        });
+        return;
+      }
       const body = route.request().postDataJSON() || {};
+      const nextMin = 'min_amount' in body ? body.min_amount : existing.min_amount;
+      const nextMax = 'max_amount' in body ? body.max_amount : existing.max_amount;
+      if (nextMin !== null && nextMax !== null && Number(nextMin) > Number(nextMax)) {
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'min_amount must be less than or equal to max_amount.' }),
+        });
+        return;
+      }
+      const updated: MockRuleRecord = {
+        ...existing,
+        name: body.name ?? existing.name,
+        description_pattern: body.description_pattern ?? existing.description_pattern,
+        match_type: body.match_type ?? existing.match_type,
+        amount_equals: 'amount_equals' in body ? body.amount_equals : existing.amount_equals,
+        min_amount: nextMin,
+        max_amount: nextMax,
+        direction: 'direction' in body ? body.direction : existing.direction,
+        target_category: body.target_category ?? existing.target_category,
+        target_tags: 'target_tags' in body ? body.target_tags : existing.target_tags,
+        target_recurrence:
+          'target_recurrence' in body ? body.target_recurrence : existing.target_recurrence,
+        rename_merchant:
+          'rename_merchant' in body ? body.rename_merchant : existing.rename_merchant,
+        priority: body.priority ?? existing.priority,
+        is_active: body.is_active !== undefined ? body.is_active : existing.is_active,
+        updated_at: new Date().toISOString(),
+      };
+      mockRules = mockRules.map((r) => (r.id === ruleId ? updated : r));
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          id: 1,
-          name: body.name || 'Updated Rule',
-          description_pattern: body.description_pattern || '12-0323-0895056',
-          match_type: body.match_type || 'contains',
-          amount_equals: body.amount_equals !== undefined ? body.amount_equals : 400.0,
-          target_category: body.target_category || 'Utilities',
-          rename_merchant: body.rename_merchant || 'Power/Water Utilities',
-          priority: body.priority || 10,
-          is_active: body.is_active !== undefined ? body.is_active : true,
-          match_count: 5,
-          created_at: '2026-11-01T00:00:00Z',
-          updated_at: new Date().toISOString(),
-        }),
+        body: JSON.stringify(updated),
       });
     } else if (method === 'DELETE') {
+      const match = route.request().url().match(/\/api\/rules\/(\d+)/);
+      const ruleId = match ? Number(match[1]) : -1;
+      mockRules = mockRules.filter((r) => r.id !== ruleId);
       await route.fulfill({
         status: 204,
         body: '',
       });
     } else {
+      const url = new URL(route.request().url());
+      const activeParam = url.searchParams.get('is_active');
+      const filtered = mockRules
+        .filter((r) => activeParam === null || String(r.is_active) === activeParam)
+        .sort((a, b) => a.priority - b.priority || a.id - b.id);
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 1,
-            name: 'Utilities Regular',
-            description_pattern: '12-0323-0895056',
-            match_type: 'contains',
-            amount_equals: 400.0,
-            target_category: 'Utilities',
-            rename_merchant: 'Power/Water Utilities',
-            priority: 10,
-            is_active: true,
-            match_count: 4,
-            created_at: '2026-11-01T00:00:00Z',
-            updated_at: '2026-11-01T00:00:00Z',
-          },
-          {
-            id: 2,
-            name: 'Wise Transfer',
-            description_pattern: 'WISE',
-            match_type: 'contains',
-            amount_equals: null,
-            target_category: 'Transfers',
-            rename_merchant: 'Wise Multi-Currency',
-            priority: 15,
-            is_active: true,
-            match_count: 8,
-            created_at: '2026-11-01T00:00:00Z',
-            updated_at: '2026-11-01T00:00:00Z',
-          },
-        ]),
+        body: JSON.stringify(filtered),
       });
     }
   });

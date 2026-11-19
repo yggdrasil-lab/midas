@@ -28,6 +28,24 @@ interface RulesListProps {
   onDelete: (rule: CategorizationRule) => Promise<void>;
 }
 
+function formatAmountRange(min?: number | null, max?: number | null): string | null {
+  const hasMin = min !== undefined && min !== null;
+  const hasMax = max !== undefined && max !== null;
+  if (!hasMin && !hasMax) return null;
+  const fmt = (val: number) =>
+    formatMoney(Number(val), {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  if (hasMin && hasMax) {
+    return `${fmt(min)} - ${fmt(max)}`;
+  }
+  if (hasMin) {
+    return `>= ${fmt(min)}`;
+  }
+  return `<= ${fmt(max as number)}`;
+}
+
 /**
  * Displays configured categorization rules with inline enable/disable,
  * edit, and ConfirmActionBox-guarded deletion.
@@ -79,9 +97,11 @@ export const RulesList: React.FC<RulesListProps> = ({
     <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
       {rules.map((rule) => {
         const isConfirming = confirmDeleteId === rule.id;
+        const rangeLabel = formatAmountRange(rule.min_amount, rule.max_amount);
         return (
           <div
             key={rule.id}
+            data-testid={`rule-row-${rule.id}`}
             className={`p-3 bg-card/60 hover:bg-card/80 border rounded-xl space-y-2.5 transition-all ${
               rule.is_active ? 'border-border' : 'border-border/40 opacity-60'
             }`}
@@ -115,6 +135,26 @@ export const RulesList: React.FC<RulesListProps> = ({
                         })}
                       </span>
                     </>
+                  )}
+                  {rangeLabel && (
+                    <span
+                      className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 font-mono border border-amber-500/20 text-[10px]"
+                      data-testid={`rule-range-badge-${rule.id}`}
+                    >
+                      {rangeLabel}
+                    </span>
+                  )}
+                  {rule.direction && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${
+                        rule.direction === 'outflow'
+                          ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                          : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                      }`}
+                      data-testid={`rule-direction-badge-${rule.id}`}
+                    >
+                      {rule.direction === 'outflow' ? 'Outflow' : 'Inflow'}
+                    </span>
                   )}
                   <ArrowRight className="w-3 h-3 text-slate-400" />
                   <span className="text-slate-400">Set</span>
@@ -164,6 +204,7 @@ export const RulesList: React.FC<RulesListProps> = ({
                 <button
                   type="button"
                   onClick={() => onEdit(rule)}
+                  data-testid={`edit-rule-${rule.id}`}
                   className="p-1 text-slate-400 hover:text-slate-200 transition-colors"
                   title="Edit Rule"
                 >

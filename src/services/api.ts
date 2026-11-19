@@ -7,6 +7,7 @@ import {
   BudgetRule,
   CategorizationRule,
   CategorizationRuleCreate,
+  CategorizationRuleUpdate,
   CategoryCreatePayload,
   CategoryDeleteResult,
   CategoryItem,
@@ -473,14 +474,14 @@ export async function createRule(
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error(`Failed to create categorization rule: ${res.statusText}`);
+    throw new Error(await readApiError(res, 'Failed to create categorization rule'));
   }
   return res.json();
 }
 
 export async function updateRule(
   id: number,
-  payload: Partial<CategorizationRuleCreate>
+  payload: CategorizationRuleUpdate
 ): Promise<CategorizationRule> {
   const res = await authFetch(`${API_BASE}/rules/${id}`, {
     method: 'PUT',
@@ -490,7 +491,7 @@ export async function updateRule(
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error(`Failed to update categorization rule: ${res.statusText}`);
+    throw new Error(await readApiError(res, 'Failed to update categorization rule'));
   }
   return res.json();
 }
