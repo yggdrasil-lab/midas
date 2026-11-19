@@ -294,12 +294,17 @@ export interface TagSpendingSummaryResponse {
   tags: TagSpendingSummaryItem[];
 }
 
+export type RuleDirection = 'outflow' | 'inflow';
+
 export interface CategorizationRule {
   id: number;
   name: string;
   description_pattern: string;
   match_type: 'contains' | 'exact' | 'starts_with';
   amount_equals?: number | null;
+  min_amount?: number | null;
+  max_amount?: number | null;
+  direction?: RuleDirection | null;
   target_category: string;
   target_tags?: string[];
   target_recurrence?: RecurrenceType | null;
@@ -316,7 +321,27 @@ export interface CategorizationRuleCreate {
   description_pattern: string;
   match_type?: 'contains' | 'exact' | 'starts_with';
   amount_equals?: number | null;
+  min_amount?: number | null;
+  max_amount?: number | null;
+  direction?: RuleDirection | null;
   target_category: string;
+  target_tags?: string[];
+  target_recurrence?: RecurrenceType | null;
+  rename_merchant?: string | null;
+  priority?: number;
+  is_active?: boolean;
+  apply_retroactively?: boolean;
+}
+
+export interface CategorizationRuleUpdate {
+  name?: string;
+  description_pattern?: string;
+  match_type?: 'contains' | 'exact' | 'starts_with';
+  amount_equals?: number | null;
+  min_amount?: number | null;
+  max_amount?: number | null;
+  direction?: RuleDirection | null;
+  target_category?: string;
   target_tags?: string[];
   target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
