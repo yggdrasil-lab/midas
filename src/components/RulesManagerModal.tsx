@@ -205,7 +205,13 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     setStatusMsg(null);
     try {
       const res = await applyAllRules();
-      setStatusMsg(`Evaluated ${res.evaluated} transactions; updated ${res.updated}.`);
+      const itemNote =
+        res.receipt_items_updated !== undefined
+          ? ` and ${res.receipt_items_updated} of ${res.receipt_items_evaluated ?? 0} receipt items`
+          : '';
+      setStatusMsg(
+        `Evaluated ${res.evaluated} transactions (${res.updated} updated)${itemNote}.`
+      );
       await loadRules();
       onRulesApplied?.();
     } catch (err) {

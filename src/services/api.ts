@@ -498,7 +498,12 @@ export async function deleteRule(id: number): Promise<void> {
   }
 }
 
-export async function applyAllRules(): Promise<{ evaluated: number; updated: number }> {
+export async function applyAllRules(): Promise<{
+  evaluated: number;
+  updated: number;
+  receipt_items_evaluated?: number;
+  receipt_items_updated?: number;
+}> {
   const res = await authFetch(`${API_BASE}/rules/apply-all`, {
     method: 'POST',
   });
