@@ -533,6 +533,30 @@ export async function uploadReceipt(file: File): Promise<Receipt> {
   return res.json();
 }
 
+export async function deleteReceipt(id: number): Promise<void> {
+  const res = await authFetch(`${API_BASE}/receipts/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to delete receipt: ${res.statusText}`);
+  }
+}
+
+export async function reprocessReceipt(id: number): Promise<Receipt> {
+  const res = await authFetch(`${API_BASE}/receipts/${id}/reprocess`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `Failed to reprocess receipt: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export function getReceiptImageUrl(id: number): string {
+  return `${API_BASE}/receipts/${id}/image`;
+}
+
 export async function fetchProductStatistics(
   domain?: string,
   productType?: string
