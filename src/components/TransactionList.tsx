@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
 import { RecurrenceType, Transaction } from '../types';
 import { collapsePairedTransfers } from '../utils/transfers';
+import { ReceiptDetailModal } from './receipts/ReceiptDetailModal';
 import { TransactionRow } from './TransactionRow';
 
 interface TransactionListProps {
@@ -16,6 +17,7 @@ interface TransactionListProps {
   onTagsChange?: (txId: number, tags: string[]) => void;
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   onCreateRule: (tx: Transaction) => void;
+  onReceiptUpdated?: () => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
   listTestId?: string;
@@ -39,6 +41,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onTagsChange,
   onRecurrenceChange,
   onCreateRule,
+  onReceiptUpdated,
   showAccountBadge = true,
   fallbackCurrency,
   listTestId,
@@ -46,6 +49,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   getSelectTestId,
   getRuleBtnTestId,
 }) => {
+  const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(null);
   const displayTransactions = useMemo(
     () => collapsePairedTransfers(transactions),
     [transactions]
@@ -66,24 +70,34 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   }
 
   return (
-    <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1" data-testid={listTestId}>
-      {displayTransactions.map((tx) => (
-        <TransactionRow
-          key={tx.id}
-          transaction={tx}
-          categories={categories}
-          updating={updatingId === tx.id}
-          onCategoryChange={onCategoryChange}
-          onTagsChange={onTagsChange}
-          onRecurrenceChange={onRecurrenceChange}
-          onCreateRule={onCreateRule}
-          showAccountBadge={showAccountBadge}
-          fallbackCurrency={fallbackCurrency}
-          rowTestId={getRowTestId?.(tx)}
-          selectTestId={getSelectTestId?.(tx)}
-          ruleBtnTestId={getRuleBtnTestId?.(tx)}
-        />
-      ))}
-    </div>
+    <>
+      <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1" data-testid={listTestId}>
+        {displayTransactions.map((tx) => (
+          <TransactionRow
+            key={tx.id}
+            transaction={tx}
+            categories={categories}
+            updating={updatingId === tx.id}
+            onCategoryChange={onCategoryChange}
+            onTagsChange={onTagsChange}
+            onRecurrenceChange={onRecurrenceChange}
+            onCreateRule={onCreateRule}
+            onOpenReceipt={(receiptId) => setSelectedReceiptId(receiptId)}
+            showAccountBadge={showAccountBadge}
+            fallbackCurrency={fallbackCurrency}
+            rowTestId={getRowTestId?.(tx)}
+            selectTestId={getSelectTestId?.(tx)}
+            ruleBtnTestId={getRuleBtnTestId?.(tx)}
+          />
+        ))}
+      </div>
+
+      <ReceiptDetailModal
+        receiptId={selectedReceiptId}
+        isOpen={selectedReceiptId !== null}
+        onClose={() => setSelectedReceiptId(null)}
+        onReceiptUpdated={onReceiptUpdated}
+      />
+    </>
   );
 };

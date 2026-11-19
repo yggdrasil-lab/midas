@@ -16,6 +16,7 @@ import {
   ProductStatisticsResponse,
   ProductUpdatePayload,
   Receipt,
+  ReceiptItem,
   RecurrenceType,
   RunwayAiSynthesisResult,
   RunwayData,
@@ -497,7 +498,12 @@ export async function deleteRule(id: number): Promise<void> {
   }
 }
 
-export async function applyAllRules(): Promise<{ evaluated: number; updated: number }> {
+export async function applyAllRules(): Promise<{
+  evaluated: number;
+  updated: number;
+  receipt_items_evaluated?: number;
+  receipt_items_updated?: number;
+}> {
   const res = await authFetch(`${API_BASE}/rules/apply-all`, {
     method: 'POST',
   });
@@ -561,6 +567,28 @@ export async function reprocessReceipt(id: number): Promise<Receipt> {
 
 export function getReceiptImageUrl(id: number): string {
   return `${API_BASE}/receipts/${id}/image`;
+}
+
+export async function updateReceiptItem(
+  receiptId: number,
+  itemId: number,
+  payload: {
+    category?: string;
+    domain?: string | null;
+    tags?: string[];
+    notes?: string | null;
+  }
+): Promise<ReceiptItem> {
+  const res = await authFetch(`${API_BASE}/receipts/${receiptId}/items/${itemId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `Failed to update receipt item: ${res.statusText}`);
+  }
+  return res.json();
 }
 
 export async function fetchProductStatistics(

@@ -8,6 +8,7 @@ import {
   reconcileReceipts,
   reprocessReceipt,
   updateProduct,
+  updateReceiptItem,
   uploadReceipt,
 } from '../services/api';
 import { Product, Receipt } from '../types';
@@ -40,6 +41,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
   const [reconciling, setReconciling] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [reprocessingId, setReprocessingId] = useState<number | null>(null);
+  const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [expandedReceiptId, setExpandedReceiptId] = useState<number | null>(null);
@@ -145,6 +147,31 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to reprocess receipt');
     } finally {
       setReprocessingId(null);
+    }
+  };
+
+  const handleUpdateReceiptItem = async (
+    receiptId: number,
+    itemId: number,
+    patch: { category?: string; tags?: string[] }
+  ) => {
+    setUpdatingItemId(itemId);
+    setError(null);
+    try {
+      const updated = await updateReceiptItem(receiptId, itemId, patch);
+      setReceipts((prev) =>
+        prev.map((r) =>
+          r.id === receiptId
+            ? { ...r, items: r.items.map((it) => (it.id === itemId ? updated : it)) }
+            : r
+        )
+      );
+      onReceiptLinked?.();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to update receipt item');
+    } finally {
+      setUpdatingItemId(null);
     }
   };
 
@@ -266,6 +293,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
             uploading={uploading}
             deletingId={deletingId}
             reprocessingId={reprocessingId}
+            updatingItemId={updatingItemId}
             expandedReceiptId={expandedReceiptId}
             onToggleExpand={(id) =>
               setExpandedReceiptId((prev) => (prev === id ? null : id))
@@ -273,6 +301,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
             onUploadFile={handleUploadFile}
             onDeleteReceipt={handleDeleteReceipt}
             onReprocessReceipt={handleReprocessReceipt}
+            onUpdateReceiptItem={handleUpdateReceiptItem}
           />
         ) : (
           <ProductsCatalogTab

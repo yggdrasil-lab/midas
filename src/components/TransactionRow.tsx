@@ -23,6 +23,7 @@ interface TransactionRowProps {
   onTagsChange?: (txId: number, tags: string[]) => void;
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   onCreateRule: (tx: Transaction) => void;
+  onOpenReceipt?: (receiptId: number) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
   rowTestId?: string;
@@ -42,6 +43,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   onTagsChange,
   onRecurrenceChange,
   onCreateRule,
+  onOpenReceipt,
   showAccountBadge = true,
   fallbackCurrency,
   rowTestId,
@@ -96,13 +98,26 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             </span>
           )}
           {Boolean(tx.has_receipt) && (
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium flex items-center space-x-1"
-              title="Matched Itemized Receipt"
-            >
-              <ReceiptIcon className="w-2.5 h-2.5" />
-              <span>{tx.is_receipt_split ? 'Receipt Split' : 'Receipt'}</span>
-            </span>
+            tx.receipt_id && onOpenReceipt ? (
+              <button
+                type="button"
+                onClick={() => onOpenReceipt(tx.receipt_id!)}
+                data-testid={`open-receipt-${tx.id}`}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer"
+                title="Inspect receipt items, categories, tags & photo"
+              >
+                <ReceiptIcon className="w-2.5 h-2.5" />
+                <span>{tx.is_receipt_split ? 'Receipt Split' : 'Receipt'}</span>
+              </button>
+            ) : (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium flex items-center space-x-1"
+                title="Matched Itemized Receipt"
+              >
+                <ReceiptIcon className="w-2.5 h-2.5" />
+                <span>{tx.is_receipt_split ? 'Receipt Split' : 'Receipt'}</span>
+              </span>
+            )
           )}
           {(hasLinkedTransfer || isTransfer) && (
             <span
@@ -136,12 +151,23 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
           )}
         </div>
 
-        <div
-          className="text-xs font-semibold text-slate-200 truncate"
-          title={tx.raw_description || tx.merchant}
-        >
-          {tx.merchant}
-        </div>
+        {tx.has_receipt && tx.receipt_id && onOpenReceipt ? (
+          <button
+            type="button"
+            onClick={() => onOpenReceipt(tx.receipt_id!)}
+            className="text-xs font-semibold text-slate-200 hover:text-amber-300 truncate text-left transition-colors cursor-pointer block max-w-full"
+            title="Click to inspect receipt items & photo"
+          >
+            {tx.merchant}
+          </button>
+        ) : (
+          <div
+            className="text-xs font-semibold text-slate-200 truncate"
+            title={tx.raw_description || tx.merchant}
+          >
+            {tx.merchant}
+          </div>
+        )}
         {tx.raw_description && tx.raw_description !== tx.merchant && (
           <div className="text-[11px] text-slate-500 truncate max-w-sm">
             {tx.raw_description}

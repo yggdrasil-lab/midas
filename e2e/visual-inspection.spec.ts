@@ -258,6 +258,29 @@ for (const { name: platform, options } of PLATFORMS) {
             path: `screenshots/${platform}/08-category-inspection-modal.png`,
           });
 
+          // Click the Receipt badge on Pak n Save Albany to inspect photo & edit item category
+          const openReceiptBtn = page.locator('[data-testid="open-receipt-101"] >> visible=true').first();
+          if (await openReceiptBtn.isVisible()) {
+            await openReceiptBtn.click();
+            const receiptModal = page.locator('[data-testid="receipt-detail-modal"] >> visible=true').first();
+            await expect(receiptModal).toBeVisible();
+            await expect(receiptModal.locator('text=Chemist Warehouse Albany')).toBeVisible();
+            await expect(receiptModal.locator('text=Vitamin C 1000mg 150 Tablets')).toBeVisible();
+            await expect(receiptModal.locator('[data-testid="inherited-item-tag-1-weekly-shop"]')).toBeVisible();
+            await page.waitForTimeout(300);
+            await page.screenshot({
+              path: `screenshots/${platform}/08c-receipt-detail-modal.png`,
+            });
+
+            const itemCategorySelect = receiptModal.locator('[data-testid="receipt-item-category-1"]');
+            await expect(itemCategorySelect).toBeVisible();
+            await itemCategorySelect.selectOption('Personal Care');
+            await expect(itemCategorySelect).toHaveValue('Personal Care');
+
+            await receiptModal.getByRole('button', { name: 'Done' }).click();
+            await expect(receiptModal).toBeHidden();
+          }
+
           // Change category selector to Food
           const categorySelect = page.locator('select[aria-label="Category for Pak n Save Albany"] >> visible=true').first();
           if (await categorySelect.isVisible()) {

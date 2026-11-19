@@ -367,6 +367,10 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
             void handleRecurrenceChange(txId, recurrence);
           }}
           onCreateRule={handleCreateRuleFromTx}
+          onReceiptUpdated={() => {
+            void loadTransactions();
+            onTransactionCategoryChanged();
+          }}
           showAccountBadge={account === null}
           fallbackCurrency={account?.currency}
           listTestId="modal-tx-list"
