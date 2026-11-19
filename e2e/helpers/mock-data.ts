@@ -421,6 +421,21 @@ export async function setupMockApi(page: Page) {
             is_transfer: false,
           },
           {
+            category: 'Utilities',
+            total_spend: 46.99,
+            transaction_count: 4,
+            actual_transaction_count: 2,
+            amortized_count: 2,
+            percentage: 6.3,
+            budget_limit: 346.67,
+            annual_limit: 4160.0,
+            budget_period: 'monthly',
+            percent_used: 13.6,
+            is_over_budget: false,
+            warning_level: 'normal',
+            is_transfer: false,
+          },
+          {
             category: 'Travel',
             total_spend: 1200.0,
             transaction_count: 2,
@@ -819,25 +834,93 @@ export async function setupMockApi(page: Page) {
       category: 'Transport',
       tags: ['queenstown-trip'],
     },
+    {
+      id: 120,
+      transaction_date: '2026-11-13',
+      account_id: 2,
+      account_name: 'ANZ Low Rate Visa',
+      amount: -1.99,
+      currency: 'NZD',
+      merchant: 'iCloud',
+      raw_description: 'Apple.Com/Bill Sydney Au',
+      category: 'Utilities',
+      recurrence: 'monthly',
+      tags: ['electronic-and-appliance', 'subscription'],
+    },
+    {
+      id: 121,
+      transaction_date: '2026-11-04',
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      amount: -8.0,
+      currency: 'NZD',
+      merchant: 'SKINNY MOBIL',
+      raw_description: 'Skinny Mobil Card number: 4835 **** **** 8340',
+      category: 'Utilities',
+      recurrence: 'monthly',
+      tags: ['mobile', 'subscription'],
+    },
+  ];
+
+  const mockAmortizedUtilities = [
+    {
+      id: 122,
+      transaction_date: '2026-09-07',
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      amount: -279.99,
+      currency: 'NZD',
+      merchant: 'Google One',
+      raw_description: 'Google *Google One Mountain View Us',
+      category: 'Utilities',
+      recurrence: 'annual',
+      tags: ['cloud', 'subscription'],
+      is_amortized_commitment: true,
+      amortized_period_amount_nzd: 23.31,
+    },
+    {
+      id: 123,
+      transaction_date: '2026-09-20',
+      account_id: 3,
+      account_name: 'DBS Multiplier',
+      amount: -120.0,
+      currency: 'SGD',
+      exchange_rate: 1.3694,
+      merchant: 'ANNUAL FEE',
+      raw_description: 'DBS Card Annual Fee',
+      category: 'Utilities',
+      recurrence: 'annual',
+      tags: ['banking'],
+      is_amortized_commitment: true,
+      amortized_period_amount_nzd: 13.69,
+    },
   ];
 
   // 7. Mock Transactions Endpoints for Inspection & Category Correction
   await page.route(/\/api\/transactions(\/.*|\?.*)?$/, async (route) => {
     if (route.request().method() === 'PATCH') {
+      const match = route.request().url().match(/\/api\/transactions\/(\d+)/);
+      const txId = match ? Number(match[1]) : 101;
       const body = route.request().postDataJSON();
+      const existing =
+        mockTransactions.find((tx) => tx.id === txId) ||
+        mockAmortizedUtilities.find((tx) => tx.id === txId);
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          id: 101,
-          transaction_date: '2026-11-04',
-          account_id: 1,
-          account_name: 'ANZ Freedom',
-          amount: -120.5,
-          currency: 'NZD',
-          merchant: 'Pak n Save Albany',
-          category: body?.category || 'Food',
-          tags: body?.tags || ['weekly-shop'],
+          ...(existing || {
+            transaction_date: '2026-11-04',
+            account_id: 1,
+            account_name: 'ANZ Freedom',
+            amount: -120.5,
+            currency: 'NZD',
+            merchant: 'Pak n Save Albany',
+          }),
+          id: txId,
+          category: body?.category || existing?.category || 'Food',
+          tags: body?.tags ?? existing?.tags ?? ['weekly-shop'],
+          ...(body?.recurrence !== undefined ? { recurrence: body.recurrence } : {}),
         }),
       });
     } else {
@@ -846,8 +929,9 @@ export async function setupMockApi(page: Page) {
       const tagParam = url.searchParams.get('tag');
       const periodParam = url.searchParams.get('period');
       const accountIdParam = url.searchParams.get('account_id');
+      const includeAmortizedParam = url.searchParams.get('include_amortized');
 
-      let filtered = mockTransactions;
+      let filtered = [...mockTransactions];
       if (accountIdParam) {
         filtered = filtered.filter((tx) => String(tx.account_id) === accountIdParam);
       }
@@ -861,6 +945,25 @@ export async function setupMockApi(page: Page) {
       }
       if (periodParam === 'week' || periodParam === 'last_week' || periodParam === 'month') {
         filtered = filtered.filter((tx) => tx.transaction_date >= '2026-11-01');
+      }
+
+      if (
+        includeAmortizedParam === 'true' &&
+        categoryParam?.toLowerCase() === 'utilities' &&
+        (periodParam === 'week' ||
+          periodParam === 'last_week' ||
+          periodParam === 'month' ||
+          periodParam === 'last_month')
+      ) {
+        const cadence =
+          periodParam === 'week' || periodParam === 'last_week' ? 'week' : 'month';
+        filtered = [
+          ...filtered,
+          ...mockAmortizedUtilities.map((tx) => ({
+            ...tx,
+            amortized_cadence: cadence,
+          })),
+        ];
       }
 
       await route.fulfill({

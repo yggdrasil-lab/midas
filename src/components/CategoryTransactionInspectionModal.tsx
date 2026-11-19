@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRightLeft, Check, Layers } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowRightLeft, Check, Layers, Repeat } from 'lucide-react';
 import {
   AlertBanner,
   Button,
+  EmptyState,
+  LoadingState,
   Modal,
   SearchInput,
   SummaryMetricGrid,
@@ -35,9 +37,23 @@ interface CategoryTransactionInspectionModalProps {
   onCategoryChanged: () => void;
 }
 
+function matchesTransactionSearch(tx: Transaction, query: string): boolean {
+  const q = query.trim().toLowerCase().replace(/^#+/, '');
+  if (!q) return true;
+  return (
+    tx.merchant.toLowerCase().includes(q) ||
+    (tx.account_name || '').toLowerCase().includes(q) ||
+    (tx.linked_account_name || '').toLowerCase().includes(q) ||
+    (tx.raw_description || '').toLowerCase().includes(q) ||
+    (tx.recurrence || '').toLowerCase().includes(q) ||
+    (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
+  );
+}
+
 /**
  * Modal for inspecting transactions within a spending category, reconciling
- * inter-account transfers, and recategorizing or creating rules inline.
+ * inter-account transfers, surfacing amortized recurring commitments, and
+ * recategorizing or creating rules inline.
  */
 export const CategoryTransactionInspectionModal: React.FC<
   CategoryTransactionInspectionModalProps
@@ -57,8 +73,21 @@ export const CategoryTransactionInspectionModal: React.FC<
   const [error, setError] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const mutationSucceededRef = useRef(false);
+
+  const isTransferCategory = Boolean(category && checkTransferCategory(category));
+  const shouldIncludeAmortized = Boolean(
+    category &&
+      !isTransferCategory &&
+      !isAnnualOverride &&
+      (period === 'week' ||
+        period === 'last_week' ||
+        period === 'month' ||
+        period === 'last_month')
+  );
 
   const handleTransactionUpdated = useCallback((txId: number, patch: Partial<Transaction>) => {
+    mutationSucceededRef.current = true;
     setTransactions((prev) =>
       prev.map((t) => (t.id === txId ? { ...t, ...patch } : t))
     );
@@ -91,7 +120,8 @@ export const CategoryTransactionInspectionModal: React.FC<
         period,
         period === 'custom' ? startDate : undefined,
         period === 'custom' ? endDate : undefined,
-        includeSubclasses
+        includeSubclasses,
+        shouldIncludeAmortized
       );
       setTransactions(res);
     } catch (err) {
@@ -106,9 +136,9 @@ export const CategoryTransactionInspectionModal: React.FC<
     if (isOpen && category) {
       setSuccessNote(null);
       setSearchQuery('');
-      loadTransactions();
+      void loadTransactions();
     }
-  }, [isOpen, category, period, startDate, endDate, includeSubclasses]);
+  }, [isOpen, category, period, startDate, endDate, includeSubclasses, shouldIncludeAmortized]);
 
   const handleReconcileTransfers = async () => {
     setReconciling(true);
@@ -120,7 +150,7 @@ export const CategoryTransactionInspectionModal: React.FC<
           ? `Successfully reconciled and paired ${res.matched_transfers} transfer legs!`
           : 'All transfers are currently reconciled.'
       );
-      loadTransactions();
+      void loadTransactions();
       onCategoryChanged();
     } catch (err) {
       console.error(err);
@@ -135,33 +165,92 @@ export const CategoryTransactionInspectionModal: React.FC<
     [transactions]
   );
 
-  const filteredTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return collapsedTransactions;
-    const q = searchQuery.toLowerCase().replace(/^#+/, '');
-    return collapsedTransactions.filter(
-      (tx) =>
-        tx.merchant.toLowerCase().includes(q) ||
-        (tx.account_name || '').toLowerCase().includes(q) ||
-        (tx.linked_account_name || '').toLowerCase().includes(q) ||
-        (tx.raw_description || '').toLowerCase().includes(q) ||
-        (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
-    );
-  }, [collapsedTransactions, searchQuery]);
+  const { actualTransactions, amortizedCommitments, excludedTransactions } = useMemo(() => {
+    const actual: Transaction[] = [];
+    const amortized: Transaction[] = [];
+    const excluded: Transaction[] = [];
+    for (const tx of collapsedTransactions) {
+      if (tx.is_amortized_commitment) {
+        amortized.push(tx);
+      } else if (tx.excluded_from_period_budget) {
+        excluded.push(tx);
+      } else {
+        actual.push(tx);
+      }
+    }
+    return {
+      actualTransactions: actual,
+      amortizedCommitments: amortized,
+      excludedTransactions: excluded,
+    };
+  }, [collapsedTransactions]);
 
-  const totalVolume = useMemo(
+  const filteredActual = useMemo(
+    () => actualTransactions.filter((tx) => matchesTransactionSearch(tx, searchQuery)),
+    [actualTransactions, searchQuery]
+  );
+  const filteredAmortized = useMemo(
+    () => amortizedCommitments.filter((tx) => matchesTransactionSearch(tx, searchQuery)),
+    [amortizedCommitments, searchQuery]
+  );
+  const filteredExcluded = useMemo(
+    () => excludedTransactions.filter((tx) => matchesTransactionSearch(tx, searchQuery)),
+    [excludedTransactions, searchQuery]
+  );
+
+  const actualVolume = useMemo(
+    () => actualTransactions.reduce((sum, tx) => sum + getTransactionNzdAmount(tx), 0),
+    [actualTransactions]
+  );
+  const amortizedVolume = useMemo(
     () =>
-      collapsedTransactions.reduce(
-        (sum, tx) => sum + getTransactionNzdAmount(tx),
+      amortizedCommitments.reduce(
+        (sum, tx) => sum + Math.abs(Number(tx.amortized_period_amount_nzd ?? 0)),
         0
       ),
-    [collapsedTransactions]
+    [amortizedCommitments]
   );
+  const totalVolume = actualVolume + amortizedVolume;
+  const budgetedCount = actualTransactions.length + amortizedCommitments.length;
 
   if (!category) return null;
 
-  const isTransferCategory = checkTransferCategory(category);
   const periodLabel = formatPeriodLabel(period, startDate, endDate);
-  const avgTx = collapsedTransactions.length > 0 ? totalVolume / collapsedTransactions.length : 0;
+  const hasAmortized = amortizedCommitments.length > 0;
+  const hasSupplementalSections = hasAmortized || excludedTransactions.length > 0;
+  const cadenceUnit = period === 'week' || period === 'last_week' ? 'wk' : 'mo';
+  const avgTx = budgetedCount > 0 ? totalVolume / budgetedCount : 0;
+
+  const sharedListProps = {
+    categories: CATEGORY_CHOICES,
+    emptyTitle: `No transactions found for ${category} in ${periodLabel.toLowerCase()}.`,
+    updatingId,
+    onCategoryChange: async (txId: number, cat: string) => {
+      setError(null);
+      mutationSucceededRef.current = false;
+      await handleCategoryChange(txId, cat);
+      if (mutationSucceededRef.current) {
+        void loadTransactions();
+      }
+    },
+    onTagsChange: (txId: number, newTags: string[]) => {
+      void handleTagsChange(txId, newTags);
+    },
+    onRecurrenceChange: async (txId: number, recurrence: Transaction['recurrence']) => {
+      setError(null);
+      mutationSucceededRef.current = false;
+      await handleRecurrenceChange(txId, recurrence ?? null);
+      if (mutationSucceededRef.current) {
+        void loadTransactions();
+      }
+    },
+    onCreateRule: handleCreateRuleFromTx,
+    onReceiptUpdated: () => {
+      void loadTransactions();
+      onCategoryChanged();
+    },
+    showAccountBadge: true,
+  };
 
   return (
     <Modal
@@ -188,8 +277,13 @@ export const CategoryTransactionInspectionModal: React.FC<
               </span>
             )}
           </div>
-          <div className="text-[11px] text-slate-400">
-            {collapsedTransactions.length} {collapsedTransactions.length === 1 ? 'transaction' : 'transactions'}
+          <div
+            className="text-[11px] text-slate-400"
+            data-testid="category-inspection-count-summary"
+          >
+            {hasAmortized
+              ? `${actualTransactions.length} ${actualTransactions.length === 1 ? 'txn' : 'txns'} + ${amortizedCommitments.length} amortized`
+              : `${actualTransactions.length} ${actualTransactions.length === 1 ? 'transaction' : 'transactions'}`}
           </div>
         </div>
 
@@ -200,12 +294,18 @@ export const CategoryTransactionInspectionModal: React.FC<
               id: 'total',
               label: 'Total',
               value: formatMoney(totalVolume, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              subvalue: hasAmortized
+                ? `${formatMoney(actualVolume)} + ${formatMoney(amortizedVolume)} fixed`
+                : undefined,
               valueClassName: 'text-slate-100 font-mono text-xs sm:text-sm tracking-tight',
             },
             {
               id: 'count',
-              label: 'Txns',
-              value: collapsedTransactions.length,
+              label: hasAmortized ? 'Items' : 'Txns',
+              value: budgetedCount,
+              subvalue: hasAmortized
+                ? `${actualTransactions.length} + ${amortizedCommitments.length} fixed`
+                : undefined,
               valueClassName: 'text-amber-300 font-mono text-xs sm:text-sm tracking-tight',
             },
             {
@@ -255,30 +355,97 @@ export const CategoryTransactionInspectionModal: React.FC<
           />
         )}
 
-        <TransactionList
-          transactions={filteredTransactions}
-          categories={CATEGORY_CHOICES}
-          loading={loading}
-          loadingLabel="Loading transactions..."
-          emptyTitle={`No transactions found for ${category} in ${periodLabel.toLowerCase()}.`}
-          updatingId={updatingId}
-          onCategoryChange={(txId, cat) => {
-            setError(null);
-            void handleCategoryChange(txId, cat);
-          }}
-          onTagsChange={(txId, newTags) => {
-            void handleTagsChange(txId, newTags);
-          }}
-          onRecurrenceChange={(txId, recurrence) => {
-            void handleRecurrenceChange(txId, recurrence);
-          }}
-          onCreateRule={handleCreateRuleFromTx}
-          onReceiptUpdated={() => {
-            void loadTransactions();
-            onCategoryChanged();
-          }}
-          showAccountBadge
-        />
+        {!hasSupplementalSections ? (
+          <TransactionList
+            transactions={filteredActual}
+            loading={loading}
+            loadingLabel="Loading transactions..."
+            {...sharedListProps}
+          />
+        ) : loading ? (
+          <LoadingState label="Loading transactions..." variant="amber" />
+        ) : filteredActual.length === 0 &&
+          filteredAmortized.length === 0 &&
+          filteredExcluded.length === 0 ? (
+          <EmptyState
+            title={
+              searchQuery.trim()
+                ? 'No matching transactions or commitments.'
+                : `No transactions found for ${category} in ${periodLabel.toLowerCase()}.`
+            }
+            variant="dashed"
+          />
+        ) : (
+          <div
+            className="space-y-4 max-h-[50vh] overflow-y-auto pr-1"
+            data-testid="category-inspection-scroll-container"
+          >
+            {filteredActual.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                  <span className="font-medium text-slate-300">
+                    Transactions in Period ({filteredActual.length})
+                  </span>
+                  <span className="font-mono text-slate-300">
+                    {formatMoney(actualVolume, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    NZD
+                  </span>
+                </div>
+                <TransactionList
+                  transactions={filteredActual}
+                  loading={false}
+                  scrollable={false}
+                  {...sharedListProps}
+                />
+              </div>
+            )}
+
+            {filteredAmortized.length > 0 && (
+              <div className="space-y-2" data-testid="amortized-commitments-section">
+                <div className="flex items-center justify-between text-[11px] text-sky-300 px-1">
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <Repeat className="w-3 h-3 text-sky-400" />
+                    <span>
+                      Amortized Recurring Commitments ({filteredAmortized.length})
+                    </span>
+                  </span>
+                  <span className="font-mono">
+                    {formatMoney(amortizedVolume, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{' '}
+                    NZD/{cadenceUnit}
+                  </span>
+                </div>
+                <TransactionList
+                  transactions={filteredAmortized}
+                  loading={false}
+                  scrollable={false}
+                  {...sharedListProps}
+                />
+              </div>
+            )}
+
+            {filteredExcluded.length > 0 && (
+              <div className="space-y-2" data-testid="excluded-transactions-section">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                  <span className="font-medium">
+                    Excluded from Period Budget ({filteredExcluded.length})
+                  </span>
+                </div>
+                <TransactionList
+                  transactions={filteredExcluded}
+                  loading={false}
+                  scrollable={false}
+                  {...sharedListProps}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="pt-2 flex justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>

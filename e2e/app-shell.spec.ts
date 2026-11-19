@@ -322,4 +322,51 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(tagModal).toContainText('Fergburger Queenstown');
     await expect(tagModal).not.toContainText('Air New Zealand');
   });
+
+  test('reconciles amortized recurring commitments inside CategoryTransactionInspectionModal', async ({ page }) => {
+    const budgetTab = page
+      .locator('header nav button:has-text("Spending & Budgets"), nav button:has-text("Budgets")')
+      .locator('visible=true')
+      .first();
+    await budgetTab.click();
+
+    const utilitiesRow = page.getByTestId('category-row-utilities').locator('visible=true').first();
+    await expect(utilitiesRow).toBeVisible();
+    await expect(utilitiesRow).toContainText('4 txns');
+    await expect(utilitiesRow).toContainText('$46.99 NZD');
+    await utilitiesRow.click();
+
+    const catModal = page.getByTestId('category-inspection-modal');
+    await expect(catModal).toBeVisible();
+    await expect(catModal).toContainText('$46.99');
+    await expect(page.getByTestId('category-inspection-count-summary')).toContainText('2 txns + 2 amortized');
+    await expect(catModal).toContainText('2 + 2 fixed');
+
+    // Actual dated transactions
+    await expect(catModal).toContainText('iCloud');
+    await expect(catModal).toContainText('SKINNY MOBIL');
+
+    // Amortized recurring commitments section
+    const amortizedSection = page.getByTestId('amortized-commitments-section');
+    await expect(amortizedSection).toBeVisible();
+    await expect(amortizedSection).toContainText('Amortized Recurring Commitments (2)');
+    await expect(amortizedSection).toContainText('Google One');
+    await expect(page.getByTestId('amortized-badge-122')).toContainText('Annual amortized');
+    await expect(page.getByTestId('amortized-amount-122')).toContainText('-$23.31 NZD/mo');
+    await expect(amortizedSection).toContainText('ANNUAL FEE');
+    await expect(amortizedSection).toContainText('From SGD 120.00');
+    await expect(page.getByTestId('amortized-amount-123')).toContainText('-$13.69 NZD/mo');
+
+    // Search filters uniformly across actual and amortized commitments
+    const searchInput = catModal.getByPlaceholder('Filter by merchant or account...');
+    await searchInput.fill('Google');
+    await expect(catModal).toContainText('Google One');
+    await expect(catModal).not.toContainText('iCloud');
+    await expect(catModal).not.toContainText('ANNUAL FEE');
+
+    await searchInput.fill('');
+    await expect(catModal).toContainText('iCloud');
+    await expect(catModal).toContainText('Google One');
+    await expect(catModal).toContainText('ANNUAL FEE');
+  });
 });

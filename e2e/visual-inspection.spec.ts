@@ -44,6 +44,7 @@ for (const { name: platform, options } of PLATFORMS) {
     });
 
     test(`captures full visual progression on ${platform}`, async ({ page }) => {
+      test.setTimeout(60000);
       // 1. Dashboard Overview
       await expect(page.locator('header h1')).toBeVisible();
       await expect(page.locator('text=Financial Freedom Clock >> visible=true')).toBeVisible();
@@ -314,6 +315,35 @@ for (const { name: platform, options } of PLATFORMS) {
             await reconcileTransfersBtn.click();
             await expect(page.locator('text=reconciled and paired >> visible=true')).toBeVisible();
           }
+
+          const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
+          if (await modalClose.isVisible()) {
+            await modalClose.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+        }
+
+        // 8d. Utilities Category Inspection with Amortized Recurring Commitments
+        const utilitiesCategoryCard = page.locator('[data-testid="category-row-utilities"] >> visible=true').first();
+        if (await utilitiesCategoryCard.isVisible()) {
+          await utilitiesCategoryCard.scrollIntoViewIfNeeded();
+          await utilitiesCategoryCard.click();
+          await expect(page.getByRole('heading', { name: /Inspect Category: Utilities/i })).toBeVisible();
+          const amortizedSection = page.getByTestId('amortized-commitments-section');
+          await expect(amortizedSection).toBeVisible();
+          await page.getByTestId('category-inspection-scroll-container').evaluate((container) => {
+            const target = container.querySelector('[data-testid="amortized-commitments-section"]') as HTMLElement | null;
+            if (target) {
+              container.scrollTop = Math.max(0, target.offsetTop - container.offsetTop);
+            } else {
+              container.scrollTop = container.scrollHeight;
+            }
+          });
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/08d-category-amortized-inspection.png`,
+          });
 
           const modalClose = page.locator('button:has(svg.lucide-x)').locator('visible=true').first();
           if (await modalClose.isVisible()) {

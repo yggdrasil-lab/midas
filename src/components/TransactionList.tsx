@@ -20,6 +20,7 @@ interface TransactionListProps {
   onReceiptUpdated?: () => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
+  scrollable?: boolean;
   listTestId?: string;
   getRowTestId?: (tx: Transaction) => string;
   getSelectTestId?: (tx: Transaction) => string;
@@ -44,6 +45,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onReceiptUpdated,
   showAccountBadge = true,
   fallbackCurrency,
+  scrollable = true,
   listTestId,
   getRowTestId,
   getSelectTestId,
@@ -71,7 +73,12 @@ export const TransactionList: React.FC<TransactionListProps> = ({
 
   return (
     <>
-      <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1" data-testid={listTestId}>
+      <div
+        className={
+          scrollable ? 'space-y-2 max-h-[50vh] overflow-y-auto pr-1' : 'space-y-2'
+        }
+        data-testid={listTestId}
+      >
         {displayTransactions.map((tx) => (
           <TransactionRow
             key={tx.id}

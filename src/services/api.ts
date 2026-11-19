@@ -331,11 +331,13 @@ export async function fetchCategoryTransactions(
   period?: PeriodType,
   startDate?: string,
   endDate?: string,
-  includeSubclasses = false
+  includeSubclasses = false,
+  includeAmortized = false
 ): Promise<Transaction[]> {
   const params = new URLSearchParams();
   if (category) params.set('category', category);
   if (includeSubclasses) params.set('include_subclasses', 'true');
+  if (includeAmortized) params.set('include_amortized', 'true');
   appendPeriodParams(params, period, startDate, endDate);
   params.set('limit', '200');
   const res = await authFetch(`${API_BASE}/transactions?${params.toString()}`);
