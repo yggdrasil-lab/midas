@@ -1,5 +1,103 @@
 import type { Page } from '@playwright/test';
 
+interface MockCategoryRecord {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  parent_name: string | null;
+  is_system: boolean;
+  is_active: boolean;
+  amortize_period: 'annual' | null;
+  sort_order: number;
+  transaction_count: number;
+  rule_count: number;
+  child_count: number;
+  has_budget_rule: boolean;
+  budget_period: 'weekly' | 'monthly' | 'annual' | null;
+  weekly_limit: number | null;
+  monthly_limit: number | null;
+  annual_limit: number | null;
+}
+
+function buildInitialMockCategories(): MockCategoryRecord[] {
+  const specs: Array<{
+    id: number;
+    name: string;
+    parentId: number | null;
+    parentName: string | null;
+    isSystem?: boolean;
+    amortize?: 'annual' | null;
+    sort: number;
+    txns?: number;
+    rules?: number;
+    weekly?: number | null;
+  }> = [
+    { id: 1, name: 'Food', parentId: null, parentName: null, sort: 10, txns: 6, rules: 1, weekly: 100 },
+    { id: 2, name: 'Dining', parentId: 1, parentName: 'Food', sort: 11, txns: 14, rules: 2 },
+    { id: 3, name: 'Groceries', parentId: 1, parentName: 'Food', sort: 12, txns: 18, rules: 2, weekly: 200 },
+    { id: 4, name: 'Alcohol', parentId: 1, parentName: 'Food', sort: 13, txns: 3, rules: 1 },
+    { id: 5, name: 'Housing', parentId: null, parentName: null, sort: 20, txns: 4, rules: 1 },
+    { id: 6, name: 'Rent', parentId: 5, parentName: 'Housing', sort: 21, txns: 8, rules: 1 },
+    { id: 7, name: 'Household', parentId: 5, parentName: 'Housing', sort: 22, txns: 5 },
+    { id: 8, name: 'Transport', parentId: null, parentName: null, sort: 30, txns: 4, weekly: 60 },
+    { id: 9, name: 'Fuel', parentId: 8, parentName: 'Transport', sort: 31, txns: 7, rules: 1 },
+    { id: 10, name: 'Transit', parentId: 8, parentName: 'Transport', sort: 32, txns: 9, rules: 1 },
+    { id: 11, name: 'Vehicle', parentId: 8, parentName: 'Transport', sort: 33, txns: 2 },
+    { id: 12, name: 'Health', parentId: null, parentName: null, sort: 40, txns: 3, weekly: 50 },
+    { id: 13, name: 'Fitness', parentId: 12, parentName: 'Health', sort: 41, txns: 4, rules: 1 },
+    { id: 14, name: 'Medical', parentId: 12, parentName: 'Health', sort: 42, txns: 2 },
+    { id: 15, name: 'Supplements', parentId: 12, parentName: 'Health', sort: 43, txns: 3 },
+    { id: 16, name: 'Personal Care', parentId: 12, parentName: 'Health', sort: 44, txns: 4 },
+    { id: 17, name: 'Shopping', parentId: null, parentName: null, sort: 50, txns: 6 },
+    { id: 18, name: 'Clothing', parentId: 17, parentName: 'Shopping', sort: 51, txns: 2 },
+    { id: 19, name: 'Tech', parentId: 17, parentName: 'Shopping', sort: 52, txns: 5 },
+    { id: 20, name: 'Utilities', parentId: null, parentName: null, sort: 60, txns: 4, weekly: 80 },
+    { id: 21, name: 'Bills & Telco', parentId: 20, parentName: 'Utilities', sort: 61, txns: 6, rules: 1 },
+    { id: 22, name: 'Software & AI', parentId: 20, parentName: 'Utilities', sort: 62, txns: 8, rules: 2 },
+    { id: 23, name: 'Insurance', parentId: null, parentName: null, sort: 70, txns: 4, weekly: 55 },
+    { id: 24, name: 'Leisure', parentId: null, parentName: null, amortize: 'annual', sort: 80, txns: 6, weekly: 50 },
+    { id: 25, name: 'Gaming', parentId: 24, parentName: 'Leisure', sort: 81, txns: 3 },
+    { id: 26, name: 'Travel', parentId: null, parentName: null, amortize: 'annual', sort: 90, txns: 5 },
+    { id: 27, name: 'Family', parentId: null, parentName: null, sort: 100, txns: 3 },
+    { id: 28, name: 'Finance', parentId: null, parentName: null, sort: 110, txns: 1 },
+    { id: 29, name: 'Fees & Admin', parentId: 28, parentName: 'Finance', sort: 111, txns: 4, rules: 1 },
+    { id: 30, name: 'Debt & Loans', parentId: 28, parentName: 'Finance', sort: 112, txns: 2 },
+    { id: 31, name: 'General', parentId: null, parentName: null, isSystem: true, sort: 900, txns: 4 },
+    { id: 32, name: 'Transfers', parentId: null, parentName: null, isSystem: true, sort: 910, txns: 10 },
+    { id: 33, name: 'Income', parentId: null, parentName: null, isSystem: true, sort: 920, txns: 6 },
+  ];
+
+  const childCountByParent = new Map<number, number>();
+  for (const s of specs) {
+    if (s.parentId !== null) {
+      childCountByParent.set(s.parentId, (childCountByParent.get(s.parentId) || 0) + 1);
+    }
+  }
+
+  return specs.map((s) => {
+    const weekly = s.weekly ?? null;
+    const isAnnual = s.amortize === 'annual';
+    return {
+      id: s.id,
+      name: s.name,
+      parent_id: s.parentId,
+      parent_name: s.parentName,
+      is_system: Boolean(s.isSystem),
+      is_active: true,
+      amortize_period: s.amortize ?? null,
+      sort_order: s.sort,
+      transaction_count: s.txns ?? 0,
+      rule_count: s.rules ?? 0,
+      child_count: childCountByParent.get(s.id) ?? 0,
+      has_budget_rule: weekly !== null,
+      budget_period: weekly !== null ? (isAnnual ? 'annual' : 'monthly') : isAnnual ? 'annual' : null,
+      weekly_limit: weekly,
+      monthly_limit: weekly !== null ? Math.round(((weekly * 52) / 12) * 100) / 100 : null,
+      annual_limit: weekly !== null ? Math.round(weekly * 52 * 100) / 100 : null,
+    };
+  });
+}
+
 export const MOCK_RUNWAY_DATA = {
   as_of_date: '2026-11-04',
   primary_runway_weeks: 184,
@@ -1427,6 +1525,191 @@ export async function setupMockApi(page: Page) {
     } else {
       await route.continue();
     }
+  });
+
+  // Mock Dynamic Hierarchical Categories Endpoints
+  let mockCategories = buildInitialMockCategories();
+  let nextCategoryId = 100;
+
+  const normalizeMockCategories = (rows: MockCategoryRecord[]): MockCategoryRecord[] => {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const childCounts = new Map<number, number>();
+    for (const r of rows) {
+      if (r.is_active && r.parent_id !== null) {
+        childCounts.set(r.parent_id, (childCounts.get(r.parent_id) || 0) + 1);
+      }
+    }
+    const enriched = rows.map((r) => {
+      const parent = r.parent_id !== null ? byId.get(r.parent_id) || null : null;
+      return {
+        ...r,
+        parent_name: parent ? parent.name : null,
+        child_count: childCounts.get(r.id) || 0,
+      };
+    });
+    const enrichedById = new Map(enriched.map((r) => [r.id, r]));
+    return enriched.sort((a, b) => {
+      const rootA = (a.parent_id !== null ? enrichedById.get(a.parent_id) : a) || a;
+      const rootB = (b.parent_id !== null ? enrichedById.get(b.parent_id) : b) || b;
+      const sysDiff = Number(rootA.is_system) - Number(rootB.is_system);
+      if (sysDiff !== 0) return sysDiff;
+      if (rootA.sort_order !== rootB.sort_order) return rootA.sort_order - rootB.sort_order;
+      const rootNameCmp = rootA.name.toLowerCase().localeCompare(rootB.name.toLowerCase());
+      if (rootNameCmp !== 0) return rootNameCmp;
+      const depthDiff = Number(a.parent_id !== null) - Number(b.parent_id !== null);
+      if (depthDiff !== 0) return depthDiff;
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    });
+  };
+
+  await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      const url = new URL(route.request().url());
+      const includeInactive = url.searchParams.get('include_inactive') === 'true';
+      const ordered = normalizeMockCategories(mockCategories).filter(
+        (c) => includeInactive || c.is_active
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(ordered),
+      });
+      return;
+    }
+    if (method === 'POST') {
+      const body = route.request().postDataJSON() || {};
+      const cleanedName = String(body.name || '').trim();
+      const duplicate = mockCategories.find(
+        (c) => c.name.toLowerCase() === cleanedName.toLowerCase()
+      );
+      if (duplicate) {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: `Category '${duplicate.name}' already exists.` }),
+        });
+        return;
+      }
+      const parent =
+        body.parent_id !== null && body.parent_id !== undefined
+          ? mockCategories.find((c) => c.id === Number(body.parent_id)) || null
+          : null;
+      const created: MockCategoryRecord = {
+        id: nextCategoryId++,
+        name: cleanedName,
+        parent_id: parent ? parent.id : null,
+        parent_name: parent ? parent.name : null,
+        is_system: false,
+        is_active: true,
+        amortize_period: body.amortize_period === 'annual' ? 'annual' : null,
+        sort_order: body.sort_order ?? (parent ? parent.sort_order + 5 : 150),
+        transaction_count: 0,
+        rule_count: 0,
+        child_count: 0,
+        has_budget_rule: false,
+        budget_period: body.amortize_period === 'annual' ? 'annual' : null,
+        weekly_limit: null,
+        monthly_limit: null,
+        annual_limit: null,
+      };
+      mockCategories = normalizeMockCategories([...mockCategories, created]);
+      const result = mockCategories.find((c) => c.id === created.id)!;
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(result),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.route(/\/api\/categories\/(\d+)(\?.*)?$/, async (route) => {
+    const match = route.request().url().match(/\/api\/categories\/(\d+)/);
+    const catId = match ? Number(match[1]) : -1;
+    const method = route.request().method();
+    const target = mockCategories.find((c) => c.id === catId);
+    if (!target) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Category not found.' }),
+      });
+      return;
+    }
+    if (method === 'PATCH') {
+      const body = route.request().postDataJSON() || {};
+      const nextName =
+        typeof body.name === 'string' && body.name.trim() ? body.name.trim() : target.name;
+      const nextParentId =
+        'parent_id' in body ? (body.parent_id === null ? null : Number(body.parent_id)) : target.parent_id;
+      const nextAmortize =
+        'amortize_period' in body
+          ? body.amortize_period === 'annual'
+            ? 'annual'
+            : null
+          : target.amortize_period;
+      mockCategories = normalizeMockCategories(
+        mockCategories.map((c) =>
+          c.id === catId
+            ? {
+                ...c,
+                name: nextName,
+                parent_id: nextParentId,
+                amortize_period: nextAmortize,
+                budget_period:
+                  nextAmortize === 'annual'
+                    ? 'annual'
+                    : c.has_budget_rule
+                      ? 'monthly'
+                      : null,
+              }
+            : c
+        )
+      );
+      const updated = mockCategories.find((c) => c.id === catId)!;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(updated),
+      });
+      return;
+    }
+    if (method === 'DELETE') {
+      const url = new URL(route.request().url());
+      const reassignTo =
+        url.searchParams.get('reassign_to') || target.parent_name || 'General';
+      let childrenPromoted = 0;
+      mockCategories = normalizeMockCategories(
+        mockCategories
+          .filter((c) => c.id !== catId)
+          .map((c) => {
+            if (c.parent_id === catId) {
+              childrenPromoted += 1;
+              return { ...c, parent_id: null, parent_name: null };
+            }
+            return c;
+          })
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          deleted_id: catId,
+          deleted_name: target.name,
+          reassigned_to: reassignTo,
+          transactions_reassigned: target.transaction_count,
+          rules_reassigned: target.rule_count,
+          receipt_items_reassigned: 0,
+          products_reassigned: 0,
+          children_promoted: childrenPromoted,
+        }),
+      });
+      return;
+    }
+    await route.continue();
   });
 
   await page.route(/\/api\/integrations\/sync\/all(\?.*)?$/, async (route) => {

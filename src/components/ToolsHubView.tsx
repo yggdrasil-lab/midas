@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ArrowRightLeft,
+  FolderTree,
   Receipt as ReceiptIcon,
   Sliders,
   SlidersHorizontal,
@@ -8,6 +9,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { GlassCard, SectionHeader, SegmentedControl } from '@yggdrasil-lab/ui';
+import { CategoryManagerModal } from './CategoryManagerModal';
 import { RulesManagerModal } from './RulesManagerModal';
 import { ScenarioSimulator } from './ScenarioSimulator';
 import { StatementDropzone } from './StatementDropzone';
@@ -33,18 +35,19 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
 }) => {
   const [workspace, setWorkspace] = useState<ToolsWorkspace>('simulator');
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
 
   return (
     <div className="space-y-4 lg:space-y-6" data-testid="tools-hub-view">
       <GlassCard className="space-y-4">
         <SectionHeader
           title="Tools & Power Utilities"
-          subtitle="Scenario modeling, statement ingestion, receipts longevity, categorization rules, and data controls"
+          subtitle="Scenario modeling, statement ingestion, receipts longevity, category hierarchy, rules, and data controls"
           icon={<Wrench className="w-4 h-4" />}
           variant="amber"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <button
             type="button"
             data-testid="receipts-hub-btn"
@@ -95,6 +98,23 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
               </div>
             </div>
           </button>
+
+          <button
+            type="button"
+            data-testid="categories-manager-btn"
+            onClick={() => setIsCategoriesModalOpen(true)}
+            className="p-3 rounded-xl bg-background/60 border border-border/80 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors text-left flex items-start gap-3 cursor-pointer"
+          >
+            <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0">
+              <FolderTree className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-slate-100">Categories &amp; Hierarchy</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                Manage classes &amp; 52w spread
+              </div>
+            </div>
+          </button>
         </div>
 
         <SegmentedControl<ToolsWorkspace>
@@ -129,6 +149,12 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
         isOpen={isRulesModalOpen}
         onClose={() => setIsRulesModalOpen(false)}
         onRulesApplied={onRefreshRunway}
+      />
+
+      <CategoryManagerModal
+        isOpen={isCategoriesModalOpen}
+        onClose={() => setIsCategoriesModalOpen(false)}
+        onCategoriesChanged={onRefreshRunway}
       />
     </div>
   );

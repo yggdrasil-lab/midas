@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Calculator, ChevronDown, ChevronUp, Plus, Sparkles, Target, Trash2 } from 'lucide-react';
 import { AlertBanner, Button, EmptyState, Modal, SegmentedControl } from '@yggdrasil-lab/ui';
-import { BUDGET_CATEGORY_CHOICES } from '../constants/categories';
+import { useCategories } from '../hooks/useCategories';
 import {
   deleteBudgetRule,
   fetchAverageBurn,
@@ -30,6 +30,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
   onSuccess,
   initialCategory,
 }) => {
+  const { budgetCategoryNames } = useCategories();
   const [rules, setRules] = useState<BudgetRule[]>([]);
   const [avgBurnReport, setAvgBurnReport] = useState<AverageBurnReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -396,7 +397,7 @@ export const BudgetConfigModal: React.FC<BudgetConfigModalProps> = ({
                 className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-base sm:text-xs text-slate-100 focus:outline-none focus:border-amber-500"
               />
               <datalist id="budget-categories">
-                {BUDGET_CATEGORY_CHOICES.map((cat) => (
+                {budgetCategoryNames.map((cat) => (
                   <option key={cat} value={cat} />
                 ))}
               </datalist>

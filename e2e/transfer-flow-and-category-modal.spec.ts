@@ -24,7 +24,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
     test(`renders reconciled transfer flow and category inspection modal on ${name}`, async ({ page }) => {
       // 1. Inspect Category Modal from Spending & Budgets tab
       await page.locator('nav button:has-text("Budgets")').locator('visible=true').first().click();
-      const groceriesCard = page.locator('span:text-is("Groceries")').last();
+      const groceriesCard = page.locator('[data-testid="category-row-groceries"] >> visible=true').first();
       await groceriesCard.scrollIntoViewIfNeeded();
       await groceriesCard.click();
       const catModal = page.getByTestId('category-inspection-modal');

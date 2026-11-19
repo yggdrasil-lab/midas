@@ -18,9 +18,9 @@ import {
   SummaryMetricItem,
 } from '@yggdrasil-lab/ui';
 import {
-  CATEGORY_CHOICES,
   isTransferCategory,
 } from '../constants/categories';
+import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import { fetchAccountTransactions } from '../services/api';
 import { Account, PeriodType, Transaction } from '../types';
@@ -78,6 +78,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
   latestBalance,
   latestBalanceNzd,
 }) => {
+  const { categoryNames } = useCategories();
   const defaultRange = useMemo(() => getDefaultCustomRange(), []);
   const [localStartDate, setLocalStartDate] = useState(defaultRange.startDate);
   const [localEndDate, setLocalEndDate] = useState(defaultRange.endDate);
@@ -171,12 +172,12 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
   }, [collapsedTransactions]);
 
   const availableCategories = useMemo(() => {
-    const set = new Set<string>(CATEGORY_CHOICES);
+    const set = new Set<string>(categoryNames);
     collapsedTransactions.forEach((tx) => {
       if (tx.category) set.add(tx.category);
     });
     return Array.from(set).sort();
-  }, [collapsedTransactions]);
+  }, [collapsedTransactions, categoryNames]);
 
   const filteredTransactions = useMemo(() => {
     return collapsedTransactions.filter((tx) => {

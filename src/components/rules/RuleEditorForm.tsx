@@ -1,7 +1,8 @@
 import React from 'react';
 import { Check, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@yggdrasil-lab/ui';
-import { CATEGORY_CHOICES, RECURRENCE_OPTIONS } from '../../constants/categories';
+import { RECURRENCE_OPTIONS } from '../../constants/categories';
+import { useCategories } from '../../hooks/useCategories';
 import { RecurrenceType } from '../../types';
 
 export interface RuleFormDraft {
@@ -50,6 +51,12 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const { categoryNames } = useCategories();
+  const selectableCategories =
+    !draft.targetCategory || categoryNames.includes(draft.targetCategory)
+      ? categoryNames
+      : [draft.targetCategory, ...categoryNames];
+
   const updateField = <K extends keyof RuleFormDraft>(key: K, value: RuleFormDraft[K]) => {
     onChange((prev) => ({ ...prev, [key]: value }));
   };
@@ -153,7 +160,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             onChange={(e) => updateField('targetCategory', e.target.value)}
             className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           >
-            {CATEGORY_CHOICES.map((cat) => (
+            {selectableCategories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>

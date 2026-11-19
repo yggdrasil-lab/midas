@@ -32,6 +32,7 @@ import { TagSpendingBreakdown } from './components/TagSpendingBreakdown';
 import { ToolsHubView } from './components/ToolsHubView';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
 import { fetchRunway } from './services/api';
+import { useCategories } from './hooks/useCategories';
 import { RunwayData } from './types';
 
 const DESKTOP_TABS = [
@@ -53,6 +54,7 @@ const MOBILE_NAV_TABS = [
  * tab views, PWA update prompts, and global action modals.
  */
 export const App: React.FC = () => {
+  const { refreshCategories } = useCategories();
   const [data, setData] = useState<RunwayData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -93,6 +95,7 @@ export const App: React.FC = () => {
       setData(res);
       setSessionExpired(false);
       setBudgetRefreshKey((prev) => prev + 1);
+      void refreshCategories();
     } catch (err) {
       console.error(err);
       if (isSessionExpiredError(err)) {
