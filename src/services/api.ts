@@ -7,6 +7,10 @@ import {
   BudgetRule,
   CategorizationRule,
   CategorizationRuleCreate,
+  CategoryCreatePayload,
+  CategoryDeleteResult,
+  CategoryItem,
+  CategoryUpdatePayload,
   InstitutionInfo,
   LoanCreatePayload,
   LoansSummaryResponse,
@@ -740,6 +744,66 @@ export async function deleteLoan(id: number): Promise<void> {
   if (!res.ok) {
     throw new Error(`Failed to delete loan: ${res.statusText}`);
   }
+}
+
+async function readApiError(res: Response, fallback: string): Promise<string> {
+  const body = await res.json().catch(() => null);
+  if (body && typeof body.detail === 'string' && body.detail.trim()) {
+    return body.detail;
+  }
+  return `${fallback}: ${res.statusText}`;
+}
+
+export async function fetchCategories(includeInactive = false): Promise<CategoryItem[]> {
+  const params = includeInactive ? '?include_inactive=true' : '';
+  const res = await authFetch(`${API_BASE}/categories${params}`);
+  if (!res.ok) {
+    throw new Error(await readApiError(res, 'Failed to fetch categories'));
+  }
+  return res.json();
+}
+
+export async function createCategory(payload: CategoryCreatePayload): Promise<CategoryItem> {
+  const res = await authFetch(`${API_BASE}/categories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, 'Failed to create category'));
+  }
+  return res.json();
+}
+
+export async function updateCategory(
+  id: number,
+  payload: CategoryUpdatePayload
+): Promise<CategoryItem> {
+  const res = await authFetch(`${API_BASE}/categories/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, 'Failed to update category'));
+  }
+  return res.json();
+}
+
+export async function deleteCategory(
+  id: number,
+  reassignTo?: string
+): Promise<CategoryDeleteResult> {
+  const params = reassignTo
+    ? `?reassign_to=${encodeURIComponent(reassignTo)}`
+    : '';
+  const res = await authFetch(`${API_BASE}/categories/${id}${params}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, 'Failed to delete category'));
+  }
+  return res.json();
 }
 
 

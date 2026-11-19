@@ -8,10 +8,10 @@ import {
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
 import {
-  CATEGORY_CHOICES,
   formatPeriodLabel,
   isTransferCategory as checkTransferCategory,
 } from '../constants/categories';
+import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import { fetchTagTransactions } from '../services/api';
 import {
@@ -44,6 +44,7 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
   period,
   onTagDataChanged,
 }) => {
+  const { categoryNames } = useCategories();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -289,7 +290,7 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
 
         <TransactionList
           transactions={filteredTransactions}
-          categories={CATEGORY_CHOICES}
+          categories={categoryNames}
           loading={loading}
           loadingLabel={`Loading #${tagName} transactions...`}
           emptyTitle={`No transactions found for #${tagName} in ${periodLabel.toLowerCase()}.`}

@@ -402,6 +402,42 @@ for (const { name: platform, options } of PLATFORMS) {
           await expect(page.getByRole('heading', { name: /Outlook-Style Categorization Rules/i })).toBeHidden();
         }
 
+        // 9B. Dynamic Categories & Hierarchy Manager Modal + Create Form
+        const categoriesBtn = page.locator('[data-testid="categories-manager-btn"] >> visible=true').first();
+        if (await categoriesBtn.isVisible()) {
+          await categoriesBtn.click();
+          await expect(page.getByRole('heading', { name: /Categories & Hierarchy/i })).toBeVisible();
+          await expect(page.getByTestId('category-row-alcohol')).toBeVisible();
+          await expect(page.getByTestId('category-row-finance')).toBeVisible();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/18-categories-manager-modal.png`,
+          });
+
+          const newCatBtn = page.getByTestId('new-category-btn').locator('visible=true').first();
+          if (await newCatBtn.isVisible()) {
+            await newCatBtn.click();
+            await expect(page.getByTestId('category-editor-form')).toBeVisible();
+            await page.waitForTimeout(300);
+            await page.screenshot({
+              path: `screenshots/${platform}/19-categories-create-form.png`,
+            });
+
+            const cancelCatBtn = page.getByRole('button', { name: /Cancel/i }).locator('visible=true').first();
+            if (await cancelCatBtn.isVisible()) {
+              await cancelCatBtn.click();
+            }
+          }
+
+          const catDoneBtn = page.getByRole('button', { name: /Done/i }).locator('visible=true').first();
+          if (await catDoneBtn.isVisible()) {
+            await catDoneBtn.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+          await expect(page.getByRole('heading', { name: /Categories & Hierarchy/i })).toBeHidden();
+        }
+
         // 10. Receipts & Granular Product Hub Feed Modal
         const receiptsBtn = page.locator('[data-testid="spending-receipts-btn"], [data-testid="receipts-hub-btn"], [data-testid="header-receipts-btn"]').locator('visible=true').first();
         if (await receiptsBtn.isVisible()) {

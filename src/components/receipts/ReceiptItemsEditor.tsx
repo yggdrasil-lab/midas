@@ -1,7 +1,7 @@
 import React from 'react';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { TagPillList } from '@yggdrasil-lab/ui';
-import { CATEGORY_CHOICES } from '../../constants/categories';
+import { useCategories } from '../../hooks/useCategories';
 import { getReceiptImageUrl } from '../../services/api';
 import { Receipt } from '../../types';
 import { formatMoney } from '../../utils/format';
@@ -29,6 +29,8 @@ export const ReceiptItemsEditor: React.FC<ReceiptItemsEditorProps> = ({
   updatingItemId,
   onUpdateItem,
 }) => {
+  const { categoryNames } = useCategories();
+
   return (
     <div className="space-y-3">
       {r.has_image && (
@@ -70,11 +72,9 @@ export const ReceiptItemsEditor: React.FC<ReceiptItemsEditorProps> = ({
               const inheritedTags = (item.inherited_tags || []).filter(
                 (t) => !itemTags.includes(t)
               );
-              const categories = CATEGORY_CHOICES.includes(
-                item.category as (typeof CATEGORY_CHOICES)[number]
-              )
-                ? CATEGORY_CHOICES
-                : ([item.category, ...CATEGORY_CHOICES] as const);
+              const categories = categoryNames.includes(item.category)
+                ? categoryNames
+                : [item.category, ...categoryNames];
 
               return (
                 <div

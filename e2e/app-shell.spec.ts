@@ -53,7 +53,7 @@ test.describe('Midas App Shell & Navigation', () => {
     await merchantInput.fill('Matakana Coffee');
 
     // Click category chip
-    await page.getByRole('button', { name: 'Coffee' }).click();
+    await page.getByRole('button', { name: 'Dining' }).click();
 
     // Enter amount using keypad: 6 . 5 0
     await page.getByRole('button', { name: '6', exact: true }).click();
@@ -368,5 +368,48 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(catModal).toContainText('iCloud');
     await expect(catModal).toContainText('Google One');
     await expect(catModal).toContainText('ANNUAL FEE');
+  });
+
+  test('manages hierarchical categories and 52w amortization from Tools hub', async ({ page }) => {
+    const toolsTab = page
+      .locator('header nav button:has-text("Tools"), nav button:has-text("Tools")')
+      .locator('visible=true')
+      .first();
+    await toolsTab.click();
+
+    await page.getByTestId('categories-manager-btn').click();
+    await expect(page.getByRole('heading', { name: /Categories & Hierarchy/i })).toBeVisible();
+
+    await expect(page.getByTestId('category-row-food')).toBeVisible();
+    await expect(page.getByTestId('category-row-dining')).toBeVisible();
+    await expect(page.getByTestId('category-row-groceries')).toBeVisible();
+    await expect(page.getByTestId('category-row-alcohol')).toBeVisible();
+    await expect(page.getByTestId('category-row-finance')).toBeVisible();
+    await expect(page.getByTestId('category-row-fees-admin')).toBeVisible();
+    await expect(page.getByTestId('category-row-debt-loans')).toBeVisible();
+    await expect(page.getByTestId('toggle-amortize-travel')).toContainText('52w On');
+
+    // Create a new child category under Food with 52w annual spread
+    await page.getByTestId('new-category-btn').click();
+    await expect(page.getByTestId('category-editor-form')).toBeVisible();
+    await page.getByTestId('category-name-input').fill('Coffee');
+    await page.getByTestId('category-parent-select').selectOption({ label: 'Food' });
+    await page.getByTestId('category-amortize-mode-annual').click();
+    await page.getByTestId('save-category-btn').click();
+
+    await expect(page.getByTestId('category-row-coffee')).toBeVisible();
+    await expect(page.getByTestId('toggle-amortize-coffee')).toContainText('52w On');
+
+    // Toggle 52w spread off directly from the category row
+    await page.getByTestId('toggle-amortize-coffee').click();
+    await expect(page.getByTestId('toggle-amortize-coffee')).toContainText('Spread 52w');
+
+    // Delete with reassignment defaulting to parent Food
+    await page.getByTestId('delete-category-coffee').click();
+    await expect(page.getByTestId('delete-category-confirm')).toBeVisible();
+    await expect(page.getByTestId('delete-reassign-select')).toHaveValue('Food');
+    await page.getByTestId('confirm-delete-category-btn').click();
+
+    await expect(page.getByTestId('category-row-coffee')).toHaveCount(0);
   });
 });

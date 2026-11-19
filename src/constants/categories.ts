@@ -17,37 +17,62 @@ export const RECURRENCE_OPTIONS: ReadonlyArray<{
 
 /** Canonical transaction and rule categories across Midas. */
 export const CATEGORY_CHOICES = [
-  'Groceries',
   'Food',
+  'Dining',
+  'Groceries',
+  'Alcohol',
+  'Housing',
+  'Rent',
+  'Household',
   'Transport',
+  'Fuel',
+  'Transit',
   'Vehicle',
-  'Utilities',
   'Health',
-  'Personal Care',
+  'Fitness',
+  'Medical',
   'Supplements',
+  'Personal Care',
+  'Shopping',
   'Clothing',
   'Tech',
-  'Household',
-  'Shopping',
-  'Leisure',
+  'Utilities',
+  'Bills & Telco',
+  'Software & AI',
   'Insurance',
+  'Leisure',
+  'Gaming',
   'Travel',
-  'Housing',
   'Family',
+  'Finance',
+  'Fees & Admin',
+  'Debt & Loans',
+  'General',
   'Transfers',
   'Income',
-  'General',
 ] as const;
 
 /** OOP-style category inheritance: subclass -> base class. */
 export const CATEGORY_PARENTS: Record<string, string> = {
+  Dining: 'Food',
   Groceries: 'Food',
+  Alcohol: 'Food',
+  Rent: 'Housing',
+  Household: 'Housing',
+  Fuel: 'Transport',
+  Transit: 'Transport',
+  Vehicle: 'Transport',
+  Fitness: 'Health',
+  Medical: 'Health',
   Supplements: 'Health',
   'Personal Care': 'Health',
-  Vehicle: 'Transport',
-  Household: 'Housing',
   Clothing: 'Shopping',
   Tech: 'Shopping',
+  'Bills & Telco': 'Utilities',
+  'Software & AI': 'Utilities',
+  Gaming: 'Leisure',
+  'Fees & Admin': 'Finance',
+  'Debt & Loans': 'Finance',
 };
 
 /** Expense categories eligible for budget guardrail targets. */
@@ -57,14 +82,14 @@ export const BUDGET_CATEGORY_CHOICES = CATEGORY_CHOICES.filter(
 
 /** Default categories displayed in the Quick Log expense keypad modal. */
 export const QUICK_LOG_CATEGORIES = [
-  'Food',
-  'Coffee',
+  'Dining',
   'Groceries',
-  'Transport',
+  'Alcohol',
+  'Fuel',
+  'Transit',
   'Tech',
   'Health',
   'Leisure',
-  'Utilities',
 ];
 
 /** Shared time-period selector options for inspection modals and dashboards. */

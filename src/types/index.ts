@@ -466,6 +466,53 @@ export interface SyncResult {
   accounts: SyncAccountSummary[];
 }
 
+export type AmortizePeriod = 'annual' | null;
+
+export interface CategoryItem {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  parent_name: string | null;
+  is_system: boolean;
+  is_active: boolean;
+  amortize_period: AmortizePeriod;
+  sort_order: number;
+  transaction_count: number;
+  rule_count: number;
+  child_count: number;
+  has_budget_rule: boolean;
+  budget_period: BudgetPeriod | null;
+  weekly_limit: number | null;
+  monthly_limit: number | null;
+  annual_limit: number | null;
+}
+
+export interface CategoryCreatePayload {
+  name: string;
+  parent_id?: number | null;
+  amortize_period?: AmortizePeriod;
+  sort_order?: number;
+}
+
+export interface CategoryUpdatePayload {
+  name?: string;
+  parent_id?: number | null;
+  amortize_period?: AmortizePeriod;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export interface CategoryDeleteResult {
+  deleted_id: number;
+  deleted_name: string;
+  reassigned_to: string;
+  transactions_reassigned: number;
+  rules_reassigned: number;
+  receipt_items_reassigned: number;
+  products_reassigned: number;
+  children_promoted: number;
+}
+
 
 
 

@@ -10,10 +10,10 @@ import {
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
 import {
-  CATEGORY_CHOICES,
   formatPeriodLabel,
   isTransferCategory as checkTransferCategory,
 } from '../constants/categories';
+import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import {
   fetchCategoryTransactions,
@@ -68,6 +68,7 @@ export const CategoryTransactionInspectionModal: React.FC<
   includeSubclasses = false,
   onCategoryChanged,
 }) => {
+  const { categoryNames } = useCategories();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +223,7 @@ export const CategoryTransactionInspectionModal: React.FC<
   const avgTx = budgetedCount > 0 ? totalVolume / budgetedCount : 0;
 
   const sharedListProps = {
-    categories: CATEGORY_CHOICES,
+    categories: categoryNames,
     emptyTitle: `No transactions found for ${category} in ${periodLabel.toLowerCase()}.`,
     updatingId,
     onCategoryChange: async (txId: number, cat: string) => {
