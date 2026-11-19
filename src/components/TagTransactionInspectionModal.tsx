@@ -306,6 +306,10 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
             void handleRecurrenceChange(txId, recurrence);
           }}
           onCreateRule={handleCreateRuleFromTx}
+          onReceiptUpdated={() => {
+            void loadTransactions();
+            onTagDataChanged();
+          }}
           showAccountBadge
         />
 

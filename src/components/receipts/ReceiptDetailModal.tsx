@@ -1,0 +1,148 @@
+import React, { useEffect, useState } from 'react';
+import { AlertBanner, Button, LoadingState, Modal, StatusBadge } from '@yggdrasil-lab/ui';
+import { fetchReceipt, updateReceiptItem } from '../../services/api';
+import { Receipt } from '../../types';
+import { formatMoney } from '../../utils/format';
+import { ReceiptItemsEditor } from './ReceiptItemsEditor';
+
+interface ReceiptDetailModalProps {
+  receiptId: number | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onReceiptUpdated?: () => void;
+}
+
+/**
+ * Modal opened from a matched transaction to inspect the stored receipt photo
+ * and edit individual line-item categories and interface tags.
+ */
+export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
+  receiptId,
+  isOpen,
+  onClose,
+  onReceiptUpdated,
+}) => {
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || receiptId == null) {
+      setReceipt(null);
+      setError(null);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    setError(null);
+    fetchReceipt(receiptId)
+      .then((res) => {
+        if (active) setReceipt(res);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (active) {
+          setError(err instanceof Error ? err.message : 'Failed to load receipt details');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, receiptId]);
+
+  const handleUpdateItem = async (
+    rId: number,
+    itemId: number,
+    patch: { category?: string; tags?: string[] }
+  ) => {
+    setUpdatingItemId(itemId);
+    setError(null);
+    try {
+      const updated = await updateReceiptItem(rId, itemId, patch);
+      setReceipt((prev) =>
+        prev
+          ? {
+              ...prev,
+              items: prev.items.map((it) => (it.id === itemId ? updated : it)),
+            }
+          : prev
+      );
+      onReceiptUpdated?.();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to update receipt item');
+    } finally {
+      setUpdatingItemId(null);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={receipt ? `Receipt: ${receipt.merchant}` : 'Receipt Details'}
+      className="sm:max-w-2xl"
+    >
+      <div className="space-y-4" data-testid="receipt-detail-modal">
+        {error && <AlertBanner variant="error">{error}</AlertBanner>}
+
+        {loading ? (
+          <LoadingState label="Loading receipt items & photo..." variant="amber" />
+        ) : receipt ? (
+          <>
+            <div className="flex items-center justify-between gap-2 p-3 bg-card/60 rounded-xl border border-border flex-wrap">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-mono text-slate-400">{receipt.receipt_date}</span>
+                  <StatusBadge
+                    label={
+                      receipt.status === 'matched' || receipt.status === 'verified'
+                        ? 'Matched to Ledger'
+                        : 'Unlinked'
+                    }
+                    variant={
+                      receipt.status === 'matched' || receipt.status === 'verified'
+                        ? 'success'
+                        : 'warning'
+                    }
+                    className="px-1.5 py-0.5 text-[10px]"
+                  />
+                </div>
+                <div className="text-sm font-semibold text-slate-100">{receipt.merchant}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-bold font-mono text-slate-100">
+                  {formatMoney(Number(receipt.total_amount), {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  {receipt.items.length} {receipt.items.length === 1 ? 'item' : 'items'}
+                </div>
+              </div>
+            </div>
+
+            <div className="max-h-[46vh] sm:max-h-[60vh] overflow-y-auto pr-1">
+              <ReceiptItemsEditor
+                receipt={receipt}
+                updatingItemId={updatingItemId}
+                onUpdateItem={handleUpdateItem}
+              />
+            </div>
+          </>
+        ) : null}
+
+        <div className="pt-2 flex justify-end">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};

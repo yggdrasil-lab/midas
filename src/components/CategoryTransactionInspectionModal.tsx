@@ -273,6 +273,10 @@ export const CategoryTransactionInspectionModal: React.FC<
             void handleRecurrenceChange(txId, recurrence);
           }}
           onCreateRule={handleCreateRuleFromTx}
+          onReceiptUpdated={() => {
+            void loadTransactions();
+            onCategoryChanged();
+          }}
           showAccountBadge
         />
 

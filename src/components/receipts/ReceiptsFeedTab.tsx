@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, RefreshCw, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
 import { Button, EmptyState, FileDropzone, LoadingState, StatusBadge } from '@yggdrasil-lab/ui';
-import { getReceiptImageUrl } from '../../services/api';
 import { Receipt } from '../../types';
 import { formatMoney } from '../../utils/format';
+import { ReceiptItemsEditor } from './ReceiptItemsEditor';
 
 interface ReceiptsFeedTabProps {
   receipts: Receipt[];
@@ -11,17 +11,18 @@ interface ReceiptsFeedTabProps {
   uploading: boolean;
   deletingId: number | null;
   reprocessingId: number | null;
+  updatingItemId?: number | null;
   expandedReceiptId: number | null;
   onToggleExpand: (id: number) => void;
   onUploadFile: (file: File) => Promise<void>;
   onDeleteReceipt: (id: number) => Promise<void>;
   onReprocessReceipt: (id: number) => Promise<void>;
+  onUpdateReceiptItem?: (
+    receiptId: number,
+    itemId: number,
+    patch: { category?: string; tags?: string[] }
+  ) => Promise<void>;
 }
-
-const DOMAIN_BADGE_LABELS: Record<string, string> = {
-  '02-skin': 'Skin',
-  '01-health': 'Health',
-};
 
 /**
  * Receipts upload dropzone and expandable itemized receipt feed tab.
@@ -32,11 +33,13 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
   uploading,
   deletingId,
   reprocessingId,
+  updatingItemId,
   expandedReceiptId,
   onToggleExpand,
   onUploadFile,
   onDeleteReceipt,
   onReprocessReceipt,
+  onUpdateReceiptItem,
 }) => {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
@@ -172,111 +175,11 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
                       </div>
                     )}
 
-                    {r.has_image && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                          <span>Stored Receipt Image</span>
-                          <a
-                            href={getReceiptImageUrl(r.id)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 normal-case"
-                          >
-                            <span>Open full size</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                        {(!r.image_mime_type || r.image_mime_type.startsWith('image/')) && (
-                          <div className="rounded-lg border border-border/60 bg-background/60 overflow-hidden max-h-48 flex items-center justify-center">
-                            <img
-                              src={getReceiptImageUrl(r.id)}
-                              alt={r.image_filename || `${r.merchant} receipt`}
-                              className="max-h-48 w-auto object-contain"
-                              loading="lazy"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {r.items && r.items.length > 0 && (
-                      <>
-                        <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                          Itemized Breakdown
-                        </div>
-                        <div className="space-y-1.5">
-                          {r.items.map((item) => (
-                            <div
-                              key={item.id}
-                              className="p-2 bg-background/60 rounded-lg border border-border/50 flex items-center justify-between text-xs"
-                            >
-                              <div className="space-y-0.5 min-w-0 pr-2">
-                                <div className="font-medium text-slate-200 truncate">
-                                  {item.item_name}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
-                                  {item.brand && (
-                                    <span className="font-semibold text-slate-300">{item.brand}</span>
-                                  )}
-                                  {item.volume_ml && (
-                                    <span className="px-1 rounded bg-slate-800 text-slate-300">
-                                      {item.volume_ml}
-                                    </span>
-                                  )}
-                                  {item.domain && (
-                                    <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                      {DOMAIN_BADGE_LABELS[item.domain] || item.domain}
-                                    </span>
-                                  )}
-                                  {item.tags && item.tags.length > 0 && (
-                                    <div className="flex items-center gap-1">
-                                      {item.tags.map((t) => (
-                                        <span key={t} className="text-amber-400/80">
-                                          #{t}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <div className="font-mono font-medium text-slate-100">
-                                  {formatMoney(Number(item.total_price), {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </div>
-                                {item.discount_amount && Number(item.discount_amount) > 0 ? (
-                                  <div className="text-[10px] text-emerald-400 font-mono">
-                                    Reg.{' '}
-                                    {formatMoney(Number(item.unit_price), {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}{' '}
-                                    (-
-                                    {formatMoney(Number(item.discount_amount), {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}
-                                    )
-                                  </div>
-                                ) : (
-                                  item.quantity > 1 && (
-                                    <div className="text-[10px] text-slate-400">
-                                      {item.quantity}x @{' '}
-                                      {formatMoney(Number(item.unit_price), {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
+                    <ReceiptItemsEditor
+                      receipt={r}
+                      updatingItemId={updatingItemId}
+                      onUpdateItem={onUpdateReceiptItem}
+                    />
                   </div>
                 )}
               </div>

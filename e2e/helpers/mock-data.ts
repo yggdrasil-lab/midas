@@ -700,6 +700,7 @@ export async function setupMockApi(page: Page) {
       category: 'Groceries',
       tags: ['weekly-shop', 'pantry'],
       has_receipt: true,
+      receipt_id: 1,
     },
     {
       id: 102,
@@ -1215,9 +1216,50 @@ export async function setupMockApi(page: Page) {
     });
   });
 
+  await page.route(/\/api\/receipts\/(\d+)\/items\/(\d+)$/, async (route) => {
+    const match = route.request().url().match(/\/api\/receipts\/(\d+)\/items\/(\d+)$/);
+    const receiptId = match ? Number(match[1]) : 0;
+    const itemId = match ? Number(match[2]) : 0;
+    if (route.request().method() === 'PATCH') {
+      const payload = JSON.parse(route.request().postData() || '{}');
+      const receipt = mockReceipts.find((r) => r.id === receiptId);
+      const item = receipt?.items.find((it) => it.id === itemId);
+      if (!item) {
+        await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ detail: 'Not found' }) });
+        return;
+      }
+      if (payload.category !== undefined) {
+        item.category = payload.category;
+      }
+      if (payload.tags !== undefined) {
+        (item as { tags?: string[] }).tags = payload.tags;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(item),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
   await page.route(/\/api\/receipts\/(\d+)$/, async (route) => {
     const match = route.request().url().match(/\/api\/receipts\/(\d+)$/);
     const id = match ? Number(match[1]) : 0;
+    if (route.request().method() === 'GET') {
+      const receipt = mockReceipts.find((r) => r.id === id);
+      if (!receipt) {
+        await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ detail: 'Receipt not found' }) });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(receipt),
+      });
+      return;
+    }
     if (route.request().method() === 'DELETE') {
       mockReceipts = mockReceipts.filter((r) => r.id !== id);
       await route.fulfill({ status: 204 });
