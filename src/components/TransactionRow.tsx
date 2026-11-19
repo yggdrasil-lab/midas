@@ -4,6 +4,7 @@ import {
   ArrowRightLeft,
   Receipt as ReceiptIcon,
   RefreshCw,
+  Repeat,
   SlidersHorizontal,
 } from 'lucide-react';
 import { TagPillList } from '@yggdrasil-lab/ui';
@@ -13,7 +14,22 @@ import {
   formatMoney,
   formatSignedTransactionAmount,
   formatTransactionFee,
+  getTransactionNzdAmount,
 } from '../utils/format';
+
+const RECURRENCE_UNIT_LABELS: Record<string, string> = {
+  annual: 'yr',
+  quarterly: 'qtr',
+  monthly: 'mo',
+  fortnightly: '2w',
+  weekly: 'wk',
+};
+
+function formatRecurrenceLabel(recurrence?: string | null): string {
+  const normalized = (recurrence || '').trim().toLowerCase();
+  if (!normalized) return 'Recurring';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
 
 interface TransactionRowProps {
   transaction: Transaction;
@@ -51,10 +67,34 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   ruleBtnTestId,
 }) => {
   const isTransfer = isTransferCategory(tx.category, tx);
+  const isAmortized = Boolean(
+    tx.is_amortized_commitment && tx.amortized_period_amount_nzd != null
+  );
+  const isExcluded = Boolean(tx.excluded_from_period_budget && !isAmortized);
   const amt = Number(tx.amount);
   const isDebit = amt < 0;
   const txCurrency = tx.currency || fallbackCurrency || 'NZD';
   const formattedAmt = formatSignedTransactionAmount(amt, txCurrency);
+  const amortizedUnit = tx.amortized_cadence === 'week' ? 'wk' : 'mo';
+  const amortizedAmtFormatted = isAmortized
+    ? `-${formatMoney(Math.abs(Number(tx.amortized_period_amount_nzd)), {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} NZD/${amortizedUnit}`
+    : '';
+  const originUnit =
+    RECURRENCE_UNIT_LABELS[(tx.recurrence || '').trim().toLowerCase()] || 'cycle';
+  const originSummary = isAmortized
+    ? txCurrency.toUpperCase() !== 'NZD'
+      ? `From ${txCurrency.toUpperCase()} ${Math.abs(amt).toFixed(2)} (${formatMoney(
+          getTransactionNzdAmount(tx),
+          { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+        )} NZD/${originUnit})`
+      : `From ${formatMoney(Math.abs(amt), {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} NZD/${originUnit}`
+    : '';
   const hasLinkedTransfer = tx.linked_transaction_id != null;
   const hasFxRate = Boolean(tx.exchange_rate && tx.exchange_rate !== 1.0);
   const formattedFxRate = hasFxRate
@@ -77,24 +117,47 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const isLinkedBtc = (tx.linked_currency || '').toUpperCase() === 'BTC';
   const tags = tx.tags || [];
 
+  const rowContainerClasses = isAmortized
+    ? 'bg-sky-950/15 hover:bg-sky-950/25 border-sky-500/30'
+    : isExcluded
+      ? 'bg-card/30 hover:bg-card/50 border-border/60 opacity-80'
+      : hasLinkedTransfer
+        ? 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/30'
+        : 'bg-card/60 hover:bg-card/80 border-border';
+
   return (
     <div
       data-testid={rowTestId}
-      className={`p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border ${
-        hasLinkedTransfer
-          ? 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/30'
-          : 'bg-card/60 hover:bg-card/80 border-border'
-      }`}
+      className={`p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border ${rowContainerClasses}`}
     >
       {/* Left: Date, badges, merchant */}
       <div className="space-y-1 min-w-0 flex-1">
         <div className="flex items-center space-x-2 flex-wrap gap-y-1">
           <span className="text-[11px] font-mono text-slate-400">
-            {tx.transaction_date}
+            {isAmortized ? `Last charged ${tx.transaction_date}` : tx.transaction_date}
           </span>
           {showAccountBadge && tx.account_name && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium">
               {tx.account_name}
+            </span>
+          )}
+          {isAmortized && (
+            <span
+              data-testid={`amortized-badge-${tx.id}`}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-medium flex items-center space-x-1"
+              title="Recurring commitment amortized into this period's spending breakdown"
+            >
+              <Repeat className="w-2.5 h-2.5" />
+              <span>{formatRecurrenceLabel(tx.recurrence)} amortized</span>
+            </span>
+          )}
+          {isExcluded && (
+            <span
+              data-testid={`excluded-budget-badge-${tx.id}`}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-400 border border-slate-700 font-medium"
+              title="Excluded from this period's category budget total"
+            >
+              {tx.recurrence === 'one-off' ? 'One-off (excluded)' : 'Excluded from budget'}
             </span>
           )}
           {Boolean(tx.has_receipt) && (
@@ -173,6 +236,11 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             {tx.raw_description}
           </div>
         )}
+        {isAmortized && originSummary && (
+          <div className="text-[11px] font-mono text-sky-300/80 truncate">
+            {originSummary}
+          </div>
+        )}
         {hasLinkedTransfer && tx.linked_account_name && (
           <div
             className="inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-200"
@@ -226,13 +294,22 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
 
       {/* Right: Amount & inline category selector */}
       <div className="flex items-center justify-between sm:justify-end space-x-3 shrink-0">
-        <span
-          className={`text-xs font-semibold font-mono ${
-            isTransfer ? 'text-sky-300' : isDebit ? 'text-rose-400' : 'text-emerald-400'
-          }`}
-        >
-          {formattedAmt}
-        </span>
+        {isAmortized ? (
+          <span
+            data-testid={`amortized-amount-${tx.id}`}
+            className="text-xs font-semibold font-mono text-sky-300"
+          >
+            {amortizedAmtFormatted}
+          </span>
+        ) : (
+          <span
+            className={`text-xs font-semibold font-mono ${
+              isTransfer ? 'text-sky-300' : isDebit ? 'text-rose-400' : 'text-emerald-400'
+            }`}
+          >
+            {formattedAmt}
+          </span>
+        )}
 
         <div className="flex items-center space-x-1.5">
           {onRecurrenceChange && (

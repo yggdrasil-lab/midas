@@ -176,6 +176,10 @@ export interface Transaction {
   raw_hash?: string;
   has_receipt?: boolean;
   is_receipt_split?: boolean;
+  is_amortized_commitment?: boolean;
+  amortized_period_amount_nzd?: number | null;
+  amortized_cadence?: 'week' | 'month' | null;
+  excluded_from_period_budget?: boolean;
   receipt_id?: number | null;
   linked_transaction_id?: number | null;
   linked_account_name?: string | null;
@@ -242,6 +246,8 @@ export interface CategorySpendingReport {
   parent_category?: string | null;
   total_spend: number;
   transaction_count: number;
+  actual_transaction_count?: number;
+  amortized_count?: number;
   percentage: number;
   budget_limit?: number | null;
   percent_used?: number | null;
