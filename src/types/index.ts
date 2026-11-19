@@ -175,6 +175,7 @@ export interface Transaction {
   notes?: string | null;
   raw_hash?: string;
   has_receipt?: boolean;
+  is_receipt_split?: boolean;
   receipt_id?: number | null;
   linked_transaction_id?: number | null;
   linked_account_name?: string | null;
@@ -201,6 +202,7 @@ export interface BudgetRule {
 
 export interface CategoryBurnEstimate {
   category: string;
+  parent_category?: string | null;
   variable_weekly_burn: number;
   recurring_weekly_burn: number;
   average_weekly_burn: number;
@@ -237,6 +239,7 @@ export interface AverageBurnReportResponse {
 
 export interface CategorySpendingReport {
   category: string;
+  parent_category?: string | null;
   total_spend: number;
   transaction_count: number;
   percentage: number;

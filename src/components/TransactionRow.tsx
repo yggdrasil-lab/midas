@@ -101,7 +101,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
               title="Matched Itemized Receipt"
             >
               <ReceiptIcon className="w-2.5 h-2.5" />
-              <span>Receipt</span>
+              <span>{tx.is_receipt_split ? 'Receipt Split' : 'Receipt'}</span>
             </span>
           )}
           {(hasLinkedTransfer || isTransfer) && (

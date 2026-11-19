@@ -13,6 +13,7 @@ import {
   GlassCard,
   LoadingState,
   SectionHeader,
+  SegmentedControl,
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
@@ -49,6 +50,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
   const [inspectCategory, setInspectCategory] = useState<string | undefined>(undefined);
   const [isInspectModalOpen, setIsInspectModalOpen] = useState(false);
+  const [groupBy, setGroupBy] = useState<'leaf' | 'base'>('leaf');
 
   const loadBreakdown = async () => {
     setLoading(true);
@@ -57,7 +59,8 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
       const res = await fetchSpendingBreakdown(
         period,
         period === 'custom' ? startDate : undefined,
-        period === 'custom' ? endDate : undefined
+        period === 'custom' ? endDate : undefined,
+        compact ? 'leaf' : groupBy
       );
       setData(res);
     } catch (err) {
@@ -70,7 +73,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
 
   useEffect(() => {
     loadBreakdown();
-  }, [period, startDate, endDate]);
+  }, [period, startDate, endDate, groupBy, compact]);
 
   const handleEditBudget = (cat: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -257,10 +260,25 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         />
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
-            <span className="truncate">
-              {compact ? 'Top categories (tap to inspect)' : 'Click any category to inspect'}
-            </span>
+          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="truncate">
+                {compact ? 'Top categories (tap to inspect)' : 'Click any category to inspect'}
+              </span>
+              {!compact && (
+                <SegmentedControl<'leaf' | 'base'>
+                  options={[
+                    { id: 'leaf', label: 'Granular' },
+                    { id: 'base', label: 'Base Classes' },
+                  ]}
+                  value={groupBy}
+                  onChange={setGroupBy}
+                  variant="amber"
+                  size="sm"
+                  idPrefix="category-hierarchy-mode"
+                />
+              )}
+            </div>
             <span className="shrink-0 text-right">Target / Spend</span>
           </div>
 
@@ -278,11 +296,15 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
             const percentUsed = cat.percent_used || 0;
             const limitValue = cat.budget_limit || 0;
 
+            const displayCategoryName = cat.parent_category
+              ? `${cat.parent_category} › ${cat.category}`
+              : cat.category;
+
             return (
               <BudgetProgressRow
                 key={cat.category}
                 data-testid={`category-row-${cat.category.toLowerCase()}`}
-                category={isAnnual ? `${cat.category} (Annual 52w)` : cat.category}
+                category={isAnnual ? `${displayCategoryName} (Annual 52w)` : displayCategoryName}
                 icon={getCategoryIcon(cat.category)}
                 spendFormatted={`${formatMoney(cat.total_spend, {
                   minimumFractionDigits: 2,
@@ -338,6 +360,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         startDate={isInspectAnnualOverride ? undefined : startDate}
         endDate={isInspectAnnualOverride ? undefined : endDate}
         isAnnualOverride={isInspectAnnualOverride}
+        includeSubclasses={!compact && groupBy === 'base'}
         onCategoryChanged={refreshAll}
       />
 

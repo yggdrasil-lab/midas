@@ -31,6 +31,7 @@ interface CategoryTransactionInspectionModalProps {
   startDate?: string;
   endDate?: string;
   isAnnualOverride?: boolean;
+  includeSubclasses?: boolean;
   onCategoryChanged: () => void;
 }
 
@@ -48,6 +49,7 @@ export const CategoryTransactionInspectionModal: React.FC<
   startDate,
   endDate,
   isAnnualOverride = false,
+  includeSubclasses = false,
   onCategoryChanged,
 }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -88,7 +90,8 @@ export const CategoryTransactionInspectionModal: React.FC<
         category,
         period,
         period === 'custom' ? startDate : undefined,
-        period === 'custom' ? endDate : undefined
+        period === 'custom' ? endDate : undefined,
+        includeSubclasses
       );
       setTransactions(res);
     } catch (err) {
@@ -105,7 +108,7 @@ export const CategoryTransactionInspectionModal: React.FC<
       setSearchQuery('');
       loadTransactions();
     }
-  }, [isOpen, category, period, startDate, endDate]);
+  }, [isOpen, category, period, startDate, endDate, includeSubclasses]);
 
   const handleReconcileTransfers = async () => {
     setReconciling(true);

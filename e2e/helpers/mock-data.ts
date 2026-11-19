@@ -382,6 +382,7 @@ export async function setupMockApi(page: Page) {
         categories: [
           {
             category: 'Groceries',
+            parent_category: 'Food',
             total_spend: 350.0,
             transaction_count: 4,
             percentage: 46.7,
