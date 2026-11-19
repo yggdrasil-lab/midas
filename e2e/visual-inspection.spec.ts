@@ -361,6 +361,13 @@ for (const { name: platform, options } of PLATFORMS) {
             path: `screenshots/${platform}/11-receipts-hub-feed.png`,
           });
 
+          // Verify deleting an unlinked receipt from the UI removes it
+          const deleteBtn = page.locator('[data-testid="delete-receipt-2"] >> visible=true').first();
+          if (await deleteBtn.isVisible()) {
+            await deleteBtn.click();
+            await expect(page.locator('text=Bunnings Warehouse >> visible=true')).toHaveCount(0);
+          }
+
           // 11. Product Inventory, Tags & Historical Price Telemetry Tab
           const productsTab = page.locator('button:has-text("Products & Price History"), button:has-text("Product Longevity")').locator('visible=true').first();
           if (await productsTab.isVisible()) {

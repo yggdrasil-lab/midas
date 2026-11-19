@@ -1119,81 +1119,109 @@ export async function setupMockApi(page: Page) {
     });
   });
 
+  let mockReceipts = [
+    {
+      id: 1,
+      merchant: 'Chemist Warehouse Albany',
+      receipt_date: '2026-11-03',
+      total_amount: 74.98,
+      currency: 'NZD',
+      status: 'matched',
+      transaction_id: 101,
+      has_image: true,
+      is_processed: true,
+      image_mime_type: 'image/svg+xml',
+      image_filename: 'cw-receipt.webp',
+      created_at: '2026-11-03T10:00:00Z',
+      updated_at: '2026-11-03T10:00:00Z',
+      items: [
+        {
+          id: 1,
+          receipt_id: 1,
+          item_name: 'Vitamin C 1000mg 150 Tablets',
+          brand: 'Blackmores',
+          category: 'Health',
+          domain: '01-health',
+          product_type: 'supplement',
+          volume_ml: null,
+          quantity: 1.0,
+          unit_price: 29.99,
+          total_price: 29.99,
+          created_at: '2026-11-03T10:00:00Z',
+        },
+        {
+          id: 2,
+          receipt_id: 1,
+          item_name: 'Vitamin C Serum 30ml',
+          brand: 'La Roche-Posay',
+          category: 'Health',
+          domain: '02-skin',
+          product_type: 'serum',
+          volume_ml: '30ml',
+          quantity: 1.0,
+          unit_price: 44.99,
+          total_price: 44.99,
+          created_at: '2026-11-03T10:00:00Z',
+        },
+      ],
+    },
+    {
+      id: 2,
+      merchant: 'Bunnings Warehouse',
+      receipt_date: '2026-11-02',
+      total_amount: 32.5,
+      currency: 'NZD',
+      status: 'unlinked',
+      transaction_id: null,
+      has_image: false,
+      is_processed: true,
+      created_at: '2026-11-02T14:30:00Z',
+      updated_at: '2026-11-02T14:30:00Z',
+      items: [
+        {
+          id: 3,
+          receipt_id: 2,
+          item_name: 'LED Smart Bulb E27',
+          brand: 'Philips Hue',
+          category: 'Utilities',
+          domain: '20-home',
+          product_type: 'lighting',
+          volume_ml: null,
+          quantity: 1.0,
+          unit_price: 32.5,
+          total_price: 32.5,
+          created_at: '2026-11-02T14:30:00Z',
+        },
+      ],
+    },
+  ];
+
   await page.route(/\/api\/receipts(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 1,
-          merchant: 'Chemist Warehouse Albany',
-          receipt_date: '2026-11-03',
-          total_amount: 74.98,
-          currency: 'NZD',
-          status: 'matched',
-          transaction_id: 101,
-          created_at: '2026-11-03T10:00:00Z',
-          updated_at: '2026-11-03T10:00:00Z',
-          items: [
-            {
-              id: 1,
-              receipt_id: 1,
-              item_name: 'Vitamin C 1000mg 150 Tablets',
-              brand: 'Blackmores',
-              category: 'Health',
-              domain: '01-health',
-              product_type: 'supplement',
-              volume_ml: null,
-              quantity: 1.0,
-              unit_price: 29.99,
-              total_price: 29.99,
-              created_at: '2026-11-03T10:00:00Z',
-            },
-            {
-              id: 2,
-              receipt_id: 1,
-              item_name: 'Vitamin C Serum 30ml',
-              brand: 'La Roche-Posay',
-              category: 'Health',
-              domain: '02-skin',
-              product_type: 'serum',
-              volume_ml: '30ml',
-              quantity: 1.0,
-              unit_price: 44.99,
-              total_price: 44.99,
-              created_at: '2026-11-03T10:00:00Z',
-            },
-          ],
-        },
-        {
-          id: 2,
-          merchant: 'Bunnings Warehouse',
-          receipt_date: '2026-11-02',
-          total_amount: 32.5,
-          currency: 'NZD',
-          status: 'unlinked',
-          transaction_id: null,
-          created_at: '2026-11-02T14:30:00Z',
-          updated_at: '2026-11-02T14:30:00Z',
-          items: [
-            {
-              id: 3,
-              receipt_id: 2,
-              item_name: 'LED Smart Bulb E27',
-              brand: 'Philips Hue',
-              category: 'Utilities',
-              domain: '20-home',
-              product_type: 'lighting',
-              volume_ml: null,
-              quantity: 1.0,
-              unit_price: 32.5,
-              total_price: 32.5,
-              created_at: '2026-11-02T14:30:00Z',
-            },
-          ],
-        },
-      ]),
+      body: JSON.stringify(mockReceipts),
     });
+  });
+
+  await page.route(/\/api\/receipts\/(\d+)\/image$/, async (route) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140"><rect width="240" height="140" fill="#0f172a"/><rect x="16" y="14" width="208" height="112" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-opacity="0.5"/><text x="120" y="54" fill="#f8fafc" font-family="monospace" font-size="13" text-anchor="middle">CHEMIST WAREHOUSE</text><text x="120" y="78" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="middle">2x Items   NZ$74.98</text><text x="120" y="102" fill="#fbbf24" font-family="monospace" font-size="10" text-anchor="middle">STORED WEBP RECEIPT</text></svg>`;
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: svg,
+    });
+  });
+
+  await page.route(/\/api\/receipts\/(\d+)$/, async (route) => {
+    const match = route.request().url().match(/\/api\/receipts\/(\d+)$/);
+    const id = match ? Number(match[1]) : 0;
+    if (route.request().method() === 'DELETE') {
+      mockReceipts = mockReceipts.filter((r) => r.id !== id);
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await route.continue();
   });
 
   // Mock Products Catalog & Price History Endpoint

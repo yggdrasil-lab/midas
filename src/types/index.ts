@@ -344,6 +344,10 @@ export interface Receipt {
   tax_amount?: number | null;
   status: 'unlinked' | 'matched' | 'verified';
   image_path?: string | null;
+  image_mime_type?: string | null;
+  image_filename?: string | null;
+  has_image?: boolean;
+  is_processed?: boolean;
   raw_text?: string | null;
   notes?: string | null;
   items: ReceiptItem[];

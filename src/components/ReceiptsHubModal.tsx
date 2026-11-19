@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, RefreshCw } from 'lucide-react';
 import { AlertBanner, Button, Modal, SegmentedControl } from '@yggdrasil-lab/ui';
 import {
+  deleteReceipt,
   fetchProducts,
   fetchReceipts,
   reconcileReceipts,
+  reprocessReceipt,
   updateProduct,
   uploadReceipt,
 } from '../services/api';
@@ -36,6 +38,8 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [reconciling, setReconciling] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [reprocessingId, setReprocessingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [expandedReceiptId, setExpandedReceiptId] = useState<number | null>(null);
@@ -89,7 +93,9 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
         maximumFractionDigits: 2,
       });
       setStatusMsg(
-        `Uploaded receipt from ${res.merchant} (${formattedTotal}). Status: ${res.status}.`
+        res.is_processed === false
+          ? `Saved original receipt "${res.merchant}" for later processing or manual linking.`
+          : `Uploaded receipt from ${res.merchant} (${formattedTotal}). Status: ${res.status}.`
       );
       await loadData();
       onReceiptLinked?.();
@@ -98,6 +104,47 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to parse receipt');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDeleteReceipt = async (id: number) => {
+    setDeletingId(id);
+    setError(null);
+    setStatusMsg(null);
+    try {
+      await deleteReceipt(id);
+      if (expandedReceiptId === id) {
+        setExpandedReceiptId(null);
+      }
+      setStatusMsg('Receipt deleted.');
+      await loadData();
+      onReceiptLinked?.();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to delete receipt');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleReprocessReceipt = async (id: number) => {
+    setReprocessingId(id);
+    setError(null);
+    setStatusMsg(null);
+    try {
+      const res = await reprocessReceipt(id);
+      const formattedTotal = formatMoney(res.total_amount, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      setStatusMsg(`Processed receipt from ${res.merchant} (${formattedTotal}).`);
+      await loadData();
+      onReceiptLinked?.();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to reprocess receipt');
+    } finally {
+      setReprocessingId(null);
     }
   };
 
@@ -217,11 +264,15 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
             receipts={receipts}
             loading={loading}
             uploading={uploading}
+            deletingId={deletingId}
+            reprocessingId={reprocessingId}
             expandedReceiptId={expandedReceiptId}
             onToggleExpand={(id) =>
               setExpandedReceiptId((prev) => (prev === id ? null : id))
             }
             onUploadFile={handleUploadFile}
+            onDeleteReceipt={handleDeleteReceipt}
+            onReprocessReceipt={handleReprocessReceipt}
           />
         ) : (
           <ProductsCatalogTab
