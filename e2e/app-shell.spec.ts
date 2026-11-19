@@ -332,7 +332,7 @@ test.describe('Midas App Shell & Navigation', () => {
 
     const utilitiesRow = page.getByTestId('category-row-utilities').locator('visible=true').first();
     await expect(utilitiesRow).toBeVisible();
-    await expect(utilitiesRow).toContainText('4 txns');
+    await expect(utilitiesRow).toContainText('2 + 2 fixed');
     await expect(utilitiesRow).toContainText('$46.99 NZD');
     await utilitiesRow.click();
 
