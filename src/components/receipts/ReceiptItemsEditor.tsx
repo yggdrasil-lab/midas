@@ -67,6 +67,9 @@ export const ReceiptItemsEditor: React.FC<ReceiptItemsEditorProps> = ({
             {r.items.map((item) => {
               const isUpdating = updatingItemId === item.id;
               const itemTags = item.tags || [];
+              const inheritedTags = (item.inherited_tags || []).filter(
+                (t) => !itemTags.includes(t)
+              );
               const categories = CATEGORY_CHOICES.includes(
                 item.category as (typeof CATEGORY_CHOICES)[number]
               )
@@ -137,27 +140,39 @@ export const ReceiptItemsEditor: React.FC<ReceiptItemsEditorProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-border/40">
-                    <TagPillList
-                      tags={itemTags}
-                      disabled={isUpdating || !onUpdateItem}
-                      variant="amber"
-                      placeholder="tag"
-                      addButtonTestId={`add-item-tag-btn-${item.id}`}
-                      inputTestId={`item-tag-input-${item.id}`}
-                      onAddTag={
-                        onUpdateItem
-                          ? (tag) => void onUpdateItem(r.id, item.id, { tags: [...itemTags, tag] })
-                          : undefined
-                      }
-                      onRemoveTag={
-                        onUpdateItem
-                          ? (target) =>
-                              void onUpdateItem(r.id, item.id, {
-                                tags: itemTags.filter((t) => t !== target),
-                              })
-                          : undefined
-                      }
-                    />
+                    <div className="flex flex-wrap items-center gap-1 min-w-0 flex-1">
+                      {inheritedTags.map((tag) => (
+                        <span
+                          key={`inherited-${tag}`}
+                          title="Inherited from main transaction"
+                          data-testid={`inherited-item-tag-${item.id}-${tag}`}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800/90 text-slate-300 border border-slate-600/60"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                      <TagPillList
+                        tags={itemTags}
+                        disabled={isUpdating || !onUpdateItem}
+                        variant="amber"
+                        placeholder="tag"
+                        addButtonTestId={`add-item-tag-btn-${item.id}`}
+                        inputTestId={`item-tag-input-${item.id}`}
+                        onAddTag={
+                          onUpdateItem
+                            ? (tag) => void onUpdateItem(r.id, item.id, { tags: [...itemTags, tag] })
+                            : undefined
+                        }
+                        onRemoveTag={
+                          onUpdateItem
+                            ? (target) =>
+                                void onUpdateItem(r.id, item.id, {
+                                  tags: itemTags.filter((t) => t !== target),
+                                })
+                            : undefined
+                        }
+                      />
+                    </div>
 
                     {onUpdateItem && (
                       <div className="flex items-center space-x-1.5 shrink-0">

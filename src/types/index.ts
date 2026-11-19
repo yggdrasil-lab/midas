@@ -333,6 +333,7 @@ export interface ReceiptItem {
   domain?: string | null;
   product_type?: string | null;
   tags?: string[];
+  inherited_tags?: string[];
   volume_ml?: string | null;
   notes?: string | null;
   created_at: string;

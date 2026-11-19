@@ -1150,6 +1150,7 @@ export async function setupMockApi(page: Page) {
           unit_price: 34.99,
           discount_amount: 5.0,
           total_price: 29.99,
+          inherited_tags: ['weekly-shop', 'pantry'],
           created_at: '2026-11-03T10:00:00Z',
         },
         {
@@ -1164,6 +1165,7 @@ export async function setupMockApi(page: Page) {
           quantity: 1.0,
           unit_price: 44.99,
           total_price: 44.99,
+          inherited_tags: ['weekly-shop', 'pantry'],
           created_at: '2026-11-03T10:00:00Z',
         },
       ],

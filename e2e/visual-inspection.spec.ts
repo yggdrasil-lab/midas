@@ -266,6 +266,7 @@ for (const { name: platform, options } of PLATFORMS) {
             await expect(receiptModal).toBeVisible();
             await expect(receiptModal.locator('text=Chemist Warehouse Albany')).toBeVisible();
             await expect(receiptModal.locator('text=Vitamin C 1000mg 150 Tablets')).toBeVisible();
+            await expect(receiptModal.locator('[data-testid="inherited-item-tag-1-weekly-shop"]')).toBeVisible();
             await page.waitForTimeout(300);
             await page.screenshot({
               path: `screenshots/${platform}/08c-receipt-detail-modal.png`,
