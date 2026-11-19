@@ -18,11 +18,27 @@ import {
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
 import { fetchSpendingBreakdown } from '../services/api';
-import { PeriodType, SpendingBreakdownResponse } from '../types';
+import { CategorySpendingReport, PeriodType, SpendingBreakdownResponse } from '../types';
 import { formatMoney } from '../utils/format';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
+
+/**
+ * Format a compact category item count label separating actual period transactions
+ * from amortized recurring commitments when both or fixed items contribute.
+ */
+function formatCategoryCountLabel(cat: CategorySpendingReport): string | undefined {
+  if (cat.is_transfer || cat.budget_period === 'annual') return undefined;
+  const amortizedCount = cat.amortized_count ?? 0;
+  if (amortizedCount <= 0) return undefined;
+  const actualCount =
+    cat.actual_transaction_count ?? Math.max(0, cat.transaction_count - amortizedCount);
+  if (actualCount <= 0) {
+    return `${amortizedCount} fixed`;
+  }
+  return `${actualCount} + ${amortizedCount} fixed`;
+}
 
 interface CategorySpendingBreakdownProps {
   onRefreshRunway?: () => void;
@@ -311,6 +327,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
                   maximumFractionDigits: 2,
                 })} NZD`}
                 transactionCount={cat.transaction_count}
+                transactionCountLabel={formatCategoryCountLabel(cat)}
                 percentage={cat.percentage}
                 budgetSummaryLabel={
                   hasBudget

@@ -328,6 +328,11 @@ for (const { name: platform, options } of PLATFORMS) {
         const utilitiesCategoryCard = page.locator('[data-testid="category-row-utilities"] >> visible=true').first();
         if (await utilitiesCategoryCard.isVisible()) {
           await utilitiesCategoryCard.scrollIntoViewIfNeeded();
+          await expect(utilitiesCategoryCard).toContainText('2 + 2 fixed');
+          await page.waitForTimeout(200);
+          await page.screenshot({
+            path: `screenshots/${platform}/06b-budgets-amortized-row.png`,
+          });
           await utilitiesCategoryCard.click();
           await expect(page.getByRole('heading', { name: /Inspect Category: Utilities/i })).toBeVisible();
           const amortizedSection = page.getByTestId('amortized-commitments-section');
