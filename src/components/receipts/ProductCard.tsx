@@ -262,6 +262,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                         maximumFractionDigits: 2,
                       })}
                     </div>
+                    {pt.discount_amount && Number(pt.discount_amount) > 0 && (
+                      <div className="text-[10px] text-emerald-400 font-mono">
+                        -
+                        {formatMoney(Number(pt.discount_amount), {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{' '}
+                        disc. (paid{' '}
+                        {formatMoney(pt.total_price, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                        )
+                      </div>
+                    )}
                     {pt.quantity > 1 && (
                       <div className="text-[10px] text-slate-400">
                         Qty: {pt.quantity} (

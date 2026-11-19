@@ -246,14 +246,30 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
                                     maximumFractionDigits: 2,
                                   })}
                                 </div>
-                                {item.quantity > 1 && (
-                                  <div className="text-[10px] text-slate-400">
-                                    {item.quantity}x @{' '}
+                                {item.discount_amount && Number(item.discount_amount) > 0 ? (
+                                  <div className="text-[10px] text-emerald-400 font-mono">
+                                    Reg.{' '}
                                     {formatMoney(Number(item.unit_price), {
                                       minimumFractionDigits: 2,
                                       maximumFractionDigits: 2,
+                                    })}{' '}
+                                    (-
+                                    {formatMoney(Number(item.discount_amount), {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
                                     })}
+                                    )
                                   </div>
+                                ) : (
+                                  item.quantity > 1 && (
+                                    <div className="text-[10px] text-slate-400">
+                                      {item.quantity}x @{' '}
+                                      {formatMoney(Number(item.unit_price), {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </div>
+                                  )
                                 )}
                               </div>
                             </div>

@@ -324,6 +324,7 @@ export interface ReceiptItem {
   brand?: string | null;
   quantity: number;
   unit_price: number;
+  discount_amount?: number | null;
   total_price: number;
   category: string;
   domain?: string | null;
@@ -382,6 +383,7 @@ export interface PricePoint {
   date: string;
   merchant: string;
   unit_price: number;
+  discount_amount?: number | null;
   total_price: number;
   quantity: number;
   receipt_id: number;
