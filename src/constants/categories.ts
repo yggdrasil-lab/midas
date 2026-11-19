@@ -20,16 +20,35 @@ export const CATEGORY_CHOICES = [
   'Groceries',
   'Food',
   'Transport',
+  'Vehicle',
   'Utilities',
   'Health',
+  'Personal Care',
+  'Supplements',
+  'Clothing',
+  'Tech',
+  'Household',
+  'Shopping',
   'Leisure',
   'Insurance',
   'Travel',
   'Housing',
+  'Family',
   'Transfers',
   'Income',
   'General',
 ] as const;
+
+/** OOP-style category inheritance: subclass -> base class. */
+export const CATEGORY_PARENTS: Record<string, string> = {
+  Groceries: 'Food',
+  Supplements: 'Health',
+  'Personal Care': 'Health',
+  Vehicle: 'Transport',
+  Household: 'Housing',
+  Clothing: 'Shopping',
+  Tech: 'Shopping',
+};
 
 /** Expense categories eligible for budget guardrail targets. */
 export const BUDGET_CATEGORY_CHOICES = CATEGORY_CHOICES.filter(

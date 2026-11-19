@@ -231,7 +231,8 @@ export async function fetchAccountTransactions(params?: {
 export async function fetchSpendingBreakdown(
   period: PeriodType = 'month',
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  groupBy: 'leaf' | 'base' = 'leaf'
 ): Promise<SpendingBreakdownResponse> {
   const params = new URLSearchParams();
   if (period === 'custom') {
@@ -239,6 +240,9 @@ export async function fetchSpendingBreakdown(
     if (endDate) params.set('end_date', endDate);
   } else {
     params.set('period', period);
+  }
+  if (groupBy !== 'leaf') {
+    params.set('group_by', groupBy);
   }
   const res = await authFetch(`${API_BASE}/budgets/breakdown?${params.toString()}`);
   if (!res.ok) {
@@ -325,10 +329,12 @@ export async function fetchCategoryTransactions(
   category: string,
   period?: PeriodType,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  includeSubclasses = false
 ): Promise<Transaction[]> {
   const params = new URLSearchParams();
   if (category) params.set('category', category);
+  if (includeSubclasses) params.set('include_subclasses', 'true');
   appendPeriodParams(params, period, startDate, endDate);
   params.set('limit', '200');
   const res = await authFetch(`${API_BASE}/transactions?${params.toString()}`);
