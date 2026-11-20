@@ -160,6 +160,9 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     let totalIncome = 0;
     let totalTransfers = 0;
     for (const tx of collapsedTransactions) {
+      if (account && tx.account_id !== account.id) {
+        continue;
+      }
       if (isTransferCategory(tx.category, tx)) {
         totalTransfers += Math.abs(tx.amount);
       } else if (tx.amount < 0) {
@@ -169,7 +172,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
       }
     }
     return { totalSpend, totalIncome, totalTransfers };
-  }, [collapsedTransactions]);
+  }, [collapsedTransactions, account]);
 
   const availableCategories = useMemo(() => {
     const set = new Set<string>(categoryNames);
@@ -191,6 +194,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
           tx.category.toLowerCase().includes(q) ||
           (tx.account_name || '').toLowerCase().includes(q) ||
           (tx.linked_account_name || '').toLowerCase().includes(q) ||
+          (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
           (tx.raw_description || '').toLowerCase().includes(q) ||
           (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
         );

@@ -373,24 +373,130 @@ export async function setupMockApi(page: Page) {
   });
 
   // 5. Mock Accounts & Snapshots Endpoint
-  await page.route(/\/api\/accounts\/\d+\/snapshots(\?.*)?$/, async (route) => {
+  const mockAccounts = [
+    {
+      id: 1,
+      name: 'ASB Everyday Checking',
+      account_type: 'checking',
+      tier: 'cash',
+      institution: 'ASB',
+      currency: 'NZD',
+      expected_annual_return: 0.0,
+      is_active: true,
+    },
+    {
+      id: 2,
+      name: 'Sharesies Growth Portfolio',
+      account_type: 'brokerage',
+      tier: 'growth',
+      institution: 'Sharesies',
+      currency: 'NZD',
+      expected_annual_return: 0.07,
+      is_active: true,
+    },
+    {
+      id: 3,
+      name: 'Simplicity KiwiSaver',
+      account_type: 'kiwisaver',
+      tier: 'locked',
+      institution: 'Simplicity',
+      currency: 'NZD',
+      expected_annual_return: 0.06,
+      is_active: true,
+    },
+    {
+      id: 5,
+      name: 'Manulife',
+      account_type: 'brokerage',
+      tier: 'locked',
+      institution: 'Manulife',
+      currency: 'SGD',
+      expected_annual_return: 0.0,
+      is_active: true,
+    },
+    {
+      id: 6,
+      name: 'DBS Multiplier',
+      account_type: 'savings',
+      tier: 'cash',
+      institution: 'DBS Bank',
+      currency: 'SGD',
+      expected_annual_return: 0.02,
+      is_active: true,
+    },
+  ];
+
+  const resolveAccountName = (accountId: number | null | undefined): string | null => {
+    if (accountId === null || accountId === undefined) return null;
+    const found = mockAccounts.find((a) => a.id === Number(accountId));
+    return found ? found.name : null;
+  };
+
+  await page.route(/\/api\/accounts\/(\d+)\/snapshots(\?.*)?$/, async (route) => {
+    const match = route.request().url().match(/\/api\/accounts\/(\d+)\/snapshots/);
+    const reqAccountId = match ? Number(match[1]) : 1;
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() || {};
+      const currency = body.currency || 'NZD';
+      const fx = body.exchange_rate ?? (currency === 'SGD' ? 1.29 : 1.0);
+      const bal = Number(body.balance) || 25000.0;
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
         body: JSON.stringify({
           id: 99,
           snapshot_date: body.snapshot_date || '2026-11-04',
-          account_id: 1,
-          balance: Number(body.balance) || 25000.0,
-          currency: body.currency || 'NZD',
-          exchange_rate: body.exchange_rate || 1.0,
-          balance_nzd: Number(body.balance) || 25000.0,
+          account_id: reqAccountId,
+          balance: bal,
+          currency,
+          exchange_rate: fx,
+          balance_nzd: Math.round(bal * fx * 100) / 100,
           source: body.source || 'manual',
           notes: body.notes || 'Manual balance update',
           created_at: '2026-11-04T12:00:00Z',
         }),
+      });
+      return;
+    }
+    if (reqAccountId === 5) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 50,
+            snapshot_date: '2026-11-16',
+            account_id: 5,
+            balance: 14527.89,
+            currency: 'SGD',
+            exchange_rate: 1.29,
+            balance_nzd: 18740.98,
+            source: 'manual',
+            notes: 'Manulife surrender valuation',
+            created_at: '2026-11-16T10:00:00Z',
+          },
+        ]),
+      });
+      return;
+    }
+    if (reqAccountId === 6) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 60,
+            snapshot_date: '2026-11-04',
+            account_id: 6,
+            balance: 5200.0,
+            currency: 'SGD',
+            exchange_rate: 1.29,
+            balance_nzd: 6708.0,
+            source: 'api',
+            notes: 'DBS feed',
+            created_at: '2026-11-04T10:00:00Z',
+          },
+        ]),
       });
       return;
     }
@@ -430,38 +536,7 @@ export async function setupMockApi(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          id: 1,
-          name: 'ASB Everyday Checking',
-          account_type: 'checking',
-          tier: 'cash',
-          institution: 'ASB',
-          currency: 'NZD',
-          expected_annual_return: 0.0,
-          is_active: true,
-        },
-        {
-          id: 2,
-          name: 'Sharesies Growth Portfolio',
-          account_type: 'brokerage',
-          tier: 'growth',
-          institution: 'Sharesies',
-          currency: 'NZD',
-          expected_annual_return: 0.07,
-          is_active: true,
-        },
-        {
-          id: 3,
-          name: 'Simplicity KiwiSaver',
-          account_type: 'kiwisaver',
-          tier: 'locked',
-          institution: 'Simplicity',
-          currency: 'NZD',
-          expected_annual_return: 0.06,
-          is_active: true,
-        },
-      ]),
+      body: JSON.stringify(mockAccounts),
     });
   });
 
@@ -801,7 +876,33 @@ export async function setupMockApi(page: Page) {
     });
   });
 
-  const mockTransactions = [
+  interface MockTransactionRecord {
+    id: number;
+    transaction_date: string;
+    account_id: number;
+    account_name: string;
+    amount: number;
+    currency: string;
+    merchant: string;
+    raw_description?: string | null;
+    category: string;
+    tags?: string[];
+    recurrence?: string | null;
+    has_receipt?: boolean;
+    receipt_id?: number | null;
+    linked_transaction_id?: number | null;
+    linked_account_name?: string | null;
+    linked_amount?: number | null;
+    linked_currency?: string | null;
+    counterpart_account_id?: number | null;
+    counterpart_account_name?: string | null;
+    exchange_rate?: number | null;
+    fee_amount?: number | null;
+    is_amortized_commitment?: boolean;
+    amortized_period_amount_nzd?: number | null;
+  }
+
+  const mockTransactions: MockTransactionRecord[] = [
     {
       id: 101,
       transaction_date: '2026-11-04',
@@ -958,6 +1059,56 @@ export async function setupMockApi(page: Page) {
       recurrence: 'monthly',
       tags: ['mobile', 'subscription'],
     },
+    {
+      id: 130,
+      transaction_date: '2026-11-15',
+      account_id: 6,
+      account_name: 'DBS Multiplier',
+      amount: -300.0,
+      currency: 'SGD',
+      merchant: 'Manulife GIRO Contribution',
+      raw_description: 'GIRO MANULIFE SINGAPORE PTE LTD',
+      category: 'Transfers',
+      linked_transaction_id: 131,
+      linked_account_name: 'Manulife',
+      linked_amount: 300.0,
+      linked_currency: 'SGD',
+      exchange_rate: 1.0,
+      counterpart_account_id: 5,
+      counterpart_account_name: 'Manulife',
+    },
+    {
+      id: 131,
+      transaction_date: '2026-11-15',
+      account_id: 5,
+      account_name: 'Manulife',
+      amount: 300.0,
+      currency: 'SGD',
+      merchant: 'Manulife GIRO Contribution',
+      raw_description: 'GIRO MANULIFE SINGAPORE PTE LTD',
+      category: 'Transfers',
+      linked_transaction_id: 130,
+      linked_account_name: 'DBS Multiplier',
+      linked_amount: -300.0,
+      linked_currency: 'SGD',
+      exchange_rate: 1.0,
+      counterpart_account_id: 6,
+      counterpart_account_name: 'DBS Multiplier',
+    },
+    {
+      id: 132,
+      transaction_date: '2026-11-16',
+      account_id: 6,
+      account_name: 'DBS Multiplier',
+      amount: 65.54,
+      currency: 'SGD',
+      merchant: 'Dividends from Manulife',
+      raw_description: 'IBG MANULIFE (SINGAPORE) PTE LTD DIVIDEND',
+      category: 'Income',
+      linked_transaction_id: null,
+      counterpart_account_id: 5,
+      counterpart_account_name: 'Manulife',
+    },
   ];
 
   const mockAmortizedUtilities = [
@@ -1031,7 +1182,12 @@ export async function setupMockApi(page: Page) {
 
       let filtered = [...mockTransactions];
       if (accountIdParam) {
-        filtered = filtered.filter((tx) => String(tx.account_id) === accountIdParam);
+        const reqAccountId = Number(accountIdParam);
+        filtered = filtered.filter(
+          (tx) =>
+            tx.account_id === reqAccountId ||
+            (tx.counterpart_account_id === reqAccountId && tx.linked_transaction_id == null)
+        );
       }
       if (categoryParam) {
         filtered = filtered.filter(
@@ -1151,6 +1307,8 @@ export async function setupMockApi(page: Page) {
     target_tags: string[];
     target_recurrence: string | null;
     rename_merchant: string | null;
+    counterpart_account_id: number | null;
+    counterpart_account_name: string | null;
     priority: number;
     is_active: boolean;
     match_count: number;
@@ -1172,6 +1330,8 @@ export async function setupMockApi(page: Page) {
       target_tags: [],
       target_recurrence: null,
       rename_merchant: 'Power/Water Utilities',
+      counterpart_account_id: null,
+      counterpart_account_name: null,
       priority: 10,
       is_active: true,
       match_count: 4,
@@ -1191,6 +1351,8 @@ export async function setupMockApi(page: Page) {
       target_tags: [],
       target_recurrence: null,
       rename_merchant: 'Wise Multi-Currency',
+      counterpart_account_id: null,
+      counterpart_account_name: null,
       priority: 15,
       is_active: true,
       match_count: 8,
@@ -1210,6 +1372,8 @@ export async function setupMockApi(page: Page) {
       target_tags: ['fuel'],
       target_recurrence: null,
       rename_merchant: 'BP',
+      counterpart_account_id: null,
+      counterpart_account_name: null,
       priority: 5,
       is_active: true,
       match_count: 6,
@@ -1229,14 +1393,37 @@ export async function setupMockApi(page: Page) {
       target_tags: ['cafe'],
       target_recurrence: null,
       rename_merchant: 'BP Wild Bean Cafe',
+      counterpart_account_id: null,
+      counterpart_account_name: null,
       priority: 6,
       is_active: true,
       match_count: 3,
       created_at: '2026-11-01T00:00:00Z',
       updated_at: '2026-11-01T00:00:00Z',
     },
+    {
+      id: 5,
+      name: 'Manulife Dividends',
+      description_pattern: 'IBG MANULIFE',
+      match_type: 'contains',
+      amount_equals: null,
+      min_amount: null,
+      max_amount: null,
+      direction: 'inflow',
+      target_category: 'Income',
+      target_tags: ['dividend'],
+      target_recurrence: null,
+      rename_merchant: 'Dividends from Manulife',
+      counterpart_account_id: 5,
+      counterpart_account_name: 'Manulife',
+      priority: 8,
+      is_active: true,
+      match_count: 2,
+      created_at: '2026-11-01T00:00:00Z',
+      updated_at: '2026-11-01T00:00:00Z',
+    },
   ];
-  let nextRuleId = 5;
+  let nextRuleId = 6;
 
   await page.route(/\/api\/rules\/apply-all/, async (route) => {
     await route.fulfill({
@@ -1260,6 +1447,10 @@ export async function setupMockApi(page: Page) {
         });
         return;
       }
+      const counterpartId =
+        body.counterpart_account_id !== undefined && body.counterpart_account_id !== null
+          ? Number(body.counterpart_account_id)
+          : null;
       const created: MockRuleRecord = {
         id: nextRuleId++,
         name: body.name || 'New Custom Rule',
@@ -1273,6 +1464,8 @@ export async function setupMockApi(page: Page) {
         target_tags: Array.isArray(body.target_tags) ? body.target_tags : [],
         target_recurrence: body.target_recurrence !== undefined ? body.target_recurrence : null,
         rename_merchant: body.rename_merchant !== undefined ? body.rename_merchant : null,
+        counterpart_account_id: counterpartId,
+        counterpart_account_name: resolveAccountName(counterpartId),
         priority: body.priority ?? 10,
         is_active: body.is_active ?? true,
         match_count: 0,
@@ -1308,6 +1501,12 @@ export async function setupMockApi(page: Page) {
         });
         return;
       }
+      const nextCounterpartId =
+        'counterpart_account_id' in body
+          ? body.counterpart_account_id !== null && body.counterpart_account_id !== undefined
+            ? Number(body.counterpart_account_id)
+            : null
+          : existing.counterpart_account_id;
       const updated: MockRuleRecord = {
         ...existing,
         name: body.name ?? existing.name,
@@ -1323,6 +1522,8 @@ export async function setupMockApi(page: Page) {
           'target_recurrence' in body ? body.target_recurrence : existing.target_recurrence,
         rename_merchant:
           'rename_merchant' in body ? body.rename_merchant : existing.rename_merchant,
+        counterpart_account_id: nextCounterpartId,
+        counterpart_account_name: resolveAccountName(nextCounterpartId),
         priority: body.priority ?? existing.priority,
         is_active: body.is_active !== undefined ? body.is_active : existing.is_active,
         updated_at: new Date().toISOString(),

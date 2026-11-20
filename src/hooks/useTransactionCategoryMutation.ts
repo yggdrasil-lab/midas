@@ -85,6 +85,7 @@ export function useTransactionCategoryMutation({
       target_tags: tx.tags || [],
       target_recurrence: tx.recurrence || null,
       rename_merchant: tx.merchant,
+      counterpart_account_id: tx.counterpart_account_id ?? null,
       priority: 10,
       apply_retroactively: true,
     });

@@ -62,7 +62,6 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
         balance: balanceNum,
         snapshot_date: snapshotDate,
         currency: selectedAccount?.currency || 'NZD',
-        exchange_rate: selectedAccount?.currency === 'NZD' ? 1.0 : undefined,
         source: 'manual',
         notes: notes.trim() || undefined,
       });
