@@ -207,15 +207,27 @@ for (const { name: platform, options } of PLATFORMS) {
             await expect(loanFlowPill).toContainText('ASB Everyday Checking');
             await expect(loanFlowPill).toContainText('Toyota Corolla Cross (TFS)');
 
-            const catSelect142 = page.locator('[data-testid="modal-select-category-142"] >> visible=true').first();
-            if (await catSelect142.isVisible()) {
-              await catSelect142.scrollIntoViewIfNeeded();
-              await catSelect142.selectOption('Debt & Loans');
-              const loanSelect142 = page.locator('[data-testid="modal-select-loan-142"] >> visible=true').first();
-              await loanSelect142.selectOption('2');
-              await page.locator('[data-testid="modal-loan-split-btn-142"] >> visible=true').first().click();
-              await page.locator('[data-testid="modal-loan-amount-input-142"] >> visible=true').first().fill('5000');
-              await page.locator('[data-testid="modal-loan-amount-save-142"] >> visible=true').first().click();
+            const splitBtn142 = page.locator('[data-testid="split-tx-btn-142"] >> visible=true').first();
+            if (await splitBtn142.isVisible()) {
+              await splitBtn142.scrollIntoViewIfNeeded();
+              await splitBtn142.click();
+              const splitModal = page.locator('[data-testid="transaction-split-modal"] >> visible=true').first();
+              await expect(splitModal).toBeVisible();
+              await page.locator('[data-testid="split-amount-0"] >> visible=true').first().fill('5000');
+              await expect(page.locator('[data-testid="split-amount-1"] >> visible=true').first()).toHaveValue('20.00');
+              await page.locator('[data-testid="split-category-0"] >> visible=true').first().selectOption('Debt & Loans');
+              await page.locator('[data-testid="split-loan-0"] >> visible=true').first().selectOption('2');
+              await page.locator('[data-testid="split-category-1"] >> visible=true').first().selectOption('Family');
+              await page.locator('[data-testid="split-notes-1"] >> visible=true').first().fill('Food split');
+              await page.waitForTimeout(250);
+              await page.screenshot({
+                path: `screenshots/${platform}/14c-transaction-split-modal.png`,
+              });
+              await page.locator('[data-testid="save-splits-btn"] >> visible=true').first().click();
+              await expect(splitModal).toBeHidden();
+
+              await expect(page.locator('[data-testid="open-split-badge-142"] >> visible=true').first()).toContainText('Split (2)');
+              await expect(page.locator('[data-testid="split-summary-142"] >> visible=true').first()).toContainText('Debt & Loans');
               const lentFlowPill = page.locator('[data-testid="loan-flow-142"] >> visible=true').first();
               await expect(lentFlowPill).toBeVisible();
               await expect(lentFlowPill).toContainText('$5,000.00 of $5,020.00');
@@ -228,7 +240,7 @@ for (const { name: platform, options } of PLATFORMS) {
             }
 
             await assertLoanRowHasNoOverlap(page, 140);
-            if (await catSelect142.isVisible()) {
+            if (await splitBtn142.isVisible()) {
               await assertLoanRowHasNoOverlap(page, 142);
             }
 

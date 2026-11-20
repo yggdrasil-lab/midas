@@ -31,6 +31,7 @@ import {
   SyncResult,
   TagSpendingSummaryResponse,
   Transaction,
+  TransactionSplitInput,
   PeriodType,
 } from '../types';
 
@@ -475,6 +476,23 @@ export async function updateTransactionLoan(
   });
   if (!res.ok) {
     throw new Error(await readApiError(res, 'Failed to update transaction loan'));
+  }
+  return res.json();
+}
+
+export async function updateTransactionSplits(
+  transactionId: number,
+  splits: TransactionSplitInput[]
+): Promise<Transaction> {
+  const res = await authFetch(`${API_BASE}/transactions/${transactionId}/splits`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ splits }),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, 'Failed to update transaction splits'));
   }
   return res.json();
 }

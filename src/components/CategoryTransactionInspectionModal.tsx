@@ -278,6 +278,12 @@ export const CategoryTransactionInspectionModal: React.FC<
       void loadTransactions();
       onCategoryChanged();
     },
+    onSplitsUpdated: (updatedTx: Transaction) => {
+      handleTransactionUpdated(updatedTx.id, updatedTx);
+      setSuccessNote(
+        updatedTx.is_split ? 'Saved transaction splits' : 'Cleared transaction splits'
+      );
+    },
     showAccountBadge: true,
   };
 

@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Repeat,
   SlidersHorizontal,
+  Split,
 } from 'lucide-react';
 import { TagPillList } from '@yggdrasil-lab/ui';
 import { LoanItem, RecurrenceType, Transaction } from '../types';
@@ -48,6 +49,7 @@ interface TransactionRowProps {
   ) => void;
   onCreateRule: (tx: Transaction) => void;
   onOpenReceipt?: (receiptId: number) => void;
+  onOpenSplit?: (tx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
   rowTestId?: string;
@@ -70,6 +72,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   onLoanChange,
   onCreateRule,
   onOpenReceipt,
+  onOpenSplit,
   showAccountBadge = true,
   fallbackCurrency,
   rowTestId,
@@ -127,26 +130,132 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     tx.linked_currency !== txCurrency;
   const isLinkedBtc = (tx.linked_currency || '').toUpperCase() === 'BTC';
   const isDebtAndLoansCategory = (tx.category || '').trim().toLowerCase() === 'debt & loans';
+  const isSplit = Boolean(tx.is_split && tx.splits && tx.splits.length >= 2);
   const selectableLoans = (loans || []).filter((loan) => {
     if (!loan.is_active && loan.id !== tx.loan_id) return false;
     if (amt < 0) return true;
     return loan.loan_type === 'lent' || loan.id === tx.loan_id;
   });
   const showLoanSelector = Boolean(
-    onLoanChange &&
+    !isSplit &&
+      onLoanChange &&
       loans &&
       loans.length > 0 &&
       !hasLinkedTransfer &&
       (isDebtAndLoansCategory || tx.loan_id != null)
   );
+  const splitLoanEntries = isSplit
+    ? (tx.splits || [])
+        .map((s) => {
+          const matchedLoan = s.loan_id != null ? loans?.find((l) => l.id === s.loan_id) : undefined;
+          const resolvedName = s.loan_name || matchedLoan?.name || null;
+          const resolvedType = s.loan_type || matchedLoan?.loan_type || 'borrowed';
+          if (s.loan_id == null || !resolvedName) return null;
+          return {
+            key: `split-${s.id}`,
+            loanName: resolvedName,
+            loanType: resolvedType,
+            paymentAmount: Math.abs(Number(s.amount)),
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    : [];
+  const stackControls = showLoanSelector || isSplit;
   const [editingLoanAmt, setEditingLoanAmt] = useState(false);
   const [loanAmtDraft, setLoanAmtDraft] = useState('');
   const resolvedLoanType =
     tx.loan_type || loans?.find((l) => l.id === tx.loan_id)?.loan_type || 'borrowed';
-  const isLentLoan = resolvedLoanType === 'lent';
-  const isLentRepayment = isLentLoan && amt > 0;
-  const isLentDisbursement = isLentLoan && amt < 0;
   const tags = tx.tags || [];
+
+  const renderLoanFlowPill = (
+    key: string,
+    testId: string,
+    loanName: string,
+    loanType: 'borrowed' | 'lent',
+    paymentAmount: number | null | undefined
+  ) => {
+    const isLent = loanType === 'lent';
+    const isRepayment = isLent && amt > 0;
+    const isDisbursement = isLent && amt < 0;
+    return (
+      <div
+        key={key}
+        className={`inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg border text-[11px] ${
+          isRepayment
+            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
+            : isDisbursement
+              ? 'bg-amber-500/10 border-amber-500/25 text-amber-200'
+              : 'bg-rose-500/10 border-rose-500/25 text-rose-200'
+        }`}
+        data-testid={testId}
+      >
+        {isLent ? (
+          <Landmark
+            className={`w-3 h-3 shrink-0 ${
+              isRepayment ? 'text-emerald-400' : 'text-amber-400'
+            }`}
+          />
+        ) : (
+          <Car className="w-3 h-3 text-rose-400 shrink-0" />
+        )}
+        <span
+          className="font-semibold truncate max-w-[160px]"
+          title={isRepayment ? loanName : tx.account_name || 'Account'}
+        >
+          {isRepayment ? loanName : tx.account_name || 'Account'}
+        </span>
+        <ArrowRight
+          className={`w-3 h-3 shrink-0 ${
+            isRepayment
+              ? 'text-emerald-400'
+              : isDisbursement
+                ? 'text-amber-400'
+                : 'text-rose-400'
+          }`}
+        />
+        <span
+          className="font-semibold truncate max-w-[160px]"
+          title={isRepayment ? tx.account_name || 'Account' : loanName}
+        >
+          {isRepayment ? tx.account_name || 'Account' : loanName}
+        </span>
+        <span
+          className={`text-[10px] px-1 py-0.2 rounded border font-medium whitespace-nowrap ${
+            isRepayment
+              ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-200'
+              : isDisbursement
+                ? 'bg-amber-500/20 border-amber-500/30 text-amber-200'
+                : 'bg-rose-500/20 border-rose-500/30 text-rose-200'
+          }`}
+        >
+          {isRepayment ? 'Repayment' : isDisbursement ? 'Lent' : 'Loan'}
+        </span>
+        {paymentAmount != null && (
+          <span
+            className={`text-[10px] font-mono whitespace-nowrap ${
+              isRepayment
+                ? 'text-emerald-300/90'
+                : isDisbursement
+                  ? 'text-amber-300/90'
+                  : 'text-rose-300/90'
+            }`}
+          >
+            (
+            {formatMoney(Number(paymentAmount), {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{' '}
+            of{' '}
+            {formatMoney(Math.abs(amt), {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+            )
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const rowContainerClasses = isAmortized
     ? 'bg-sky-950/15 hover:bg-sky-950/25 border-sky-500/30'
@@ -160,7 +269,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     <div
       data-testid={rowTestId}
       className={`p-3 rounded-xl flex flex-col ${
-        showLoanSelector ? 'gap-2.5' : 'sm:flex-row sm:items-center justify-between gap-3'
+        stackControls ? 'gap-2.5' : 'sm:flex-row sm:items-center justify-between gap-3'
       } transition-colors border ${rowContainerClasses}`}
     >
       {/* Left: Date, badges, merchant */}
@@ -199,7 +308,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
                 type="button"
                 onClick={() => onOpenReceipt(tx.receipt_id!)}
                 data-testid={`open-receipt-${tx.id}`}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer"
+                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer whitespace-nowrap"
                 title="Inspect receipt items, categories, tags & photo"
               >
                 <ReceiptIcon className="w-2.5 h-2.5" />
@@ -207,7 +316,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
               </button>
             ) : (
               <span
-                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium flex items-center space-x-1"
+                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium flex items-center space-x-1 whitespace-nowrap"
                 title="Matched Itemized Receipt"
               >
                 <ReceiptIcon className="w-2.5 h-2.5" />
@@ -215,6 +324,27 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
               </span>
             )
           )}
+          {isSplit &&
+            (onOpenSplit ? (
+              <button
+                type="button"
+                onClick={() => onOpenSplit(tx)}
+                data-testid={`open-split-badge-${tx.id}`}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 border border-violet-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer whitespace-nowrap"
+                title="Inspect or edit manual transaction splits"
+              >
+                <Split className="w-2.5 h-2.5" />
+                <span>Split ({tx.splits!.length})</span>
+              </button>
+            ) : (
+              <span
+                data-testid={`open-split-badge-${tx.id}`}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30 font-medium flex items-center space-x-1 whitespace-nowrap"
+              >
+                <Split className="w-2.5 h-2.5" />
+                <span>Split ({tx.splits!.length})</span>
+              </span>
+            ))}
           {(hasLinkedTransfer || isTransfer) && (
             <span
               className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-medium flex items-center space-x-1"
@@ -272,6 +402,30 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         {isAmortized && originSummary && (
           <div className="text-[11px] font-mono text-sky-300/80 truncate">
             {originSummary}
+          </div>
+        )}
+        {isSplit && (
+          <div
+            data-testid={`split-summary-${tx.id}`}
+            className="text-[11px] text-violet-200/90 flex items-center flex-wrap gap-x-1.5 gap-y-0.5"
+          >
+            {tx.splits!.map((s, idx) => (
+              <React.Fragment key={s.id || idx}>
+                {idx > 0 && <span className="text-slate-500">|</span>}
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="font-medium text-violet-300">{s.category}</span>
+                  <span className="font-mono text-slate-200">
+                    {formatMoney(Math.abs(Number(s.amount)), {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                  {Boolean(s.notes) && (
+                    <span className="text-slate-400 truncate max-w-[120px]">({s.notes})</span>
+                  )}
+                </span>
+              </React.Fragment>
+            ))}
           </div>
         )}
         {hasLinkedTransfer && Boolean(linkedCounterpartName) && (
@@ -337,91 +491,25 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             </span>
           </div>
         )}
-        {Boolean(tx.loan_name) && (
-          <div
-            className={`inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg border text-[11px] ${
-              isLentRepayment
-                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
-                : isLentDisbursement
-                  ? 'bg-amber-500/10 border-amber-500/25 text-amber-200'
-                  : 'bg-rose-500/10 border-rose-500/25 text-rose-200'
-            }`}
-            data-testid={`loan-flow-${tx.id}`}
-          >
-            {isLentLoan ? (
-              <Landmark
-                className={`w-3 h-3 shrink-0 ${
-                  isLentRepayment ? 'text-emerald-400' : 'text-amber-400'
-                }`}
-              />
-            ) : (
-              <Car className="w-3 h-3 text-rose-400 shrink-0" />
+        {splitLoanEntries.length > 0
+          ? splitLoanEntries.map((entry, idx) =>
+              renderLoanFlowPill(
+                entry.key,
+                idx === 0 ? `loan-flow-${tx.id}` : `loan-flow-${tx.id}-${idx}`,
+                entry.loanName,
+                entry.loanType,
+                entry.paymentAmount
+              )
+            )
+          : !isSplit &&
+            Boolean(tx.loan_name) &&
+            renderLoanFlowPill(
+              `loan-${tx.id}`,
+              `loan-flow-${tx.id}`,
+              tx.loan_name!,
+              resolvedLoanType,
+              tx.loan_payment_amount
             )}
-            <span
-              className="font-semibold truncate max-w-[160px]"
-              title={
-                isLentRepayment
-                  ? tx.loan_name || ''
-                  : tx.account_name || 'Account'
-              }
-            >
-              {isLentRepayment ? tx.loan_name : tx.account_name || 'Account'}
-            </span>
-            <ArrowRight
-              className={`w-3 h-3 shrink-0 ${
-                isLentRepayment
-                  ? 'text-emerald-400'
-                  : isLentDisbursement
-                    ? 'text-amber-400'
-                    : 'text-rose-400'
-              }`}
-            />
-            <span
-              className="font-semibold truncate max-w-[160px]"
-              title={
-                isLentRepayment
-                  ? tx.account_name || 'Account'
-                  : tx.loan_name || ''
-              }
-            >
-              {isLentRepayment ? tx.account_name || 'Account' : tx.loan_name}
-            </span>
-            <span
-              className={`text-[10px] px-1 py-0.2 rounded border font-medium whitespace-nowrap ${
-                isLentRepayment
-                  ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-200'
-                  : isLentDisbursement
-                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-200'
-                    : 'bg-rose-500/20 border-rose-500/30 text-rose-200'
-              }`}
-            >
-              {isLentRepayment ? 'Repayment' : isLentDisbursement ? 'Lent' : 'Loan'}
-            </span>
-            {tx.loan_payment_amount != null && (
-              <span
-                className={`text-[10px] font-mono whitespace-nowrap ${
-                  isLentRepayment
-                    ? 'text-emerald-300/90'
-                    : isLentDisbursement
-                      ? 'text-amber-300/90'
-                      : 'text-rose-300/90'
-                }`}
-              >
-                (
-                {formatMoney(Number(tx.loan_payment_amount), {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{' '}
-                of{' '}
-                {formatMoney(Math.abs(amt), {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-                )
-              </span>
-            )}
-          </div>
-        )}
         <TagPillList
           tags={tags}
           disabled={updating}
@@ -446,7 +534,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
       {/* Right: Amount & inline category selector */}
       <div
         className={
-          showLoanSelector
+          stackControls
             ? 'flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border/40'
             : 'flex items-center justify-between sm:justify-end space-x-3 shrink-0'
         }
@@ -606,16 +694,34 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
           {updating ? (
             <RefreshCw className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
           ) : (
-            <button
-              type="button"
-              onClick={() => onCreateRule(tx)}
-              className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-              title="Create categorization rule from this transaction"
-              aria-label={`Create rule for ${tx.merchant}`}
-              data-testid={ruleBtnTestId}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-0.5 shrink-0">
+              {Boolean(onOpenSplit && !hasLinkedTransfer && !isAmortized) && (
+                <button
+                  type="button"
+                  onClick={() => onOpenSplit!(tx)}
+                  className={`p-1 rounded transition-colors ${
+                    isSplit
+                      ? 'text-violet-300 bg-violet-500/15 hover:bg-violet-500/25'
+                      : 'text-slate-400 hover:text-violet-300 hover:bg-violet-500/10'
+                  }`}
+                  title={isSplit ? 'Edit transaction splits' : 'Split transaction across categories or loans'}
+                  aria-label={`Split ${tx.merchant}`}
+                  data-testid={`split-tx-btn-${tx.id}`}
+                >
+                  <Split className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onCreateRule(tx)}
+                className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                title="Create categorization rule from this transaction"
+                aria-label={`Create rule for ${tx.merchant}`}
+                data-testid={ruleBtnTestId}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
       </div>

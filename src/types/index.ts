@@ -98,6 +98,8 @@ export interface LoanPaymentItem {
   amount_nzd: number;
   applied_amount?: number;
   loan_payment_amount?: number | null;
+  split_id?: number | null;
+  notes?: string | null;
   entry_type?: 'repayment' | 'disbursement';
   merchant: string;
   account_id: number;
@@ -188,6 +190,26 @@ export type RecurrenceType =
   | 'annual'
   | 'one-off';
 
+export interface TransactionSplitItem {
+  id: number;
+  transaction_id: number;
+  amount: number;
+  category: string;
+  tags: string[];
+  loan_id?: number | null;
+  loan_name?: string | null;
+  loan_type?: LoanType | null;
+  notes?: string | null;
+}
+
+export interface TransactionSplitInput {
+  amount: number;
+  category: string;
+  tags?: string[];
+  loan_id?: number | null;
+  notes?: string | null;
+}
+
 export interface Transaction {
   id: number;
   transaction_date: string;
@@ -221,6 +243,8 @@ export interface Transaction {
   fee_amount?: number | null;
   tags?: string[];
   recurrence?: RecurrenceType | null;
+  splits?: TransactionSplitItem[];
+  is_split?: boolean;
   created_at?: string;
 }
 
