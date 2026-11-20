@@ -17,7 +17,11 @@ interface TransactionListProps {
   onTagsChange?: (txId: number, tags: string[]) => void;
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   loans?: LoanItem[];
-  onLoanChange?: (txId: number, loanId: number | null) => void;
+  onLoanChange?: (
+    txId: number,
+    loanId: number | null,
+    loanPaymentAmount?: number | null
+  ) => void;
   onCreateRule: (tx: Transaction) => void;
   onReceiptUpdated?: () => void;
   showAccountBadge?: boolean;

@@ -316,10 +316,16 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
             void handleRecurrenceChange(txId, recurrence);
           }}
           loans={loans}
-          onLoanChange={(txId, loanId) => {
+          onLoanChange={(txId, loanId, loanPaymentAmount) => {
             setError(null);
             const matchedLoan = loans.find((l) => l.id === loanId);
-            void handleLoanChange(txId, loanId, matchedLoan?.name ?? null);
+            void handleLoanChange(
+              txId,
+              loanId,
+              loanPaymentAmount,
+              matchedLoan?.name ?? null,
+              matchedLoan?.loan_type ?? null
+            );
           }}
           onCreateRule={handleCreateRuleFromTx}
           onReceiptUpdated={() => {

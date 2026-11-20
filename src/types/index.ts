@@ -74,9 +74,12 @@ export interface RunwayScenarioResult {
   simulated_net_worth?: number;
 }
 
+export type LoanType = 'borrowed' | 'lent';
+
 export interface LoanCreatePayload {
   name: string;
   lender: string;
+  loan_type?: LoanType;
   principal_amount: number;
   annual_interest_rate: number;
   term_months: number;
@@ -93,6 +96,9 @@ export interface LoanPaymentItem {
   amount: number;
   currency: string;
   amount_nzd: number;
+  applied_amount?: number;
+  loan_payment_amount?: number | null;
+  entry_type?: 'repayment' | 'disbursement';
   merchant: string;
   account_id: number;
   account_name?: string | null;
@@ -101,11 +107,12 @@ export interface LoanPaymentItem {
 
 export interface LoanItem extends LoanCreatePayload {
   id: number;
+  loan_type?: LoanType;
   currency: string;
   is_active: boolean;
   payments_made: number;
   payments_remaining: number;
-  payoff_date: string;
+  payoff_date?: string | null;
   next_payment_date?: string | null;
   remaining_principal: number;
   principal_paid: number;
@@ -117,11 +124,13 @@ export interface LoanItem extends LoanCreatePayload {
   last_payment_date?: string | null;
   is_payment_due?: boolean;
   linked_payments?: LoanPaymentItem[];
+  disbursements?: LoanPaymentItem[];
 }
 
 export interface LoansSummaryResponse {
   loans: LoanItem[];
   total_liabilities: number;
+  total_receivables?: number;
   total_asset_value: number;
   net_loan_impact: number;
   total_monthly_payment: number;
@@ -206,6 +215,8 @@ export interface Transaction {
   counterpart_account_name?: string | null;
   loan_id?: number | null;
   loan_name?: string | null;
+  loan_type?: LoanType | null;
+  loan_payment_amount?: number | null;
   exchange_rate?: number | null;
   fee_amount?: number | null;
   tags?: string[];
@@ -334,6 +345,7 @@ export interface CategorizationRule {
   counterpart_account_name?: string | null;
   loan_id?: number | null;
   loan_name?: string | null;
+  loan_type?: LoanType | null;
   priority: number;
   is_active: boolean;
   match_count: number;

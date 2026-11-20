@@ -254,11 +254,21 @@ export const CategoryTransactionInspectionModal: React.FC<
       }
     },
     loans,
-    onLoanChange: async (txId: number, loanId: number | null) => {
+    onLoanChange: async (
+      txId: number,
+      loanId: number | null,
+      loanPaymentAmount?: number | null
+    ) => {
       setError(null);
       mutationSucceededRef.current = false;
       const matchedLoan = loans.find((l) => l.id === loanId);
-      await handleLoanChange(txId, loanId, matchedLoan?.name ?? null);
+      await handleLoanChange(
+        txId,
+        loanId,
+        loanPaymentAmount,
+        matchedLoan?.name ?? null,
+        matchedLoan?.loan_type ?? null
+      );
       if (mutationSucceededRef.current) {
         void loadTransactions();
       }

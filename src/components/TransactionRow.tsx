@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowRight,
   ArrowRightLeft,
@@ -41,7 +41,11 @@ interface TransactionRowProps {
   onTagsChange?: (txId: number, tags: string[]) => void;
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   loans?: LoanItem[];
-  onLoanChange?: (txId: number, loanId: number | null) => void;
+  onLoanChange?: (
+    txId: number,
+    loanId: number | null,
+    loanPaymentAmount?: number | null
+  ) => void;
   onCreateRule: (tx: Transaction) => void;
   onOpenReceipt?: (receiptId: number) => void;
   showAccountBadge?: boolean;
@@ -122,12 +126,26 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     tx.linked_currency &&
     tx.linked_currency !== txCurrency;
   const isLinkedBtc = (tx.linked_currency || '').toUpperCase() === 'BTC';
-  const selectableLoans = (loans || []).filter(
-    (loan) => loan.is_active || loan.id === tx.loan_id
-  );
+  const isDebtAndLoansCategory = (tx.category || '').trim().toLowerCase() === 'debt & loans';
+  const selectableLoans = (loans || []).filter((loan) => {
+    if (!loan.is_active && loan.id !== tx.loan_id) return false;
+    if (amt < 0) return true;
+    return loan.loan_type === 'lent' || loan.id === tx.loan_id;
+  });
   const showLoanSelector = Boolean(
-    onLoanChange && loans && loans.length > 0 && isDebit && !hasLinkedTransfer
+    onLoanChange &&
+      loans &&
+      loans.length > 0 &&
+      !hasLinkedTransfer &&
+      (isDebtAndLoansCategory || tx.loan_id != null)
   );
+  const [editingLoanAmt, setEditingLoanAmt] = useState(false);
+  const [loanAmtDraft, setLoanAmtDraft] = useState('');
+  const resolvedLoanType =
+    tx.loan_type || loans?.find((l) => l.id === tx.loan_id)?.loan_type || 'borrowed';
+  const isLentLoan = resolvedLoanType === 'lent';
+  const isLentRepayment = isLentLoan && amt > 0;
+  const isLentDisbursement = isLentLoan && amt < 0;
   const tags = tx.tags || [];
 
   const rowContainerClasses = isAmortized
@@ -319,26 +337,87 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         )}
         {Boolean(tx.loan_name) && (
           <div
-            className="inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg border bg-rose-500/10 border-rose-500/25 text-rose-200 text-[11px]"
+            className={`inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg border text-[11px] ${
+              isLentRepayment
+                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
+                : isLentDisbursement
+                  ? 'bg-amber-500/10 border-amber-500/25 text-amber-200'
+                  : 'bg-rose-500/10 border-rose-500/25 text-rose-200'
+            }`}
             data-testid={`loan-flow-${tx.id}`}
           >
-            <Car className="w-3 h-3 text-rose-400 shrink-0" />
-            <span
-              className="font-semibold truncate max-w-[140px]"
-              title={tx.account_name || 'Account'}
-            >
-              {tx.account_name || 'Account'}
-            </span>
-            <ArrowRight className="w-3 h-3 text-rose-400 shrink-0" />
+            {isLentLoan ? (
+              <Landmark
+                className={`w-3 h-3 shrink-0 ${
+                  isLentRepayment ? 'text-emerald-400' : 'text-amber-400'
+                }`}
+              />
+            ) : (
+              <Car className="w-3 h-3 text-rose-400 shrink-0" />
+            )}
             <span
               className="font-semibold truncate max-w-[160px]"
-              title={tx.loan_name || ''}
+              title={
+                isLentRepayment
+                  ? tx.loan_name || ''
+                  : tx.account_name || 'Account'
+              }
             >
-              {tx.loan_name}
+              {isLentRepayment ? tx.loan_name : tx.account_name || 'Account'}
             </span>
-            <span className="text-[10px] px-1 py-0.2 rounded bg-rose-500/20 border border-rose-500/30 text-rose-200 font-medium whitespace-nowrap">
-              Loan
+            <ArrowRight
+              className={`w-3 h-3 shrink-0 ${
+                isLentRepayment
+                  ? 'text-emerald-400'
+                  : isLentDisbursement
+                    ? 'text-amber-400'
+                    : 'text-rose-400'
+              }`}
+            />
+            <span
+              className="font-semibold truncate max-w-[160px]"
+              title={
+                isLentRepayment
+                  ? tx.account_name || 'Account'
+                  : tx.loan_name || ''
+              }
+            >
+              {isLentRepayment ? tx.account_name || 'Account' : tx.loan_name}
             </span>
+            <span
+              className={`text-[10px] px-1 py-0.2 rounded border font-medium whitespace-nowrap ${
+                isLentRepayment
+                  ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-200'
+                  : isLentDisbursement
+                    ? 'bg-amber-500/20 border-amber-500/30 text-amber-200'
+                    : 'bg-rose-500/20 border-rose-500/30 text-rose-200'
+              }`}
+            >
+              {isLentRepayment ? 'Repayment' : isLentDisbursement ? 'Lent' : 'Loan'}
+            </span>
+            {tx.loan_payment_amount != null && (
+              <span
+                className={`text-[10px] font-mono whitespace-nowrap ${
+                  isLentRepayment
+                    ? 'text-emerald-300/90'
+                    : isLentDisbursement
+                      ? 'text-amber-300/90'
+                      : 'text-rose-300/90'
+                }`}
+              >
+                (
+                {formatMoney(Number(tx.loan_payment_amount), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{' '}
+                of{' '}
+                {formatMoney(Math.abs(amt), {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                )
+              </span>
+            )}
           </div>
         )}
         <TagPillList
@@ -383,24 +462,102 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
 
         <div className="flex items-center flex-wrap justify-end gap-1.5">
           {showLoanSelector && (
-            <select
-              value={tx.loan_id != null ? String(tx.loan_id) : ''}
-              onChange={(e) =>
-                onLoanChange!(tx.id, e.target.value ? Number(e.target.value) : null)
-              }
-              disabled={updating}
-              aria-label={`Financing loan for ${tx.merchant}`}
-              data-testid={`modal-select-loan-${tx.id}`}
-              title="Link or unlink financing loan repayment"
-              className="text-base sm:text-xs px-1.5 py-1 max-w-[135px] bg-background border border-border hover:border-rose-500/50 rounded-lg text-slate-300 focus:outline-none focus:border-rose-500 transition-colors disabled:opacity-50"
-            >
-              <option value="">No loan</option>
-              {selectableLoans.map((loan) => (
-                <option key={loan.id} value={String(loan.id)}>
-                  {loan.name}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={tx.loan_id != null ? String(tx.loan_id) : ''}
+                onChange={(e) => {
+                  const nextId = e.target.value ? Number(e.target.value) : null;
+                  if (nextId === null) {
+                    setEditingLoanAmt(false);
+                    setLoanAmtDraft('');
+                    onLoanChange!(tx.id, null, null);
+                  } else {
+                    onLoanChange!(tx.id, nextId);
+                  }
+                }}
+                disabled={updating}
+                aria-label={`Financing loan for ${tx.merchant}`}
+                data-testid={`modal-select-loan-${tx.id}`}
+                title="Link or unlink financing loan repayment"
+                className="text-base sm:text-xs px-1.5 py-1 max-w-[145px] bg-background border border-border hover:border-rose-500/50 rounded-lg text-slate-300 focus:outline-none focus:border-rose-500 transition-colors disabled:opacity-50"
+              >
+                <option value="">No loan</option>
+                {selectableLoans.map((loan) => (
+                  <option key={loan.id} value={String(loan.id)}>
+                    {loan.loan_type === 'lent' ? `${loan.name} (Lent)` : loan.name}
+                  </option>
+                ))}
+              </select>
+              {tx.loan_id != null && (
+                <button
+                  type="button"
+                  disabled={updating}
+                  data-testid={`modal-loan-split-btn-${tx.id}`}
+                  onClick={() => {
+                    if (!editingLoanAmt) {
+                      setLoanAmtDraft(
+                        tx.loan_payment_amount != null ? String(tx.loan_payment_amount) : ''
+                      );
+                    }
+                    setEditingLoanAmt((prev) => !prev);
+                  }}
+                  className="text-[11px] px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-border text-slate-200 whitespace-nowrap transition-colors disabled:opacity-50"
+                  title="Set partial amount applied to this loan"
+                >
+                  {tx.loan_payment_amount != null
+                    ? `Applied: ${formatMoney(Number(tx.loan_payment_amount), {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}`
+                    : 'Split'}
+                </button>
+              )}
+              {tx.loan_id != null && editingLoanAmt && (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={Math.abs(amt)}
+                    value={loanAmtDraft}
+                    onChange={(e) => setLoanAmtDraft(e.target.value)}
+                    placeholder={Math.abs(amt).toFixed(2)}
+                    aria-label={`Applied loan amount for ${tx.merchant}`}
+                    data-testid={`modal-loan-amount-input-${tx.id}`}
+                    className="w-24 text-base sm:text-xs px-2 py-1 bg-background border border-border rounded-lg text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={updating}
+                    data-testid={`modal-loan-amount-save-${tx.id}`}
+                    onClick={() => {
+                      const parsed = parseFloat(loanAmtDraft);
+                      if (!Number.isFinite(parsed) || parsed <= 0 || parsed > Math.abs(amt)) {
+                        return;
+                      }
+                      onLoanChange!(tx.id, tx.loan_id!, Math.round(parsed * 100) / 100);
+                      setEditingLoanAmt(false);
+                    }}
+                    className="text-[11px] px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-medium whitespace-nowrap disabled:opacity-50"
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updating}
+                    data-testid={`modal-loan-amount-clear-${tx.id}`}
+                    onClick={() => {
+                      onLoanChange!(tx.id, tx.loan_id!, null);
+                      setLoanAmtDraft('');
+                      setEditingLoanAmt(false);
+                    }}
+                    className="text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-border text-slate-300 whitespace-nowrap disabled:opacity-50"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </>
           )}
           {onRecurrenceChange && (
             <select

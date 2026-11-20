@@ -457,14 +457,21 @@ export async function updateTransactionRecurrence(
 
 export async function updateTransactionLoan(
   transactionId: number,
-  loanId: number | null
+  loanId: number | null,
+  loanPaymentAmount?: number | null
 ): Promise<Transaction> {
+  const payload: { loan_id: number | null; loan_payment_amount?: number | null } = {
+    loan_id: loanId,
+  };
+  if (loanPaymentAmount !== undefined) {
+    payload.loan_payment_amount = loanPaymentAmount;
+  }
   const res = await authFetch(`${API_BASE}/transactions/${transactionId}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ loan_id: loanId }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     throw new Error(await readApiError(res, 'Failed to update transaction loan'));

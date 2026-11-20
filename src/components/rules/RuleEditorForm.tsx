@@ -76,6 +76,9 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
   const selectableLoans = loans.filter(
     (loan) => loan.is_active || String(loan.id) === draft.loanId
   );
+  const showLoanTarget =
+    draft.targetCategory.trim().toLowerCase() === 'debt & loans' ||
+    Boolean(draft.loanId);
 
   const updateField = <K extends keyof RuleFormDraft>(key: K, value: RuleFormDraft[K]) => {
     onChange((prev) => ({ ...prev, [key]: value }));
@@ -241,7 +244,17 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
           <label className="text-[11px] text-slate-300 block mb-1">Target Category</label>
           <select
             value={draft.targetCategory}
-            onChange={(e) => updateField('targetCategory', e.target.value)}
+            onChange={(e) => {
+              const nextCategory = e.target.value;
+              onChange((prev) => ({
+                ...prev,
+                targetCategory: nextCategory,
+                loanId:
+                  nextCategory.trim().toLowerCase() === 'debt & loans'
+                    ? prev.loanId
+                    : '',
+              }));
+            }}
             data-testid="rule-category-select"
             className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           >
@@ -326,32 +339,35 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
           </p>
         </div>
 
-        <div className="sm:col-span-2">
-          <label
-            htmlFor="rule-loan-select"
-            className="text-[11px] text-slate-300 block mb-1"
-          >
-            Financing / Loan Target <span className="text-slate-400">(optional)</span>
-          </label>
-          <select
-            id="rule-loan-select"
-            aria-label="Financing / Loan Target"
-            value={draft.loanId}
-            onChange={(e) => updateField('loanId', e.target.value)}
-            data-testid="rule-loan-select"
-            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
-          >
-            <option value="">None (No financing loan)</option>
-            {selectableLoans.map((loan) => (
-              <option key={loan.id} value={String(loan.id)}>
-                {loan.name} ({loan.lender})
-              </option>
-            ))}
-          </select>
-          <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-            Matching <span className="text-rose-300 font-medium">outflow</span> transactions automatically link to and amortize the selected loan without creating duplicate transfer legs.
-          </p>
-        </div>
+        {showLoanTarget && (
+          <div className="sm:col-span-2">
+            <label
+              htmlFor="rule-loan-select"
+              className="text-[11px] text-slate-300 block mb-1"
+            >
+              Financing / Loan Target <span className="text-slate-400">(optional)</span>
+            </label>
+            <select
+              id="rule-loan-select"
+              aria-label="Financing / Loan Target"
+              value={draft.loanId}
+              onChange={(e) => updateField('loanId', e.target.value)}
+              data-testid="rule-loan-select"
+              className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            >
+              <option value="">None (No financing loan)</option>
+              {selectableLoans.map((loan) => (
+                <option key={loan.id} value={String(loan.id)}>
+                  {loan.name} ({loan.lender}) [
+                  {loan.loan_type === 'lent' ? 'Owed to Me' : 'I Owe'}]
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+              Matching <span className="text-amber-300 font-medium">Debt &amp; Loans</span> transactions automatically link to the selected loan (outflows amortize &quot;I Owe&quot; debt or record &quot;Owed to Me&quot; lending; inflows record repayments) without creating duplicate transfer legs.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="pt-1 flex items-center space-x-2">
