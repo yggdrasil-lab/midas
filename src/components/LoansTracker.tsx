@@ -516,7 +516,7 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
                                 Math.abs(appliedAmt - rawAmt) > 0.005);
                             return (
                               <div
-                                key={payment.id}
+                                key={`${payment.id}-${payment.split_id ?? 'tx'}`}
                                 data-testid={`loan-payment-row-${payment.id}`}
                                 className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/60 border border-border/60 text-[11px]"
                               >

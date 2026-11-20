@@ -25,30 +25,33 @@ export async function assertLoanRowHasNoOverlap(page: Page, txId: number): Promi
   const pill = row.locator(`[data-testid="loan-flow-${txId}"] >> visible=true`).first();
   const amount = row.locator(`[data-testid="tx-amount-${txId}"] >> visible=true`).first();
   const loanSelect = row.locator(`[data-testid="modal-select-loan-${txId}"] >> visible=true`).first();
+  const categorySelect = row.locator(`[data-testid="modal-select-category-${txId}"] >> visible=true`).first();
 
   await expect(row).toBeVisible();
   await expect(pill).toBeVisible();
   await expect(amount).toBeVisible();
-  await expect(loanSelect).toBeVisible();
 
-  const [rowBox, pillBox, amountBox, selectBox] = await Promise.all([
+  const control = (await loanSelect.count()) > 0 ? loanSelect : categorySelect;
+  await expect(control).toBeVisible();
+
+  const [rowBox, pillBox, amountBox, controlBox] = await Promise.all([
     row.boundingBox(),
     pill.boundingBox(),
     amount.boundingBox(),
-    loanSelect.boundingBox(),
+    control.boundingBox(),
   ]);
 
   expect(rowBox).not.toBeNull();
   expect(pillBox).not.toBeNull();
   expect(amountBox).not.toBeNull();
-  expect(selectBox).not.toBeNull();
+  expect(controlBox).not.toBeNull();
 
   expect(boxesOverlap(pillBox!, amountBox!)).toBe(false);
-  expect(boxesOverlap(pillBox!, selectBox!)).toBe(false);
-  expect(boxesOverlap(amountBox!, selectBox!)).toBe(false);
+  expect(boxesOverlap(pillBox!, controlBox!)).toBe(false);
+  expect(boxesOverlap(amountBox!, controlBox!)).toBe(false);
 
   expect(pillBox!.x + pillBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width + 1);
-  expect(selectBox!.x + selectBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width + 1);
+  expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width + 1);
 }
 
 /**

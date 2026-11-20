@@ -4,6 +4,7 @@ import { LoanItem, RecurrenceType, Transaction } from '../types';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { ReceiptDetailModal } from './receipts/ReceiptDetailModal';
 import { TransactionRow } from './TransactionRow';
+import { TransactionSplitModal } from './TransactionSplitModal';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -24,6 +25,7 @@ interface TransactionListProps {
   ) => void;
   onCreateRule: (tx: Transaction) => void;
   onReceiptUpdated?: () => void;
+  onSplitsUpdated?: (updatedTx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
   scrollable?: boolean;
@@ -51,6 +53,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onLoanChange,
   onCreateRule,
   onReceiptUpdated,
+  onSplitsUpdated,
   showAccountBadge = true,
   fallbackCurrency,
   scrollable = true,
@@ -60,6 +63,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   getRuleBtnTestId,
 }) => {
   const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(null);
+  const [splittingTx, setSplittingTx] = useState<Transaction | null>(null);
   const displayTransactions = useMemo(
     () => collapsePairedTransfers(transactions),
     [transactions]
@@ -100,6 +104,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             onLoanChange={onLoanChange}
             onCreateRule={onCreateRule}
             onOpenReceipt={(receiptId) => setSelectedReceiptId(receiptId)}
+            onOpenSplit={(rowTx) => setSplittingTx(rowTx)}
             showAccountBadge={showAccountBadge}
             fallbackCurrency={fallbackCurrency}
             rowTestId={getRowTestId?.(tx)}
@@ -114,6 +119,18 @@ export const TransactionList: React.FC<TransactionListProps> = ({
         isOpen={selectedReceiptId !== null}
         onClose={() => setSelectedReceiptId(null)}
         onReceiptUpdated={onReceiptUpdated}
+      />
+
+      <TransactionSplitModal
+        transaction={splittingTx}
+        isOpen={splittingTx !== null}
+        onClose={() => setSplittingTx(null)}
+        categories={categories}
+        loans={loans || []}
+        onSaved={(updatedTx) => {
+          onSplitsUpdated?.(updatedTx);
+          onReceiptUpdated?.();
+        }}
       />
     </>
   );

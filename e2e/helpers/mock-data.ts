@@ -941,6 +941,18 @@ export async function setupMockApi(page: Page) {
     fee_amount?: number | null;
     is_amortized_commitment?: boolean;
     amortized_period_amount_nzd?: number | null;
+    splits?: Array<{
+      id: number;
+      transaction_id: number;
+      amount: number;
+      category: string;
+      tags: string[];
+      loan_id?: number | null;
+      loan_name?: string | null;
+      loan_type?: 'borrowed' | 'lent' | null;
+      notes?: string | null;
+    }>;
+    is_split?: boolean;
   }
 
   const mockTransactions: MockTransactionRecord[] = [
@@ -1283,6 +1295,7 @@ export async function setupMockApi(page: Page) {
     disbursements: [...(l.disbursements || [])],
   }));
   let nextLoanId = 3;
+  let nextSplitId = 500;
 
   const resolveLoan = (loanId: number | null | undefined): MockLoanRecord | null => {
     if (loanId === null || loanId === undefined) return null;
@@ -1295,37 +1308,75 @@ export async function setupMockApi(page: Page) {
   const resolveLoanType = (loanId: number | null | undefined): 'borrowed' | 'lent' | null =>
     resolveLoan(loanId)?.loan_type ?? null;
 
+  interface LoanLinkedEntry {
+    tx: MockTransactionRecord;
+    appliedAmt: number;
+    loanPaymentAmount: number | null;
+    splitId: number | null;
+    notes: string | null;
+    category: string;
+  }
+
+  const collectLoanEntries = (loanId: number): LoanLinkedEntry[] => {
+    const entries: LoanLinkedEntry[] = [];
+    for (const tx of mockTransactions) {
+      const rawAmt = Math.abs(tx.amount);
+      if (tx.is_split && tx.splits && tx.splits.length > 0) {
+        for (const split of tx.splits) {
+          if (split.loan_id === loanId) {
+            const splitAmt = Math.min(rawAmt, Math.abs(Number(split.amount)));
+            entries.push({
+              tx,
+              appliedAmt: splitAmt,
+              loanPaymentAmount: splitAmt,
+              splitId: split.id,
+              notes: split.notes ?? null,
+              category: split.category,
+            });
+          }
+        }
+      } else if (tx.loan_id === loanId) {
+        const appliedAmt =
+          tx.loan_payment_amount != null
+            ? Math.min(rawAmt, Number(tx.loan_payment_amount))
+            : rawAmt;
+        entries.push({
+          tx,
+          appliedAmt,
+          loanPaymentAmount: tx.loan_payment_amount ?? null,
+          splitId: null,
+          notes: null,
+          category: tx.category,
+        });
+      }
+    }
+    return entries.sort((a, b) => a.tx.transaction_date.localeCompare(b.tx.transaction_date));
+  };
+
   const computeLoansSummary = () => {
     const computedLoans = mockLoans.map((loan) => {
       const isLent = loan.loan_type === 'lent';
-      const allLinkedTxs = mockTransactions
-        .filter((tx) => tx.loan_id === loan.id)
-        .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+      const allLinkedEntries = collectLoanEntries(loan.id);
 
       if (isLent) {
-        const repaymentTxs = allLinkedTxs.filter((tx) => tx.amount > 0);
-        const disbursementTxs = allLinkedTxs.filter((tx) => tx.amount < 0);
+        const repaymentEntries = allLinkedEntries.filter((e) => e.tx.amount > 0);
+        const disbursementEntries = allLinkedEntries.filter((e) => e.tx.amount < 0);
         let remaining = loan.principal_amount;
         let totalRepaid = 0;
 
-        for (const tx of repaymentTxs) {
-          const rawAmt = Math.abs(tx.amount);
-          const appliedAmt =
-            tx.loan_payment_amount != null
-              ? Math.min(rawAmt, Number(tx.loan_payment_amount))
-              : rawAmt;
-          totalRepaid = Math.round((totalRepaid + appliedAmt) * 100) / 100;
-          remaining = Math.max(0, Math.round((remaining - appliedAmt) * 100) / 100);
+        for (const entry of repaymentEntries) {
+          totalRepaid = Math.round((totalRepaid + entry.appliedAmt) * 100) / 100;
+          remaining = Math.max(0, Math.round((remaining - entry.appliedAmt) * 100) / 100);
         }
 
         const lastPaymentDate =
-          repaymentTxs.length > 0
-            ? repaymentTxs[repaymentTxs.length - 1].transaction_date
+          repaymentEntries.length > 0
+            ? repaymentEntries[repaymentEntries.length - 1].tx.transaction_date
             : null;
 
         return {
           ...loan,
-          payments_made: repaymentTxs.length,
+          payments_made: repaymentEntries.length,
           payments_remaining: 0,
           payoff_date: null,
           next_payment_date: null,
@@ -1336,57 +1387,50 @@ export async function setupMockApi(page: Page) {
           last_payment_date: lastPaymentDate,
           is_payment_due: false,
           net_worth_impact: remaining,
-          linked_payments: [...repaymentTxs].reverse().map((tx) => {
-            const rawAmt = Math.abs(tx.amount);
-            const appliedAmt =
-              tx.loan_payment_amount != null
-                ? Math.min(rawAmt, Number(tx.loan_payment_amount))
-                : rawAmt;
-            return {
-              id: tx.id,
-              transaction_date: tx.transaction_date,
-              amount: tx.amount,
-              currency: tx.currency,
-              amount_nzd: rawAmt,
-              applied_amount: appliedAmt,
-              loan_payment_amount: tx.loan_payment_amount ?? null,
-              entry_type: 'repayment' as const,
-              merchant: tx.merchant,
-              account_id: tx.account_id,
-              account_name: tx.account_name,
-              category: tx.category,
-            };
-          }),
-          disbursements: [...disbursementTxs].reverse().map((tx) => ({
-            id: tx.id,
-            transaction_date: tx.transaction_date,
-            amount: tx.amount,
-            currency: tx.currency,
-            amount_nzd: Math.abs(tx.amount),
-            applied_amount: Math.abs(tx.amount),
-            loan_payment_amount: tx.loan_payment_amount ?? null,
+          linked_payments: [...repaymentEntries].reverse().map((entry) => ({
+            id: entry.tx.id,
+            transaction_date: entry.tx.transaction_date,
+            amount: entry.tx.amount,
+            currency: entry.tx.currency,
+            amount_nzd: Math.abs(entry.tx.amount),
+            applied_amount: entry.appliedAmt,
+            loan_payment_amount: entry.loanPaymentAmount,
+            split_id: entry.splitId,
+            notes: entry.notes,
+            entry_type: 'repayment' as const,
+            merchant: entry.tx.merchant,
+            account_id: entry.tx.account_id,
+            account_name: entry.tx.account_name,
+            category: entry.category,
+          })),
+          disbursements: [...disbursementEntries].reverse().map((entry) => ({
+            id: entry.tx.id,
+            transaction_date: entry.tx.transaction_date,
+            amount: entry.tx.amount,
+            currency: entry.tx.currency,
+            amount_nzd: Math.abs(entry.tx.amount),
+            applied_amount: entry.appliedAmt,
+            loan_payment_amount: entry.loanPaymentAmount,
+            split_id: entry.splitId,
+            notes: entry.notes,
             entry_type: 'disbursement' as const,
-            merchant: tx.merchant,
-            account_id: tx.account_id,
-            account_name: tx.account_name,
-            category: tx.category,
+            merchant: entry.tx.merchant,
+            account_id: entry.tx.account_id,
+            account_name: entry.tx.account_name,
+            category: entry.category,
           })),
         };
       }
 
-      const linkedTxs = allLinkedTxs.filter((tx) => tx.amount < 0);
+      const linkedEntries = allLinkedEntries.filter((e) => e.tx.amount < 0);
       const monthlyRate = loan.annual_interest_rate / 12;
       let remaining = loan.principal_amount;
       let totalPaid = 0;
       let interestPaid = 0;
       let principalPaid = 0;
 
-      for (const tx of linkedTxs) {
-        const rawAmt = Math.abs(tx.amount);
-        const paymentAmt =
-          tx.loan_payment_amount != null
-            ? Math.min(rawAmt, Number(tx.loan_payment_amount))
-            : rawAmt;
+      for (const entry of linkedEntries) {
+        const paymentAmt = entry.appliedAmt;
         const interest = Math.round(remaining * monthlyRate * 100) / 100;
         const principalPortion = Math.min(
           remaining,
@@ -1398,10 +1442,10 @@ export async function setupMockApi(page: Page) {
         remaining = Math.max(0, Math.round((remaining - principalPortion) * 100) / 100);
       }
 
-      const paymentsMade = linkedTxs.length;
+      const paymentsMade = linkedEntries.length;
       const paymentsRemaining = Math.max(0, loan.term_months - paymentsMade);
       const lastPaymentDate =
-        linkedTxs.length > 0 ? linkedTxs[linkedTxs.length - 1].transaction_date : null;
+        linkedEntries.length > 0 ? linkedEntries[linkedEntries.length - 1].tx.transaction_date : null;
       const isPaymentDue = paymentsMade === 0;
       const nextPaymentDate =
         paymentsMade === 0 ? loan.next_payment_date || loan.start_date : '2026-12-20';
@@ -1419,27 +1463,22 @@ export async function setupMockApi(page: Page) {
         last_payment_date: lastPaymentDate,
         is_payment_due: isPaymentDue,
         net_worth_impact: netWorthImpact,
-        linked_payments: [...linkedTxs].reverse().map((tx) => {
-          const rawAmt = Math.abs(tx.amount);
-          const appliedAmt =
-            tx.loan_payment_amount != null
-              ? Math.min(rawAmt, Number(tx.loan_payment_amount))
-              : rawAmt;
-          return {
-            id: tx.id,
-            transaction_date: tx.transaction_date,
-            amount: tx.amount,
-            currency: tx.currency,
-            amount_nzd: rawAmt,
-            applied_amount: appliedAmt,
-            loan_payment_amount: tx.loan_payment_amount ?? null,
-            entry_type: 'repayment' as const,
-            merchant: tx.merchant,
-            account_id: tx.account_id,
-            account_name: tx.account_name,
-            category: tx.category,
-          };
-        }),
+        linked_payments: [...linkedEntries].reverse().map((entry) => ({
+          id: entry.tx.id,
+          transaction_date: entry.tx.transaction_date,
+          amount: entry.tx.amount,
+          currency: entry.tx.currency,
+          amount_nzd: Math.abs(entry.tx.amount),
+          applied_amount: entry.appliedAmt,
+          loan_payment_amount: entry.loanPaymentAmount,
+          split_id: entry.splitId,
+          notes: entry.notes,
+          entry_type: 'repayment' as const,
+          merchant: entry.tx.merchant,
+          account_id: entry.tx.account_id,
+          account_name: entry.tx.account_name,
+          category: entry.category,
+        })),
         disbursements: [],
       };
     });
@@ -1477,7 +1516,68 @@ export async function setupMockApi(page: Page) {
 
   // 7. Mock Transactions Endpoints for Inspection & Category Correction
   await page.route(/\/api\/transactions(\/.*|\?.*)?$/, async (route) => {
-    if (route.request().method() === 'PATCH') {
+    const reqUrl = route.request().url();
+    const method = route.request().method();
+
+    if (method === 'PUT' && /\/api\/transactions\/(\d+)\/splits$/.test(reqUrl)) {
+      const match = reqUrl.match(/\/api\/transactions\/(\d+)\/splits$/);
+      const txId = match ? Number(match[1]) : 101;
+      const rawBody = route.request().postDataJSON();
+      const inputSplits = Array.isArray(rawBody)
+        ? rawBody
+        : Array.isArray(rawBody?.splits)
+          ? rawBody.splits
+          : [];
+      const existing = mockTransactions.find((tx) => tx.id === txId);
+      if (!existing) {
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Transaction not found' }),
+        });
+        return;
+      }
+      if (inputSplits.length === 0) {
+        existing.splits = [];
+        existing.is_split = false;
+      } else {
+        existing.loan_id = null;
+        existing.loan_name = null;
+        existing.loan_type = null;
+        existing.loan_payment_amount = null;
+        existing.splits = inputSplits.map(
+          (s: {
+            amount: number;
+            category: string;
+            tags?: string[];
+            loan_id?: number | null;
+            notes?: string | null;
+          }) => {
+            const splitLoanId = s.loan_id != null ? Number(s.loan_id) : null;
+            return {
+              id: nextSplitId++,
+              transaction_id: txId,
+              amount: Number(s.amount),
+              category: String(s.category || existing.category),
+              tags: Array.isArray(s.tags) ? s.tags : [],
+              loan_id: splitLoanId,
+              loan_name: resolveLoanName(splitLoanId),
+              loan_type: resolveLoanType(splitLoanId),
+              notes: s.notes ?? null,
+            };
+          }
+        );
+        existing.is_split = true;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(existing),
+      });
+      return;
+    }
+
+    if (method === 'PATCH') {
       const match = route.request().url().match(/\/api\/transactions\/(\d+)/);
       const txId = match ? Number(match[1]) : 101;
       const body = route.request().postDataJSON();
@@ -1544,9 +1644,28 @@ export async function setupMockApi(page: Page) {
         );
       }
       if (categoryParam) {
-        filtered = filtered.filter(
-          (tx) => tx.category.toLowerCase() === categoryParam.toLowerCase()
-        );
+        const targetLower = categoryParam.toLowerCase();
+        filtered = filtered
+          .map((tx) => {
+            if (tx.is_split && tx.splits && tx.splits.length > 0) {
+              const matched = tx.splits.filter(
+                (s) => s.category.toLowerCase() === targetLower
+              );
+              if (matched.length === 0) return null;
+              const sign = tx.amount < 0 ? -1 : 1;
+              const splitAmt =
+                Math.round(
+                  matched.reduce((sum, s) => sum + Math.abs(Number(s.amount)), 0) * 100
+                ) / 100;
+              return {
+                ...tx,
+                amount: sign * splitAmt,
+                category: matched[0].category,
+              };
+            }
+            return tx.category.toLowerCase() === targetLower ? tx : null;
+          })
+          .filter((tx): tx is MockTransactionRecord => tx !== null);
       }
       if (tagParam) {
         filtered = filtered.filter((tx) => (tx.tags || []).includes(tagParam));

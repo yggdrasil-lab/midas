@@ -100,19 +100,38 @@ for (const { name, device } of MOBILE_PLATFORMS) {
         page.locator('text=Linked transaction to "Toyota Corolla Cross (TFS)"')
       ).toBeVisible();
 
-      // Switching +5,020 inflow from Family -> Debt & Loans reveals loan picker (lent options only)
-      const catSelect142 = page.getByTestId('modal-select-category-142');
-      await catSelect142.scrollIntoViewIfNeeded();
-      await catSelect142.selectOption('Debt & Loans');
-      const loanSelect142 = page.getByTestId('modal-select-loan-142');
-      await expect(loanSelect142).toBeVisible();
-      await expect(loanSelect142.locator('option')).toHaveCount(2);
-      await loanSelect142.selectOption('2');
+      // Split +5,020 inflow via TransactionSplitModal (5,000 Debt & Loans -> Loan to Brother, 20 Family)
+      const splitBtn142 = page.getByTestId('split-tx-btn-142');
+      await splitBtn142.scrollIntoViewIfNeeded();
+      await splitBtn142.click();
 
-      // Partial loan_payment_amount inline edit (5000 of 5020)
-      await page.getByTestId('modal-loan-split-btn-142').click();
-      await page.getByTestId('modal-loan-amount-input-142').fill('5000');
-      await page.getByTestId('modal-loan-amount-save-142').click();
+      const splitModal = page.getByTestId('transaction-split-modal');
+      await expect(splitModal).toBeVisible();
+      await page.getByTestId('split-amount-0').fill('5000');
+      await expect(page.getByTestId('split-amount-1')).toHaveValue('20.00');
+      await expect(page.getByTestId('split-allocation-pill')).toContainText('Balanced');
+
+      await page.getByTestId('split-category-0').selectOption('Debt & Loans');
+      const splitLoan0 = page.getByTestId('split-loan-0');
+      await expect(splitLoan0).toBeVisible();
+      await expect(splitLoan0.locator('option')).toHaveCount(2);
+      await splitLoan0.selectOption('2');
+
+      await page.getByTestId('split-category-1').selectOption('Family');
+      await page.getByTestId('split-notes-1').fill('Food split');
+      await page.getByTestId('save-splits-btn').click();
+      await expect(splitModal).toBeHidden();
+
+      const splitBadge142 = page.getByTestId('open-split-badge-142');
+      await expect(splitBadge142).toBeVisible();
+      await expect(splitBadge142).toContainText('Split (2)');
+
+      const splitSummary142 = page.getByTestId('split-summary-142');
+      await expect(splitSummary142).toBeVisible();
+      await expect(splitSummary142).toContainText('Debt & Loans');
+      await expect(splitSummary142).toContainText('$5,000.00');
+      await expect(splitSummary142).toContainText('Family');
+      await expect(splitSummary142).toContainText('$20.00');
 
       const lentFlowPill142 = page.getByTestId('loan-flow-142');
       await expect(lentFlowPill142).toBeVisible();
@@ -120,11 +139,13 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(lentFlowPill142).toContainText('ASB Everyday Checking');
       await expect(lentFlowPill142).toContainText('Repayment');
       await expect(lentFlowPill142).toContainText('$5,000.00 of $5,020.00');
-      await expect(page.getByTestId('modal-loan-split-btn-142')).toContainText('Applied: $5,000.00');
+      await expect(page.getByTestId('modal-select-loan-142')).toHaveCount(0);
+      await expect(page.getByTestId('modal-loan-split-btn-142')).toHaveCount(0);
 
-      // Link full +1,000 inflow to Loan to Brother
+      // Link full +1,000 inflow to Loan to Brother (lent options only)
       const loanSelect143 = page.getByTestId('modal-select-loan-143');
       await loanSelect143.scrollIntoViewIfNeeded();
+      await expect(loanSelect143.locator('option')).toHaveCount(2);
       await loanSelect143.selectOption('2');
       await expect(page.getByTestId('loan-flow-143')).toContainText('Repayment');
 

@@ -189,8 +189,15 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
 
   const filteredTransactions = useMemo(() => {
     return collapsedTransactions.filter((tx) => {
-      if (categoryFilter && tx.category.toLowerCase() !== categoryFilter.toLowerCase()) {
-        return false;
+      if (categoryFilter) {
+        const filterLower = categoryFilter.toLowerCase();
+        const matchesParent = tx.category.toLowerCase() === filterLower;
+        const matchesSplit = (tx.splits || []).some(
+          (s) => s.category.toLowerCase() === filterLower
+        );
+        if (!matchesParent && !matchesSplit) {
+          return false;
+        }
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().replace(/^#+/, '');
@@ -202,7 +209,14 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
           (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
           (tx.loan_name || '').toLowerCase().includes(q) ||
           (tx.raw_description || '').toLowerCase().includes(q) ||
-          (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
+          (tx.tags || []).some((tag) => tag.toLowerCase().includes(q)) ||
+          (tx.splits || []).some(
+            (s) =>
+              s.category.toLowerCase().includes(q) ||
+              (s.loan_name || '').toLowerCase().includes(q) ||
+              (s.notes || '').toLowerCase().includes(q) ||
+              (s.tags || []).some((tag) => tag.toLowerCase().includes(q))
+          )
         );
       }
       return true;
@@ -393,6 +407,12 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
           onReceiptUpdated={() => {
             void loadTransactions();
             onTransactionCategoryChanged();
+          }}
+          onSplitsUpdated={(updatedTx) => {
+            handleTransactionUpdated(updatedTx.id, updatedTx);
+            setSuccessNote(
+              updatedTx.is_split ? 'Saved transaction splits' : 'Cleared transaction splits'
+            );
           }}
           showAccountBadge={account === null}
           fallbackCurrency={account?.currency}

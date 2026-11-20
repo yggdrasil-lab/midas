@@ -332,6 +332,12 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
             void loadTransactions();
             onTagDataChanged();
           }}
+          onSplitsUpdated={(updatedTx) => {
+            handleTransactionUpdated(updatedTx.id, updatedTx);
+            setSuccessNote(
+              updatedTx.is_split ? 'Saved transaction splits' : 'Cleared transaction splits'
+            );
+          }}
           showAccountBadge
         />
 
