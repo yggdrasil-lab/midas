@@ -244,7 +244,32 @@ for (const { name, device } of MOBILE_PLATFORMS) {
         path: `screenshots/${name}/14-loans-overview.png`,
       });
 
-      // 5. Tools -> Categorization rule with Category-Gated Financing / Loan Target
+      // 5. Budgets -> Travel category inspection modal (sliced tx.amount = -862.83, full splits)
+      await page.locator('nav button:has-text("Budgets")').locator('visible=true').first().click();
+      const travelCard = page.locator('[data-testid="category-row-travel"] >> visible=true').first();
+      await travelCard.scrollIntoViewIfNeeded();
+      await travelCard.click();
+
+      const catModal = page.getByTestId('category-inspection-modal');
+      await expect(catModal).toBeVisible();
+      await expect(catModal.getByTestId('loan-flow-144')).toContainText('$1,000.00 (from +$137.17 net)');
+
+      await catModal.getByTestId('open-split-badge-144').click();
+      await expect(splitModal).toBeVisible();
+      await expect(page.getByTestId('split-parent-amount')).toHaveText('+$137.17 NZD');
+      await expect(page.getByTestId('split-allocation-pill')).toHaveText('Balanced');
+      await expect(page.getByTestId('save-splits-btn')).toBeEnabled();
+
+      await page.getByTestId('split-notes-1').fill('Christchurch trip updated');
+      await page.getByTestId('save-splits-btn').click();
+      await expect(splitModal).toBeHidden();
+
+      await expect(catModal.getByTestId('split-summary-144')).toContainText('Christchurch trip updated');
+      await expect(catModal.getByTestId('loan-flow-144')).toContainText('$1,000.00 (from +$137.17 net)');
+      await catModal.getByRole('button', { name: 'Done' }).click();
+      await expect(catModal).toBeHidden();
+
+      // 6. Tools -> Categorization rule with Category-Gated Financing / Loan Target
       await page.locator('nav button:has-text("Tools")').locator('visible=true').first().click();
       await page.getByTestId('rules-manager-btn').click();
       await expect(
@@ -302,6 +327,22 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(page.getByTestId('split-sign-1')).toHaveText('+');
       await expect(page.getByTestId('split-amount-1')).toHaveValue('1000.00');
       await expect(page.getByTestId('split-allocation-pill')).toContainText('Balanced');
+
+      // Zero/blank line must warn 'Enter all line amounts' instead of misleading 'Balanced'
+      await page.getByTestId('split-amount-0').fill('+137.17');
+      await expect(page.getByTestId('split-amount-1')).toHaveValue('0.00');
+      await expect(page.getByTestId('split-allocation-pill')).toHaveText('Enter all line amounts');
+      await expect(page.getByTestId('save-splits-btn')).toBeDisabled();
+
+      // Adding a 3rd split line pre-fills the remaining sign and amount
+      await page.getByTestId('split-amount-0').fill('+100');
+      await expect(page.getByTestId('split-amount-1')).toHaveValue('37.17');
+      await page.getByTestId('split-amount-1').fill('20.00');
+      await expect(page.getByTestId('split-allocation-pill')).toContainText('Remaining: +$17.17');
+      await page.getByTestId('add-split-line-btn').click();
+      await expect(page.getByTestId('split-sign-2')).toHaveText('+');
+      await expect(page.getByTestId('split-amount-2')).toHaveValue('17.17');
+      await expect(page.getByTestId('split-allocation-pill')).toHaveText('Balanced');
 
       await page.getByRole('button', { name: 'Cancel' }).click();
       await expect(splitModal).toBeHidden();

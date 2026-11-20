@@ -8,6 +8,14 @@ import {
   formatSignedTransactionAmount,
   isCryptoCurrency,
 } from '../utils/format';
+import {
+  areLegacyPositiveOutflowSplits,
+  hasValidSplitLines,
+  resolveParentTransactionAmount,
+  roundToDecimals,
+} from '../utils/splits';
+
+export { resolveParentTransactionAmount };
 
 interface TransactionSplitModalProps {
   transaction: Transaction | null;
@@ -25,24 +33,6 @@ interface SplitDraftRow {
   loanId: string;
   notes: string;
   tagsText: string;
-}
-
-function roundToDecimals(value: number, decimals: number): number {
-  const factor = Math.pow(10, decimals);
-  return Math.round(value * factor) / factor;
-}
-
-function areLegacyPositiveOutflowSplits(tx: Transaction): boolean {
-  const splits = tx.splits || [];
-  if (Number(tx.amount) >= 0 || splits.length < 2) {
-    return false;
-  }
-  const allPositive = splits.every((s) => Number(s.amount) > 0);
-  if (!allPositive) {
-    return false;
-  }
-  const absSum = splits.reduce((sum, s) => sum + Number(s.amount), 0);
-  return Math.abs(absSum - Math.abs(Number(tx.amount))) <= 0.01;
 }
 
 function isDebtLoansCategory(category: string): boolean {
@@ -67,10 +57,11 @@ function createInitialRows(
   defaultCategory: string,
   decimals: number
 ): SplitDraftRow[] {
-  const defaultSign: 1 | -1 = Number(tx.amount) >= 0 ? 1 : -1;
-  if (tx.is_split && tx.splits && tx.splits.length >= 2) {
+  const defaultSign: 1 | -1 =
+    resolveParentTransactionAmount(tx, decimals) >= 0 ? 1 : -1;
+  if (hasValidSplitLines(tx)) {
     const forceNegative = areLegacyPositiveOutflowSplits(tx);
-    return tx.splits.map((s) => ({
+    return tx.splits!.map((s) => ({
       sign: forceNegative ? -1 : Number(s.amount) >= 0 ? 1 : -1,
       amount: Math.abs(Number(s.amount)).toFixed(decimals),
       category: s.category || defaultCategory,
@@ -125,9 +116,7 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
     }
     const txDecimals = isCryptoCurrency(transaction.currency || 'NZD') ? 8 : 2;
     setRows(createInitialRows(transaction, defaultCategory, txDecimals));
-    setRow2ManuallyEdited(
-      Boolean(transaction.is_split && transaction.splits && transaction.splits.length >= 2)
-    );
+    setRow2ManuallyEdited(hasValidSplitLines(transaction));
     setError(null);
     setSaving(false);
   }, [isOpen, transaction, defaultCategory]);
@@ -145,13 +134,13 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
     return null;
   }
 
-  const txAmount = Number(transaction.amount);
-  const isInflow = txAmount > 0;
-  const defaultSign: 1 | -1 = txAmount >= 0 ? 1 : -1;
   const txCurrency = transaction.currency || 'NZD';
   const isCrypto = isCryptoCurrency(txCurrency);
   const decimals = isCrypto ? 8 : 2;
   const balanceTolerance = isCrypto ? 1e-8 : 0.01;
+  const txAmount = resolveParentTransactionAmount(transaction, decimals);
+  const isInflow = txAmount > 0;
+  const defaultSign: 1 | -1 = txAmount >= 0 ? 1 : -1;
 
   const parsedSignedAmounts = rows.map((r) => {
     const n = parseFloat(r.amount);
@@ -167,7 +156,8 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
     const n = parseFloat(r.amount);
     return Number.isFinite(n) && n > 0 && r.category.trim().length > 0;
   }).length;
-  const canSave = !saving && isBalanced && rows.length >= 2 && validRowsCount === rows.length;
+  const hasInvalidRows = validRowsCount < rows.length;
+  const canSave = !saving && isBalanced && rows.length >= 2 && !hasInvalidRows;
 
   const getFilteredLoans = (rowSign: 1 | -1, currentLoanId: string) =>
     loans.filter((loan) => {
@@ -297,11 +287,14 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
   };
 
   const handleAddRow = () => {
+    const hasRemainder = Math.abs(remaining) > balanceTolerance;
+    const nextSign: 1 | -1 = hasRemainder ? (remaining < 0 ? -1 : 1) : defaultSign;
+    const nextAmount = hasRemainder ? Math.abs(remaining).toFixed(decimals) : '';
     setRows((prev) => [
       ...prev,
       {
-        sign: defaultSign,
-        amount: '',
+        sign: nextSign,
+        amount: nextAmount,
         category: transaction.category || defaultCategory,
         loanId: '',
         notes: '',
@@ -360,8 +353,11 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
     }
   };
 
+  const isReadyToSave = isBalanced && !hasInvalidRows;
   const allocationText = isBalanced
-    ? 'Balanced'
+    ? hasInvalidRows
+      ? 'Enter all line amounts'
+      : 'Balanced'
     : `Remaining: ${formatMoney(remaining, {
         currency: isCrypto ? '' : '$',
         minimumFractionDigits: 2,
@@ -369,7 +365,7 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
         showPlusSign: true,
       })}`;
 
-  const allocationBadgeClass = isBalanced
+  const allocationBadgeClass = isReadyToSave
     ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
     : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
 

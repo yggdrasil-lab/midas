@@ -20,6 +20,11 @@ import {
   getTransactionNzdAmount,
   isCryptoCurrency,
 } from '../utils/format';
+import {
+  areLegacyPositiveOutflowSplits,
+  hasValidSplitLines,
+  resolveParentTransactionAmount,
+} from '../utils/splits';
 
 const RECURRENCE_UNIT_LABELS: Record<string, string> = {
   annual: 'yr',
@@ -88,6 +93,10 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const amt = Number(tx.amount);
   const isDebit = amt < 0;
   const txCurrency = tx.currency || fallbackCurrency || 'NZD';
+  const parentAmt = resolveParentTransactionAmount(
+    tx,
+    isCryptoCurrency(txCurrency) ? 8 : 2
+  );
   const formattedAmt = formatSignedTransactionAmount(amt, txCurrency);
   const amortizedUnit = tx.amortized_cadence === 'week' ? 'wk' : 'mo';
   const amortizedAmtFormatted = isAmortized
@@ -131,17 +140,13 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     tx.linked_currency !== txCurrency;
   const isLinkedBtc = (tx.linked_currency || '').toUpperCase() === 'BTC';
   const isDebtAndLoansCategory = (tx.category || '').trim().toLowerCase() === 'debt & loans';
-  const isSplit = Boolean(tx.is_split && tx.splits && tx.splits.length >= 2);
+  const isSplit = hasValidSplitLines(tx);
   const rawSplits = tx.splits || [];
-  const areLegacyPositiveOutflowSplits =
-    isSplit &&
-    amt < 0 &&
-    rawSplits.every((s) => Number(s.amount) > 0) &&
-    Math.abs(rawSplits.reduce((sum, s) => sum + Number(s.amount), 0) - Math.abs(amt)) <= 0.01;
+  const legacyPositiveOutflowSplits = areLegacyPositiveOutflowSplits(tx);
   const effectiveSplits = isSplit
     ? rawSplits.map((s) => ({
         ...s,
-        signedAmount: areLegacyPositiveOutflowSplits
+        signedAmount: legacyPositiveOutflowSplits
           ? -Math.abs(Number(s.amount))
           : Number(s.amount),
       }))
@@ -202,7 +207,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     const currencySymbol = isCrypto ? '' : '$';
     const amtNum = Number(paymentAmount);
     const exceedsNetParent =
-      paymentAmount != null && Math.abs(amtNum) > Math.abs(amt) + 0.005;
+      paymentAmount != null && Math.abs(amtNum) > Math.abs(parentAmt) + 0.005;
     return (
       <div
         key={key}
@@ -274,7 +279,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
                   maximumFractionDigits: maxDigits,
                 })}{' '}
                 (from{' '}
-                {formatMoney(amt, {
+                {formatMoney(parentAmt, {
                   currency: currencySymbol,
                   minimumFractionDigits: 2,
                   maximumFractionDigits: maxDigits,
@@ -291,7 +296,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
                   maximumFractionDigits: maxDigits,
                 })}{' '}
                 of{' '}
-                {formatMoney(Math.abs(amt), {
+                {formatMoney(Math.abs(parentAmt), {
                   currency: currencySymbol,
                   minimumFractionDigits: 2,
                   maximumFractionDigits: maxDigits,
