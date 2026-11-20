@@ -6,10 +6,11 @@ import {
   createRule,
   deleteRule,
   fetchAccounts,
+  fetchLoans,
   fetchRules,
   updateRule,
 } from '../services/api';
-import { Account, CategorizationRule, CategorizationRuleCreate } from '../types';
+import { Account, CategorizationRule, CategorizationRuleCreate, LoanItem } from '../types';
 import {
   DEFAULT_RULE_DRAFT,
   RuleEditorForm,
@@ -50,6 +51,10 @@ function draftFromPrefill(prefill: Partial<CategorizationRuleCreate>): RuleFormD
       prefill.counterpart_account_id !== undefined && prefill.counterpart_account_id !== null
         ? String(prefill.counterpart_account_id)
         : '',
+    loanId:
+      prefill.loan_id !== undefined && prefill.loan_id !== null
+        ? String(prefill.loan_id)
+        : '',
     priority: prefill.priority || 10,
     applyRetroactively: prefill.apply_retroactively !== false,
   };
@@ -70,6 +75,7 @@ function draftFromRule(rule: CategorizationRule): RuleFormDraft {
     renameMerchant: rule.rename_merchant || '',
     counterpartAccountId:
       rule.counterpart_account_id != null ? String(rule.counterpart_account_id) : '',
+    loanId: rule.loan_id != null ? String(rule.loan_id) : '',
     priority: rule.priority,
     applyRetroactively: true,
   };
@@ -87,6 +93,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
 }) => {
   const [rules, setRules] = useState<CategorizationRule[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loans, setLoans] = useState<LoanItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -102,12 +109,14 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [rulesRes, accountsRes] = await Promise.all([
+      const [rulesRes, accountsRes, loansRes] = await Promise.all([
         fetchRules(),
         fetchAccounts(),
+        fetchLoans().catch(() => null),
       ]);
       setRules(rulesRes);
       setAccounts(accountsRes);
+      setLoans(loansRes?.loans || []);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load categorization rules');
@@ -177,6 +186,9 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     const rawCounterpart = draft.counterpartAccountId.trim();
     const counterpartNum = rawCounterpart !== '' ? parseInt(rawCounterpart, 10) : NaN;
     const parsedCounterpart = !isNaN(counterpartNum) ? counterpartNum : null;
+    const rawLoanId = draft.loanId.trim();
+    const loanIdNum = rawLoanId !== '' ? parseInt(rawLoanId, 10) : NaN;
+    const parsedLoanId = !isNaN(loanIdNum) ? loanIdNum : null;
     const payload: CategorizationRuleCreate = {
       name: draft.name.trim(),
       description_pattern: draft.descriptionPattern.trim(),
@@ -190,6 +202,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       target_recurrence: draft.targetRecurrence || null,
       rename_merchant: draft.renameMerchant.trim() || null,
       counterpart_account_id: parsedCounterpart,
+      loan_id: parsedLoanId,
       priority: draft.priority,
       apply_retroactively: draft.applyRetroactively,
     };
@@ -274,7 +287,8 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       r.target_category.toLowerCase().includes(q) ||
       (r.direction && r.direction.toLowerCase().includes(q)) ||
       (r.rename_merchant && r.rename_merchant.toLowerCase().includes(q)) ||
-      (r.counterpart_account_name && r.counterpart_account_name.toLowerCase().includes(q))
+      (r.counterpart_account_name && r.counterpart_account_name.toLowerCase().includes(q)) ||
+      (r.loan_name && r.loan_name.toLowerCase().includes(q))
     );
   });
 
@@ -324,6 +338,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
           <RuleEditorForm
             draft={draft}
             accounts={accounts}
+            loans={loans}
             isEditing={Boolean(editingRuleId)}
             saving={isSaving}
             onChange={setDraft}

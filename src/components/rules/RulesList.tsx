@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ArrowRight,
   ArrowRightLeft,
+  Car,
   CheckCircle2,
   Landmark,
   Pencil,
@@ -197,6 +198,16 @@ export const RulesList: React.FC<RulesListProps> = ({
                       </span>
                     );
                   })()}
+                  {Boolean(rule.loan_name) && (
+                    <span
+                      data-testid={`rule-loan-badge-${rule.id}`}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border bg-rose-500/10 text-rose-300 border-rose-500/25 text-[10px] font-medium"
+                      title="Automatically links matching outflow transactions to this financing loan"
+                    >
+                      <Car className="w-2.5 h-2.5 shrink-0" />
+                      <span>{`-> ${rule.loan_name}`}</span>
+                    </span>
+                  )}
                   {(rule.target_tags || []).map((tag) => (
                     <span
                       key={tag}

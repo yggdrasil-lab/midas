@@ -13,8 +13,9 @@ import {
 } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchTagTransactions } from '../services/api';
+import { fetchLoans, fetchTagTransactions } from '../services/api';
 import {
+  LoanItem,
   PeriodType,
   TagCategoryBreakdownItem,
   TagSpendingSummaryItem,
@@ -46,6 +47,7 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
 }) => {
   const { categoryNames } = useCategories();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loans, setLoans] = useState<LoanItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +70,7 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
     handleCategoryChange,
     handleTagsChange,
     handleRecurrenceChange,
+    handleLoanChange,
     handleCreateRuleFromTx,
     closeRulesModal,
   } = useTransactionCategoryMutation({
@@ -97,6 +100,9 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
       setSearchQuery('');
       setSelectedCategory('ALL');
       void loadTransactions();
+      fetchLoans()
+        .then((res) => setLoans(res.loans || []))
+        .catch(() => setLoans([]));
     }
   }, [isOpen, tagName, period, loadTransactions, setSuccessNote]);
 
@@ -170,6 +176,7 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
         (tx.account_name || '').toLowerCase().includes(q) ||
         (tx.linked_account_name || '').toLowerCase().includes(q) ||
         (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
+        (tx.loan_name || '').toLowerCase().includes(q) ||
         (tx.raw_description || '').toLowerCase().includes(q) ||
         (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
     );
@@ -307,6 +314,12 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
           }}
           onRecurrenceChange={(txId, recurrence) => {
             void handleRecurrenceChange(txId, recurrence);
+          }}
+          loans={loans}
+          onLoanChange={(txId, loanId) => {
+            setError(null);
+            const matchedLoan = loans.find((l) => l.id === loanId);
+            void handleLoanChange(txId, loanId, matchedLoan?.name ?? null);
           }}
           onCreateRule={handleCreateRuleFromTx}
           onReceiptUpdated={() => {

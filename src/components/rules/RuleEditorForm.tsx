@@ -3,7 +3,7 @@ import { Check, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@yggdrasil-lab/ui';
 import { RECURRENCE_OPTIONS } from '../../constants/categories';
 import { useCategories } from '../../hooks/useCategories';
-import { Account, RecurrenceType, RuleDirection } from '../../types';
+import { Account, LoanItem, RecurrenceType, RuleDirection } from '../../types';
 
 export interface RuleFormDraft {
   name: string;
@@ -18,6 +18,7 @@ export interface RuleFormDraft {
   targetRecurrence: RecurrenceType | '';
   renameMerchant: string;
   counterpartAccountId: string;
+  loanId: string;
   priority: number;
   applyRetroactively: boolean;
 }
@@ -35,6 +36,7 @@ export const DEFAULT_RULE_DRAFT: RuleFormDraft = {
   targetRecurrence: '',
   renameMerchant: '',
   counterpartAccountId: '',
+  loanId: '',
   priority: 10,
   applyRetroactively: true,
 };
@@ -42,6 +44,7 @@ export const DEFAULT_RULE_DRAFT: RuleFormDraft = {
 interface RuleEditorFormProps {
   draft: RuleFormDraft;
   accounts: Account[];
+  loans: LoanItem[];
   isEditing: boolean;
   saving: boolean;
   onChange: (updater: (prev: RuleFormDraft) => RuleFormDraft) => void;
@@ -55,6 +58,7 @@ interface RuleEditorFormProps {
 export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
   draft,
   accounts,
+  loans,
   isEditing,
   saving,
   onChange,
@@ -68,6 +72,9 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
       : [draft.targetCategory, ...categoryNames];
   const selectableAccounts = accounts.filter(
     (acc) => acc.is_active || String(acc.id) === draft.counterpartAccountId
+  );
+  const selectableLoans = loans.filter(
+    (loan) => loan.is_active || String(loan.id) === draft.loanId
   );
 
   const updateField = <K extends keyof RuleFormDraft>(key: K, value: RuleFormDraft[K]) => {
@@ -316,6 +323,33 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
           </select>
           <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
             For <span className="text-sky-300 font-medium">Transfers</span>, auto-mirrors a linked counter-leg onto this account. For <span className="text-emerald-300 font-medium">Income</span> or other categories, attributes the flow (such as dividends or payouts) without creating a duplicate leg.
+          </p>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label
+            htmlFor="rule-loan-select"
+            className="text-[11px] text-slate-300 block mb-1"
+          >
+            Financing / Loan Target <span className="text-slate-400">(optional)</span>
+          </label>
+          <select
+            id="rule-loan-select"
+            aria-label="Financing / Loan Target"
+            value={draft.loanId}
+            onChange={(e) => updateField('loanId', e.target.value)}
+            data-testid="rule-loan-select"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+          >
+            <option value="">None (No financing loan)</option>
+            {selectableLoans.map((loan) => (
+              <option key={loan.id} value={String(loan.id)}>
+                {loan.name} ({loan.lender})
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+            Matching <span className="text-rose-300 font-medium">outflow</span> transactions automatically link to and amortize the selected loan without creating duplicate transfer legs.
           </p>
         </div>
       </div>

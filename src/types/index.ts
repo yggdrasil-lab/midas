@@ -87,6 +87,18 @@ export interface LoanCreatePayload {
   notes?: string | null;
 }
 
+export interface LoanPaymentItem {
+  id: number;
+  transaction_date: string;
+  amount: number;
+  currency: string;
+  amount_nzd: number;
+  merchant: string;
+  account_id: number;
+  account_name?: string | null;
+  category: string;
+}
+
 export interface LoanItem extends LoanCreatePayload {
   id: number;
   currency: string;
@@ -100,6 +112,11 @@ export interface LoanItem extends LoanCreatePayload {
   remaining_interest: number;
   weekly_payment_equivalent: number;
   net_worth_impact: number;
+  total_paid_amount?: number;
+  interest_paid?: number;
+  last_payment_date?: string | null;
+  is_payment_due?: boolean;
+  linked_payments?: LoanPaymentItem[];
 }
 
 export interface LoansSummaryResponse {
@@ -187,6 +204,8 @@ export interface Transaction {
   linked_currency?: string | null;
   counterpart_account_id?: number | null;
   counterpart_account_name?: string | null;
+  loan_id?: number | null;
+  loan_name?: string | null;
   exchange_rate?: number | null;
   fee_amount?: number | null;
   tags?: string[];
@@ -313,6 +332,8 @@ export interface CategorizationRule {
   rename_merchant?: string | null;
   counterpart_account_id?: number | null;
   counterpart_account_name?: string | null;
+  loan_id?: number | null;
+  loan_name?: string | null;
   priority: number;
   is_active: boolean;
   match_count: number;
@@ -333,6 +354,7 @@ export interface CategorizationRuleCreate {
   target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
   counterpart_account_id?: number | null;
+  loan_id?: number | null;
   priority?: number;
   is_active?: boolean;
   apply_retroactively?: boolean;
@@ -351,6 +373,7 @@ export interface CategorizationRuleUpdate {
   target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
   counterpart_account_id?: number | null;
+  loan_id?: number | null;
   priority?: number;
   is_active?: boolean;
   apply_retroactively?: boolean;

@@ -184,11 +184,28 @@ for (const { name: platform, options } of PLATFORMS) {
             path: `screenshots/${platform}/05d-account-inspection-modal.png`,
           });
 
-          // Change category selector in modal
+          // Change category selector in modal (then restore to Groceries for category inspection step)
           const catSelect = page.locator('[data-testid="modal-select-category-101"] >> visible=true').first();
           if (await catSelect.isVisible()) {
             await catSelect.selectOption('Food');
             await expect(page.locator('text=Moved transaction to "Food" >> visible=true').first()).toBeVisible();
+            await catSelect.selectOption('Groceries');
+            await expect(page.locator('text=Moved transaction to "Groceries" >> visible=true').first()).toBeVisible();
+          }
+
+          // Link debit transaction 140 to financing loan and verify rose loan flow pill
+          const loanSelect = page.locator('[data-testid="modal-select-loan-140"] >> visible=true').first();
+          if (await loanSelect.isVisible()) {
+            await loanSelect.scrollIntoViewIfNeeded();
+            await loanSelect.selectOption('1');
+            const loanFlowPill = page.locator('[data-testid="loan-flow-140"] >> visible=true').first();
+            await expect(loanFlowPill).toBeVisible();
+            await expect(loanFlowPill).toContainText('ASB Everyday Checking');
+            await expect(loanFlowPill).toContainText('Toyota Corolla Cross (TFS)');
+            await page.waitForTimeout(250);
+            await page.screenshot({
+              path: `screenshots/${platform}/14b-loan-flow-pill.png`,
+            });
           }
 
           const doneBtn = page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first();
@@ -198,6 +215,22 @@ for (const { name: platform, options } of PLATFORMS) {
             await page.keyboard.press('Escape');
           }
           await page.waitForTimeout(200);
+
+          // Capture updated transaction-driven LoansTracker card + expanded Linked Payments
+          const loanCard = page.locator('[data-testid="loan-card-1"] >> visible=true').first();
+          if (await loanCard.isVisible()) {
+            await expect(loanCard).toContainText('1/36 posted');
+            await expect(loanCard).toContainText('35/36 left');
+            const paymentsToggle = page.locator('[data-testid="loan-payments-toggle-1"] >> visible=true').first();
+            await paymentsToggle.scrollIntoViewIfNeeded();
+            await paymentsToggle.click();
+            await expect(page.locator('[data-testid="loan-payments-list-1"] >> visible=true').first()).toContainText('Toyota Financial Services');
+            await loanCard.scrollIntoViewIfNeeded();
+            await page.waitForTimeout(300);
+            await page.screenshot({
+              path: `screenshots/${platform}/14-loans-overview.png`,
+            });
+          }
         }
 
         // 5b-iii. Inspect Manulife (SGD) Counterpart Flow Modal

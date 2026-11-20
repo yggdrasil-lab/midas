@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
-import { RecurrenceType, Transaction } from '../types';
+import { LoanItem, RecurrenceType, Transaction } from '../types';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { ReceiptDetailModal } from './receipts/ReceiptDetailModal';
 import { TransactionRow } from './TransactionRow';
@@ -16,6 +16,8 @@ interface TransactionListProps {
   onCategoryChange: (txId: number, category: string) => void;
   onTagsChange?: (txId: number, tags: string[]) => void;
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
+  loans?: LoanItem[];
+  onLoanChange?: (txId: number, loanId: number | null) => void;
   onCreateRule: (tx: Transaction) => void;
   onReceiptUpdated?: () => void;
   showAccountBadge?: boolean;
@@ -41,6 +43,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   onCategoryChange,
   onTagsChange,
   onRecurrenceChange,
+  loans,
+  onLoanChange,
   onCreateRule,
   onReceiptUpdated,
   showAccountBadge = true,
@@ -88,6 +92,8 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             onCategoryChange={onCategoryChange}
             onTagsChange={onTagsChange}
             onRecurrenceChange={onRecurrenceChange}
+            loans={loans}
+            onLoanChange={onLoanChange}
             onCreateRule={onCreateRule}
             onOpenReceipt={(receiptId) => setSelectedReceiptId(receiptId)}
             showAccountBadge={showAccountBadge}

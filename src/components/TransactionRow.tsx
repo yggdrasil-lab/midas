@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ArrowRight,
   ArrowRightLeft,
+  Car,
   Landmark,
   Receipt as ReceiptIcon,
   RefreshCw,
@@ -9,7 +10,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { TagPillList } from '@yggdrasil-lab/ui';
-import { RecurrenceType, Transaction } from '../types';
+import { LoanItem, RecurrenceType, Transaction } from '../types';
 import { isTransferCategory, RECURRENCE_OPTIONS } from '../constants/categories';
 import {
   formatMoney,
@@ -39,6 +40,8 @@ interface TransactionRowProps {
   onCategoryChange: (txId: number, category: string) => void;
   onTagsChange?: (txId: number, tags: string[]) => void;
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
+  loans?: LoanItem[];
+  onLoanChange?: (txId: number, loanId: number | null) => void;
   onCreateRule: (tx: Transaction) => void;
   onOpenReceipt?: (receiptId: number) => void;
   showAccountBadge?: boolean;
@@ -59,6 +62,8 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   onCategoryChange,
   onTagsChange,
   onRecurrenceChange,
+  loans,
+  onLoanChange,
   onCreateRule,
   onOpenReceipt,
   showAccountBadge = true,
@@ -117,6 +122,12 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     tx.linked_currency &&
     tx.linked_currency !== txCurrency;
   const isLinkedBtc = (tx.linked_currency || '').toUpperCase() === 'BTC';
+  const selectableLoans = (loans || []).filter(
+    (loan) => loan.is_active || loan.id === tx.loan_id
+  );
+  const showLoanSelector = Boolean(
+    onLoanChange && loans && loans.length > 0 && isDebit && !hasLinkedTransfer
+  );
   const tags = tx.tags || [];
 
   const rowContainerClasses = isAmortized
@@ -306,6 +317,30 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             </span>
           </div>
         )}
+        {Boolean(tx.loan_name) && (
+          <div
+            className="inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg border bg-rose-500/10 border-rose-500/25 text-rose-200 text-[11px]"
+            data-testid={`loan-flow-${tx.id}`}
+          >
+            <Car className="w-3 h-3 text-rose-400 shrink-0" />
+            <span
+              className="font-semibold truncate max-w-[140px]"
+              title={tx.account_name || 'Account'}
+            >
+              {tx.account_name || 'Account'}
+            </span>
+            <ArrowRight className="w-3 h-3 text-rose-400 shrink-0" />
+            <span
+              className="font-semibold truncate max-w-[160px]"
+              title={tx.loan_name || ''}
+            >
+              {tx.loan_name}
+            </span>
+            <span className="text-[10px] px-1 py-0.2 rounded bg-rose-500/20 border border-rose-500/30 text-rose-200 font-medium whitespace-nowrap">
+              Loan
+            </span>
+          </div>
+        )}
         <TagPillList
           tags={tags}
           disabled={updating}
@@ -346,7 +381,27 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
           </span>
         )}
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center flex-wrap justify-end gap-1.5">
+          {showLoanSelector && (
+            <select
+              value={tx.loan_id != null ? String(tx.loan_id) : ''}
+              onChange={(e) =>
+                onLoanChange!(tx.id, e.target.value ? Number(e.target.value) : null)
+              }
+              disabled={updating}
+              aria-label={`Financing loan for ${tx.merchant}`}
+              data-testid={`modal-select-loan-${tx.id}`}
+              title="Link or unlink financing loan repayment"
+              className="text-base sm:text-xs px-1.5 py-1 max-w-[135px] bg-background border border-border hover:border-rose-500/50 rounded-lg text-slate-300 focus:outline-none focus:border-rose-500 transition-colors disabled:opacity-50"
+            >
+              <option value="">No loan</option>
+              {selectableLoans.map((loan) => (
+                <option key={loan.id} value={String(loan.id)}>
+                  {loan.name}
+                </option>
+              ))}
+            </select>
+          )}
           {onRecurrenceChange && (
             <select
               value={tx.recurrence || ''}

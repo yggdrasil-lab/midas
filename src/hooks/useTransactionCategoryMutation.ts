@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   updateTransactionCategory,
+  updateTransactionLoan,
   updateTransactionRecurrence,
   updateTransactionTags,
 } from '../services/api';
@@ -75,6 +76,39 @@ export function useTransactionCategoryMutation({
     [onTransactionUpdated, onChanged, onError]
   );
 
+  const handleLoanChange = useCallback(
+    async (txId: number, loanId: number | null, fallbackLoanName?: string | null) => {
+      setUpdatingId(txId);
+      onError?.('');
+      try {
+        const updated = await updateTransactionLoan(txId, loanId);
+        const resolvedLoanId = updated.loan_id !== undefined ? updated.loan_id : loanId;
+        const resolvedLoanName =
+          resolvedLoanId == null
+            ? null
+            : updated.loan_name ?? fallbackLoanName ?? null;
+        setSuccessNote(
+          resolvedLoanId != null
+            ? resolvedLoanName
+              ? `Linked transaction to "${resolvedLoanName}"`
+              : 'Linked transaction to financing loan'
+            : 'Unlinked financing loan'
+        );
+        onTransactionUpdated(txId, {
+          loan_id: resolvedLoanId ?? null,
+          loan_name: resolvedLoanName,
+        });
+        onChanged();
+      } catch (err) {
+        console.error(err);
+        onError?.(err instanceof Error ? err.message : 'Failed to update transaction loan');
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [onTransactionUpdated, onChanged, onError]
+  );
+
   const handleCreateRuleFromTx = useCallback((tx: Transaction) => {
     setRulePrefill({
       name: `Rule for ${tx.merchant}`,
@@ -86,6 +120,7 @@ export function useTransactionCategoryMutation({
       target_recurrence: tx.recurrence || null,
       rename_merchant: tx.merchant,
       counterpart_account_id: tx.counterpart_account_id ?? null,
+      loan_id: tx.loan_id ?? null,
       priority: 10,
       apply_retroactively: true,
     });
@@ -106,6 +141,7 @@ export function useTransactionCategoryMutation({
     handleCategoryChange,
     handleTagsChange,
     handleRecurrenceChange,
+    handleLoanChange,
     handleCreateRuleFromTx,
     closeRulesModal,
   };

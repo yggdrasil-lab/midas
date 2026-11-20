@@ -156,6 +156,11 @@ export const MOCK_LOANS_DATA = {
       remaining_interest: 6887.7,
       weekly_payment_equivalent: 335.17,
       net_worth_impact: 9600.58,
+      total_paid_amount: 0.0,
+      interest_paid: 0.0,
+      last_payment_date: null,
+      is_payment_due: true,
+      linked_payments: [],
     },
   ],
   total_liabilities: 45399.42,
@@ -408,7 +413,7 @@ export async function setupMockApi(page: Page) {
       id: 5,
       name: 'Manulife',
       account_type: 'brokerage',
-      tier: 'locked',
+      tier: 'growth',
       institution: 'Manulife',
       currency: 'SGD',
       expected_annual_return: 0.0,
@@ -896,6 +901,8 @@ export async function setupMockApi(page: Page) {
     linked_currency?: string | null;
     counterpart_account_id?: number | null;
     counterpart_account_name?: string | null;
+    loan_id?: number | null;
+    loan_name?: string | null;
     exchange_rate?: number | null;
     fee_amount?: number | null;
     is_amortized_commitment?: boolean;
@@ -1109,6 +1116,19 @@ export async function setupMockApi(page: Page) {
       counterpart_account_id: 5,
       counterpart_account_name: 'Manulife',
     },
+    {
+      id: 140,
+      transaction_date: '2026-11-18',
+      account_id: 1,
+      account_name: 'ASB Everyday Checking',
+      amount: -1452.42,
+      currency: 'NZD',
+      merchant: 'Toyota Financial Services',
+      raw_description: 'DD TOYOTA FINANCIAL SERVICES 001',
+      category: 'Debt & Loans',
+      loan_id: null,
+      loan_name: null,
+    },
   ];
 
   const mockAmortizedUtilities = [
@@ -1145,6 +1165,98 @@ export async function setupMockApi(page: Page) {
     },
   ];
 
+  const mockLoans = MOCK_LOANS_DATA.loans.map((l) => ({ ...l }));
+
+  const resolveLoanName = (loanId: number | null | undefined): string | null => {
+    if (loanId === null || loanId === undefined) return null;
+    const found = mockLoans.find((l) => l.id === Number(loanId));
+    return found ? found.name : null;
+  };
+
+  const computeLoansSummary = () => {
+    const computedLoans = mockLoans.map((loan) => {
+      const linkedTxs = mockTransactions
+        .filter((tx) => tx.loan_id === loan.id && tx.amount < 0)
+        .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+      const monthlyRate = loan.annual_interest_rate / 12;
+      let remaining = loan.principal_amount;
+      let totalPaid = 0;
+      let interestPaid = 0;
+      let principalPaid = 0;
+
+      for (const tx of linkedTxs) {
+        const paymentAmt = Math.abs(tx.amount);
+        const interest = Math.round(remaining * monthlyRate * 100) / 100;
+        const principalPortion = Math.min(
+          remaining,
+          Math.max(0, Math.round((paymentAmt - interest) * 100) / 100)
+        );
+        totalPaid = Math.round((totalPaid + paymentAmt) * 100) / 100;
+        interestPaid = Math.round((interestPaid + interest) * 100) / 100;
+        principalPaid = Math.round((principalPaid + principalPortion) * 100) / 100;
+        remaining = Math.max(0, Math.round((remaining - principalPortion) * 100) / 100);
+      }
+
+      const paymentsMade = linkedTxs.length;
+      const paymentsRemaining = Math.max(0, loan.term_months - paymentsMade);
+      const lastPaymentDate =
+        linkedTxs.length > 0 ? linkedTxs[linkedTxs.length - 1].transaction_date : null;
+      const isPaymentDue = paymentsMade === 0;
+      const nextPaymentDate =
+        paymentsMade === 0 ? loan.next_payment_date || loan.start_date : '2026-12-20';
+      const netWorthImpact = Math.round(((loan.asset_value ?? 0) - remaining) * 100) / 100;
+
+      return {
+        ...loan,
+        payments_made: paymentsMade,
+        payments_remaining: paymentsRemaining,
+        next_payment_date: nextPaymentDate,
+        remaining_principal: remaining,
+        principal_paid: principalPaid,
+        total_paid_amount: totalPaid,
+        interest_paid: interestPaid,
+        last_payment_date: lastPaymentDate,
+        is_payment_due: isPaymentDue,
+        net_worth_impact: netWorthImpact,
+        linked_payments: [...linkedTxs].reverse().map((tx) => ({
+          id: tx.id,
+          transaction_date: tx.transaction_date,
+          amount: tx.amount,
+          currency: tx.currency,
+          amount_nzd: Math.abs(tx.amount),
+          merchant: tx.merchant,
+          account_id: tx.account_id,
+          account_name: tx.account_name,
+          category: tx.category,
+        })),
+      };
+    });
+
+    const totalLiabilities = Math.round(
+      computedLoans.reduce((sum, l) => sum + l.remaining_principal, 0) * 100
+    ) / 100;
+    const totalAssetValue = Math.round(
+      computedLoans.reduce((sum, l) => sum + (l.asset_value ?? 0), 0) * 100
+    ) / 100;
+    const netLoanImpact = Math.round((totalAssetValue - totalLiabilities) * 100) / 100;
+    const totalMonthlyPayment = Math.round(
+      computedLoans.reduce((sum, l) => sum + l.monthly_payment, 0) * 100
+    ) / 100;
+    const totalWeeklyPayment = Math.round(
+      computedLoans.reduce((sum, l) => sum + l.weekly_payment_equivalent, 0) * 100
+    ) / 100;
+
+    return {
+      loans: computedLoans,
+      total_liabilities: totalLiabilities,
+      total_asset_value: totalAssetValue,
+      net_loan_impact: netLoanImpact,
+      total_monthly_payment: totalMonthlyPayment,
+      total_weekly_payment: totalWeeklyPayment,
+      latest_payoff_date: computedLoans[0]?.payoff_date || null,
+    };
+  };
+
   // 7. Mock Transactions Endpoints for Inspection & Category Correction
   await page.route(/\/api\/transactions(\/.*|\?.*)?$/, async (route) => {
     if (route.request().method() === 'PATCH') {
@@ -1154,6 +1266,22 @@ export async function setupMockApi(page: Page) {
       const existing =
         mockTransactions.find((tx) => tx.id === txId) ||
         mockAmortizedUtilities.find((tx) => tx.id === txId);
+      if (existing) {
+        if (body?.category !== undefined) {
+          existing.category = body.category;
+        }
+        if (body?.tags !== undefined) {
+          existing.tags = body.tags;
+        }
+        if (body?.recurrence !== undefined) {
+          existing.recurrence = body.recurrence;
+        }
+        if ('loan_id' in (body || {})) {
+          const nextLoanId = body.loan_id != null ? Number(body.loan_id) : null;
+          (existing as MockTransactionRecord).loan_id = nextLoanId;
+          (existing as MockTransactionRecord).loan_name = resolveLoanName(nextLoanId);
+        }
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -1309,6 +1437,8 @@ export async function setupMockApi(page: Page) {
     rename_merchant: string | null;
     counterpart_account_id: number | null;
     counterpart_account_name: string | null;
+    loan_id: number | null;
+    loan_name: string | null;
     priority: number;
     is_active: boolean;
     match_count: number;
@@ -1332,6 +1462,8 @@ export async function setupMockApi(page: Page) {
       rename_merchant: 'Power/Water Utilities',
       counterpart_account_id: null,
       counterpart_account_name: null,
+      loan_id: null,
+      loan_name: null,
       priority: 10,
       is_active: true,
       match_count: 4,
@@ -1353,6 +1485,8 @@ export async function setupMockApi(page: Page) {
       rename_merchant: 'Wise Multi-Currency',
       counterpart_account_id: null,
       counterpart_account_name: null,
+      loan_id: null,
+      loan_name: null,
       priority: 15,
       is_active: true,
       match_count: 8,
@@ -1374,6 +1508,8 @@ export async function setupMockApi(page: Page) {
       rename_merchant: 'BP',
       counterpart_account_id: null,
       counterpart_account_name: null,
+      loan_id: null,
+      loan_name: null,
       priority: 5,
       is_active: true,
       match_count: 6,
@@ -1395,6 +1531,8 @@ export async function setupMockApi(page: Page) {
       rename_merchant: 'BP Wild Bean Cafe',
       counterpart_account_id: null,
       counterpart_account_name: null,
+      loan_id: null,
+      loan_name: null,
       priority: 6,
       is_active: true,
       match_count: 3,
@@ -1416,6 +1554,8 @@ export async function setupMockApi(page: Page) {
       rename_merchant: 'Dividends from Manulife',
       counterpart_account_id: 5,
       counterpart_account_name: 'Manulife',
+      loan_id: null,
+      loan_name: null,
       priority: 8,
       is_active: true,
       match_count: 2,
@@ -1451,6 +1591,8 @@ export async function setupMockApi(page: Page) {
         body.counterpart_account_id !== undefined && body.counterpart_account_id !== null
           ? Number(body.counterpart_account_id)
           : null;
+      const loanId =
+        body.loan_id !== undefined && body.loan_id !== null ? Number(body.loan_id) : null;
       const created: MockRuleRecord = {
         id: nextRuleId++,
         name: body.name || 'New Custom Rule',
@@ -1466,6 +1608,8 @@ export async function setupMockApi(page: Page) {
         rename_merchant: body.rename_merchant !== undefined ? body.rename_merchant : null,
         counterpart_account_id: counterpartId,
         counterpart_account_name: resolveAccountName(counterpartId),
+        loan_id: loanId,
+        loan_name: resolveLoanName(loanId),
         priority: body.priority ?? 10,
         is_active: body.is_active ?? true,
         match_count: 0,
@@ -1507,6 +1651,12 @@ export async function setupMockApi(page: Page) {
             ? Number(body.counterpart_account_id)
             : null
           : existing.counterpart_account_id;
+      const nextLoanId =
+        'loan_id' in body
+          ? body.loan_id !== null && body.loan_id !== undefined
+            ? Number(body.loan_id)
+            : null
+          : existing.loan_id;
       const updated: MockRuleRecord = {
         ...existing,
         name: body.name ?? existing.name,
@@ -1524,6 +1674,8 @@ export async function setupMockApi(page: Page) {
           'rename_merchant' in body ? body.rename_merchant : existing.rename_merchant,
         counterpart_account_id: nextCounterpartId,
         counterpart_account_name: resolveAccountName(nextCounterpartId),
+        loan_id: nextLoanId,
+        loan_name: resolveLoanName(nextLoanId),
         priority: body.priority ?? existing.priority,
         is_active: body.is_active !== undefined ? body.is_active : existing.is_active,
         updated_at: new Date().toISOString(),
@@ -1830,20 +1982,20 @@ export async function setupMockApi(page: Page) {
     }
   });
 
-  // Mock External Bank Feed Sync Endpoint
+  // Mock Loans Endpoint (stateful, transaction-driven)
   await page.route(/\/api\/loans(\/\d+)?(\?.*)?$/, async (route) => {
     const method = route.request().method();
     if (method === 'GET') {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(MOCK_LOANS_DATA),
+        body: JSON.stringify(computeLoansSummary()),
       });
     } else if (method === 'POST') {
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify(MOCK_LOANS_DATA.loans[0]),
+        body: JSON.stringify(computeLoansSummary().loans[0]),
       });
     } else if (method === 'DELETE') {
       await route.fulfill({ status: 204, body: '' });
