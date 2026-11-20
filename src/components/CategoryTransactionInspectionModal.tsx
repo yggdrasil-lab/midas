@@ -17,9 +17,10 @@ import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import {
   fetchCategoryTransactions,
+  fetchLoans,
   triggerReconcileTransfers,
 } from '../services/api';
-import { PeriodType, Transaction } from '../types';
+import { LoanItem, PeriodType, Transaction } from '../types';
 import { formatMoney, getTransactionNzdAmount } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { RulesManagerModal } from './RulesManagerModal';
@@ -45,6 +46,7 @@ function matchesTransactionSearch(tx: Transaction, query: string): boolean {
     (tx.account_name || '').toLowerCase().includes(q) ||
     (tx.linked_account_name || '').toLowerCase().includes(q) ||
     (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
+    (tx.loan_name || '').toLowerCase().includes(q) ||
     (tx.raw_description || '').toLowerCase().includes(q) ||
     (tx.recurrence || '').toLowerCase().includes(q) ||
     (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
@@ -71,6 +73,7 @@ export const CategoryTransactionInspectionModal: React.FC<
 }) => {
   const { categoryNames } = useCategories();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loans, setLoans] = useState<LoanItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState(false);
@@ -104,6 +107,7 @@ export const CategoryTransactionInspectionModal: React.FC<
     handleCategoryChange,
     handleTagsChange,
     handleRecurrenceChange,
+    handleLoanChange,
     handleCreateRuleFromTx,
     closeRulesModal,
   } = useTransactionCategoryMutation({
@@ -139,6 +143,9 @@ export const CategoryTransactionInspectionModal: React.FC<
       setSuccessNote(null);
       setSearchQuery('');
       void loadTransactions();
+      fetchLoans()
+        .then((res) => setLoans(res.loans || []))
+        .catch(() => setLoans([]));
     }
   }, [isOpen, category, period, startDate, endDate, includeSubclasses, shouldIncludeAmortized]);
 
@@ -242,6 +249,16 @@ export const CategoryTransactionInspectionModal: React.FC<
       setError(null);
       mutationSucceededRef.current = false;
       await handleRecurrenceChange(txId, recurrence ?? null);
+      if (mutationSucceededRef.current) {
+        void loadTransactions();
+      }
+    },
+    loans,
+    onLoanChange: async (txId: number, loanId: number | null) => {
+      setError(null);
+      mutationSucceededRef.current = false;
+      const matchedLoan = loans.find((l) => l.id === loanId);
+      await handleLoanChange(txId, loanId, matchedLoan?.name ?? null);
       if (mutationSucceededRef.current) {
         void loadTransactions();
       }

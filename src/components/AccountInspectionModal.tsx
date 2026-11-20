@@ -22,8 +22,8 @@ import {
 } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchAccountTransactions } from '../services/api';
-import { Account, PeriodType, Transaction } from '../types';
+import { fetchAccountTransactions, fetchLoans } from '../services/api';
+import { Account, LoanItem, PeriodType, Transaction } from '../types';
 import { formatMoney } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
@@ -95,6 +95,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     ? { minimumFractionDigits: 2, maximumFractionDigits: 8 }
     : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loans, setLoans] = useState<LoanItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,6 +116,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     handleCategoryChange,
     handleTagsChange,
     handleRecurrenceChange,
+    handleLoanChange,
     handleCreateRuleFromTx,
     closeRulesModal,
   } = useTransactionCategoryMutation({
@@ -147,6 +149,9 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     if (isOpen) {
       setSuccessNote(null);
       loadTransactions();
+      fetchLoans()
+        .then((res) => setLoans(res.loans || []))
+        .catch(() => setLoans([]));
     }
   }, [isOpen, account?.id, period, startDate, endDate]);
 
@@ -195,6 +200,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
           (tx.account_name || '').toLowerCase().includes(q) ||
           (tx.linked_account_name || '').toLowerCase().includes(q) ||
           (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
+          (tx.loan_name || '').toLowerCase().includes(q) ||
           (tx.raw_description || '').toLowerCase().includes(q) ||
           (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
         );
@@ -370,6 +376,12 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
           }}
           onRecurrenceChange={(txId, recurrence) => {
             void handleRecurrenceChange(txId, recurrence);
+          }}
+          loans={loans}
+          onLoanChange={(txId, loanId) => {
+            setError(null);
+            const matchedLoan = loans.find((l) => l.id === loanId);
+            void handleLoanChange(txId, loanId, matchedLoan?.name ?? null);
           }}
           onCreateRule={handleCreateRuleFromTx}
           onReceiptUpdated={() => {

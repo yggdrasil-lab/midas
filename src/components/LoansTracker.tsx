@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarClock, Car, Plus, Trash2 } from 'lucide-react';
+import { CalendarClock, Car, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { Button, EmptyState, GlassCard } from '@yggdrasil-lab/ui';
 import { createLoan, deleteLoan } from '../services/api';
 import { LoanCreatePayload, LoansSummaryResponse } from '../types';
@@ -30,6 +30,11 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState(DEFAULT_LOAN_FORM);
+  const [expandedLoanIds, setExpandedLoanIds] = useState<Record<number, boolean>>({});
+
+  const togglePayments = (loanId: number) => {
+    setExpandedLoanIds((prev) => ({ ...prev, [loanId]: !prev[loanId] }));
+  };
 
   const loans = summary?.loans || [];
 
@@ -208,6 +213,8 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
               loan.principal_amount > 0
                 ? Math.min(100, Math.round((loan.principal_paid / loan.principal_amount) * 100))
                 : 0;
+            const linkedPayments = loan.linked_payments || [];
+            const isExpanded = Boolean(expandedLoanIds[loan.id]);
             return (
               <div
                 key={loan.id}
@@ -215,26 +222,38 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
                 className="p-3.5 rounded-xl bg-background/50 border border-border/70 space-y-2.5"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-xs font-semibold text-slate-100">{loan.name}</div>
                     <div className="text-[11px] text-slate-400">
                       {loan.lender} · {(loan.annual_interest_rate * 100).toFixed(2)}% p.a.
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono">
-                      <CalendarClock className="w-3 h-3" />
-                      {loan.payments_remaining}/{loan.term_months} left
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(loan.id)}
-                      className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                      title="Delete loan"
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(loan.id)}
+                    className="p-1 text-slate-500 hover:text-rose-400 transition-colors shrink-0"
+                    title="Delete loan"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono whitespace-nowrap">
+                    {loan.payments_made}/{loan.term_months} posted
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono whitespace-nowrap">
+                    <CalendarClock className="w-3 h-3 shrink-0" />
+                    {loan.payments_remaining}/{loan.term_months} left
+                  </span>
+                  {Boolean(loan.is_payment_due) && (
+                    <span
+                      data-testid={`loan-due-badge-${loan.id}`}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-200 border border-amber-500/35 text-[10px] font-mono whitespace-nowrap"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                      Due {loan.next_payment_date || 'now'}
+                    </span>
+                  )}
                 </div>
 
                 <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -247,7 +266,7 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
                   <div>
                     <div className="text-slate-400">Remaining Debt</div>
-                    <div className="font-mono font-semibold text-rose-400">
+                    <div className="font-mono font-semibold text-rose-400 whitespace-nowrap">
                       {formatMoney(loan.remaining_principal, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -257,7 +276,7 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
                   </div>
                   <div>
                     <div className="text-slate-400">Payment</div>
-                    <div className="font-mono font-semibold text-slate-200">
+                    <div className="font-mono font-semibold text-slate-200 whitespace-nowrap">
                       {formatMoney(loan.monthly_payment, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -267,14 +286,14 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
                   </div>
                   <div>
                     <div className="text-slate-400">Payoff Date</div>
-                    <div className="font-mono font-semibold text-emerald-300">
+                    <div className="font-mono font-semibold text-emerald-300 whitespace-nowrap">
                       {loan.payoff_date}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-400">Net Worth Effect</div>
                     <div
-                      className={`font-mono font-semibold ${
+                      className={`font-mono font-semibold whitespace-nowrap ${
                         loan.net_worth_impact >= 0 ? 'text-emerald-400' : 'text-rose-400'
                       }`}
                     >
@@ -286,6 +305,72 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
                       {loan.currency}
                     </div>
                   </div>
+                </div>
+
+                <div className="pt-1 border-t border-border/50">
+                  <button
+                    type="button"
+                    onClick={() => togglePayments(loan.id)}
+                    aria-expanded={isExpanded}
+                    data-testid={`loan-payments-toggle-${loan.id}`}
+                    className="w-full flex items-center justify-between text-[11px] text-slate-300 hover:text-amber-300 py-1 transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium">
+                      Linked Payments ({linkedPayments.length})
+                    </span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    )}
+                  </button>
+
+                  {isExpanded && (
+                    <div
+                      data-testid={`loan-payments-list-${loan.id}`}
+                      className="mt-2 space-y-1.5"
+                    >
+                      {linkedPayments.length === 0 ? (
+                        <div className="p-2.5 rounded-lg bg-slate-900/50 border border-dashed border-border/70 text-[11px] text-slate-400">
+                          No bank statement payments linked yet. Link an outflow transaction or create a categorization rule targeting this loan.
+                        </div>
+                      ) : (
+                        linkedPayments.map((payment) => (
+                          <div
+                            key={payment.id}
+                            data-testid={`loan-payment-row-${payment.id}`}
+                            className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/60 border border-border/60 text-[11px]"
+                          >
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                                  {payment.transaction_date}
+                                </span>
+                                {Boolean(payment.account_name) && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 truncate max-w-[140px]">
+                                    {payment.account_name}
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                className="font-medium text-slate-200 truncate"
+                                title={payment.merchant}
+                              >
+                                {payment.merchant}
+                              </div>
+                            </div>
+                            <span className="font-mono font-semibold text-rose-400 whitespace-nowrap shrink-0">
+                              {formatMoney(Math.abs(Number(payment.amount)), {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}{' '}
+                              {payment.currency}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

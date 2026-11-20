@@ -455,6 +455,23 @@ export async function updateTransactionRecurrence(
   return res.json();
 }
 
+export async function updateTransactionLoan(
+  transactionId: number,
+  loanId: number | null
+): Promise<Transaction> {
+  const res = await authFetch(`${API_BASE}/transactions/${transactionId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ loan_id: loanId }),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, 'Failed to update transaction loan'));
+  }
+  return res.json();
+}
+
 export async function fetchRules(isActive?: boolean): Promise<CategorizationRule[]> {
   const params = new URLSearchParams();
   if (isActive !== undefined) {
