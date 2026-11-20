@@ -332,13 +332,13 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         {isAmortized ? (
           <span
             data-testid={`amortized-amount-${tx.id}`}
-            className="text-xs font-semibold font-mono text-sky-300"
+            className="text-xs font-semibold font-mono text-sky-300 whitespace-nowrap"
           >
             {amortizedAmtFormatted}
           </span>
         ) : (
           <span
-            className={`text-xs font-semibold font-mono ${
+            className={`text-xs font-semibold font-mono whitespace-nowrap ${
               isTransfer ? 'text-sky-300' : isDebit ? 'text-rose-400' : 'text-emerald-400'
             }`}
           >
