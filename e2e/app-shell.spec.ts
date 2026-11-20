@@ -523,4 +523,42 @@ test.describe('Midas App Shell & Navigation', () => {
     });
     expect(capturedSnapshotPayload?.exchange_rate).toBeUndefined();
   });
+
+  test('filters needs_review receipts, links candidate transaction in 1 tap, and updates attention badge', async ({ page }) => {
+    const toolsTab = page
+      .locator('header nav button:has-text("Tools"), nav button:has-text("Tools")')
+      .locator('visible=true')
+      .first();
+    await toolsTab.click();
+
+    await expect(page.getByTestId('receipts-needs-review-badge')).toContainText('1 Needs Review');
+    await page.getByTestId('receipts-hub-btn').click();
+
+    await expect(page.getByRole('heading', { name: /Receipts & Product Inventory Hub/i })).toBeVisible();
+    await expect(page.getByTestId('receipt-filter-all')).toContainText('3');
+    await expect(page.getByTestId('receipt-filter-pending')).toContainText('2');
+    await expect(page.getByTestId('receipt-filter-needs_review')).toContainText('1');
+    await expect(page.getByTestId('receipt-filter-matched')).toContainText('1');
+
+    await page.getByTestId('receipts-hub-needs-review-badge').click();
+    await expect(page.getByTestId('receipt-row-3')).toBeVisible();
+    await expect(page.getByTestId('receipt-row-1')).toHaveCount(0);
+    await expect(page.getByTestId('receipt-row-2')).toHaveCount(0);
+
+    await page.getByTestId('receipt-row-3').click();
+    await expect(page.getByTestId('receipt-candidates-panel-3')).toBeVisible();
+    await expect(page.getByTestId('receipt-candidate-3-201')).toContainText('$195.40 NZD');
+    await expect(page.getByTestId('receipt-candidate-3-201')).toContainText('Orig. AUD 179.74');
+    await expect(page.getByTestId('receipt-candidate-3-202')).toContainText('Est. AUD 180.25');
+
+    await page.getByTestId('link-receipt-candidate-3-201').click();
+    await expect(page.getByTestId('receipts-hub-status-banner')).toContainText('Linked "Sydney Roasters Online"');
+    await expect(page.getByTestId('receipt-filter-pending')).toContainText('1');
+    await expect(page.getByTestId('receipt-filter-needs_review')).toContainText('0');
+    await expect(page.getByTestId('receipt-filter-matched')).toContainText('2');
+
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(page.getByTestId('receipts-needs-review-badge')).toHaveCount(0);
+    await expect(page.getByTestId('receipts-pending-badge')).toContainText('1 Pending');
+  });
 });

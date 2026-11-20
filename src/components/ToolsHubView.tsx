@@ -18,6 +18,8 @@ type ToolsWorkspace = 'simulator' | 'statement';
 
 interface ToolsHubViewProps {
   baselineBurn: number;
+  pendingReceiptsCount?: number;
+  needsReviewReceiptsCount?: number;
   onRefreshRunway: () => void;
   onOpenReceiptsClick: () => void;
   onOpenDataClick: () => void;
@@ -29,6 +31,8 @@ interface ToolsHubViewProps {
  */
 export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
   baselineBurn,
+  pendingReceiptsCount = 0,
+  needsReviewReceiptsCount = 0,
   onRefreshRunway,
   onOpenReceiptsClick,
   onOpenDataClick,
@@ -57,10 +61,29 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
             <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
               <ReceiptIcon className="w-4 h-4" />
             </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-100">Receipts &amp; Longevity</div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-xs font-semibold text-slate-100">Receipts &amp; Longevity</div>
+                {needsReviewReceiptsCount > 0 ? (
+                  <span
+                    data-testid="receipts-needs-review-badge"
+                    className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap"
+                  >
+                    {needsReviewReceiptsCount} Needs Review
+                  </span>
+                ) : pendingReceiptsCount > 0 ? (
+                  <span
+                    data-testid="receipts-pending-badge"
+                    className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-slate-800 text-slate-300 border border-border whitespace-nowrap"
+                  >
+                    {pendingReceiptsCount} Pending
+                  </span>
+                ) : null}
+              </div>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                Itemized bills &amp; depletion tracking
+                {pendingReceiptsCount > 0
+                  ? `${pendingReceiptsCount} ${pendingReceiptsCount === 1 ? 'receipt' : 'receipts'} awaiting ledger match`
+                  : 'Itemized bills & depletion tracking'}
               </div>
             </div>
           </button>
