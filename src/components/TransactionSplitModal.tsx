@@ -19,11 +19,30 @@ interface TransactionSplitModalProps {
 }
 
 interface SplitDraftRow {
+  sign: 1 | -1;
   amount: string;
   category: string;
   loanId: string;
   notes: string;
   tagsText: string;
+}
+
+function roundToDecimals(value: number, decimals: number): number {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+}
+
+function areLegacyPositiveOutflowSplits(tx: Transaction): boolean {
+  const splits = tx.splits || [];
+  if (Number(tx.amount) >= 0 || splits.length < 2) {
+    return false;
+  }
+  const allPositive = splits.every((s) => Number(s.amount) > 0);
+  if (!allPositive) {
+    return false;
+  }
+  const absSum = splits.reduce((sum, s) => sum + Number(s.amount), 0);
+  return Math.abs(absSum - Math.abs(Number(tx.amount))) <= 0.01;
 }
 
 function isDebtLoansCategory(category: string): boolean {
@@ -43,10 +62,17 @@ function parseTagsCsv(text: string): string[] {
   return tags;
 }
 
-function createInitialRows(tx: Transaction, defaultCategory: string): SplitDraftRow[] {
+function createInitialRows(
+  tx: Transaction,
+  defaultCategory: string,
+  decimals: number
+): SplitDraftRow[] {
+  const defaultSign: 1 | -1 = Number(tx.amount) >= 0 ? 1 : -1;
   if (tx.is_split && tx.splits && tx.splits.length >= 2) {
+    const forceNegative = areLegacyPositiveOutflowSplits(tx);
     return tx.splits.map((s) => ({
-      amount: Math.abs(Number(s.amount)).toFixed(2),
+      sign: forceNegative ? -1 : Number(s.amount) >= 0 ? 1 : -1,
+      amount: Math.abs(Number(s.amount)).toFixed(decimals),
       category: s.category || defaultCategory,
       loanId: s.loan_id != null ? String(s.loan_id) : '',
       notes: s.notes || '',
@@ -56,6 +82,7 @@ function createInitialRows(tx: Transaction, defaultCategory: string): SplitDraft
   const baseCat = tx.category || defaultCategory;
   return [
     {
+      sign: defaultSign,
       amount: '',
       category: baseCat,
       loanId: isDebtLoansCategory(baseCat) && tx.loan_id != null ? String(tx.loan_id) : '',
@@ -63,6 +90,7 @@ function createInitialRows(tx: Transaction, defaultCategory: string): SplitDraft
       tagsText: '',
     },
     {
+      sign: defaultSign,
       amount: '',
       category: baseCat,
       loanId: '',
@@ -95,8 +123,11 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
     if (!isOpen || !transaction) {
       return;
     }
-    setRows(createInitialRows(transaction, defaultCategory));
-    setRow2ManuallyEdited(Boolean(transaction.is_split && transaction.splits && transaction.splits.length >= 2));
+    const txDecimals = isCryptoCurrency(transaction.currency || 'NZD') ? 8 : 2;
+    setRows(createInitialRows(transaction, defaultCategory, txDecimals));
+    setRow2ManuallyEdited(
+      Boolean(transaction.is_split && transaction.splits && transaction.splits.length >= 2)
+    );
     setError(null);
     setSaving(false);
   }, [isOpen, transaction, defaultCategory]);
@@ -115,51 +146,127 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
   }
 
   const txAmount = Number(transaction.amount);
-  const parentAbs = Math.abs(txAmount);
   const isInflow = txAmount > 0;
+  const defaultSign: 1 | -1 = txAmount >= 0 ? 1 : -1;
   const txCurrency = transaction.currency || 'NZD';
   const isCrypto = isCryptoCurrency(txCurrency);
   const decimals = isCrypto ? 8 : 2;
+  const balanceTolerance = isCrypto ? 1e-8 : 0.01;
 
-  const parsedAmounts = rows.map((r) => {
+  const parsedSignedAmounts = rows.map((r) => {
     const n = parseFloat(r.amount);
-    return Number.isFinite(n) && n > 0 ? n : 0;
+    return Number.isFinite(n) && n > 0 ? r.sign * n : 0;
   });
-  const allocatedSum = Math.round(parsedAmounts.reduce((sum, val) => sum + val, 0) * 100) / 100;
-  const remaining = Math.round((parentAbs - allocatedSum) * 100) / 100;
-  const isBalanced = Math.abs(remaining) <= 0.01;
+  const allocatedSum = roundToDecimals(
+    parsedSignedAmounts.reduce((sum, val) => sum + val, 0),
+    decimals
+  );
+  const remaining = roundToDecimals(txAmount - allocatedSum, decimals);
+  const isBalanced = Math.abs(remaining) <= balanceTolerance;
   const validRowsCount = rows.filter((r) => {
     const n = parseFloat(r.amount);
     return Number.isFinite(n) && n > 0 && r.category.trim().length > 0;
   }).length;
   const canSave = !saving && isBalanced && rows.length >= 2 && validRowsCount === rows.length;
 
-  const getFilteredLoans = (currentLoanId: string) =>
+  const getFilteredLoans = (rowSign: 1 | -1, currentLoanId: string) =>
     loans.filter((loan) => {
       if (!loan.is_active && String(loan.id) !== currentLoanId) return false;
-      if (isInflow) {
+      if (rowSign > 0) {
         return loan.loan_type === 'lent' || String(loan.id) === currentLoanId;
       }
       return true;
     });
 
-  const handleAmountChange = (idx: number, nextValue: string) => {
+  const resolveLoanIdForSign = (nextSign: 1 | -1, currentLoanId: string): string => {
+    if (!currentLoanId || nextSign < 0) return currentLoanId;
+    const matched = loans.find((l) => String(l.id) === currentLoanId);
+    if (matched && matched.loan_type !== 'lent') {
+      return '';
+    }
+    return currentLoanId;
+  };
+
+  const applyAutoRemainder = (next: SplitDraftRow[]): SplitDraftRow[] => {
+    if (row2ManuallyEdited || next.length !== 2) {
+      return next;
+    }
+    const row0 = next[0];
+    const trimmed = row0.amount.trim();
+    if (!trimmed) {
+      next[1] = {
+        ...next[1],
+        sign: defaultSign,
+        amount: '',
+        loanId: resolveLoanIdForSign(defaultSign, next[1].loanId),
+      };
+      return next;
+    }
+    const parsed = parseFloat(trimmed);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      const row0Signed = row0.sign * parsed;
+      const remainder = roundToDecimals(txAmount - row0Signed, decimals);
+      const nextSign: 1 | -1 = remainder < 0 ? -1 : remainder > 0 ? 1 : defaultSign;
+      next[1] = {
+        ...next[1],
+        sign: nextSign,
+        amount: Math.abs(remainder).toFixed(decimals),
+        loanId: resolveLoanIdForSign(nextSign, next[1].loanId),
+      };
+    }
+    return next;
+  };
+
+  const handleAmountChange = (idx: number, rawValue: string) => {
+    if (idx === 1) {
+      setRow2ManuallyEdited(true);
+    }
+    let explicitSign: 1 | -1 | null = null;
+    let cleanAmount = rawValue;
+    if (rawValue.startsWith('-')) {
+      explicitSign = -1;
+      cleanAmount = rawValue.slice(1);
+    } else if (rawValue.startsWith('+')) {
+      explicitSign = 1;
+      cleanAmount = rawValue.slice(1);
+    }
+    if (cleanAmount !== '' && !/^\d*\.?\d*$/.test(cleanAmount)) {
+      return;
+    }
+    setRows((prev) => {
+      const next = prev.map((row, i) => {
+        if (i !== idx) return row;
+        const nextSign = explicitSign ?? row.sign;
+        return {
+          ...row,
+          sign: nextSign,
+          amount: cleanAmount,
+          loanId: resolveLoanIdForSign(nextSign, row.loanId),
+        };
+      });
+      if (idx === 0) {
+        return applyAutoRemainder(next);
+      }
+      return next;
+    });
+  };
+
+  const handleSignToggle = (idx: number) => {
     if (idx === 1) {
       setRow2ManuallyEdited(true);
     }
     setRows((prev) => {
-      const next = prev.map((row, i) => (i === idx ? { ...row, amount: nextValue } : row));
-      if (idx === 0 && !row2ManuallyEdited && next.length >= 2) {
-        const trimmed = nextValue.trim();
-        if (!trimmed) {
-          next[1] = { ...next[1], amount: '' };
-        } else {
-          const parsed = parseFloat(trimmed);
-          if (Number.isFinite(parsed) && parsed >= 0 && parsed <= parentAbs + 0.005) {
-            const remainder = Math.max(0, Math.round((parentAbs - parsed) * 100) / 100);
-            next[1] = { ...next[1], amount: remainder.toFixed(2) };
-          }
-        }
+      const next = prev.map((row, i) => {
+        if (i !== idx) return row;
+        const nextSign: 1 | -1 = row.sign > 0 ? -1 : 1;
+        return {
+          ...row,
+          sign: nextSign,
+          loanId: resolveLoanIdForSign(nextSign, row.loanId),
+        };
+      });
+      if (idx === 0) {
+        return applyAutoRemainder(next);
       }
       return next;
     });
@@ -193,6 +300,7 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
     setRows((prev) => [
       ...prev,
       {
+        sign: defaultSign,
         amount: '',
         category: transaction.category || defaultCategory,
         loanId: '',
@@ -212,7 +320,7 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
     setError(null);
     try {
       const payload: TransactionSplitInput[] = rows.map((r) => {
-        const parsedAmt = Math.round(parseFloat(r.amount) * 100) / 100;
+        const parsedAmt = roundToDecimals(r.sign * parseFloat(r.amount), decimals);
         const tags = parseTagsCsv(r.tagsText);
         const loanId =
           isDebtLoansCategory(r.category) && r.loanId.trim()
@@ -254,23 +362,16 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
 
   const allocationText = isBalanced
     ? 'Balanced'
-    : remaining > 0
-      ? `Remaining: ${formatMoney(remaining, {
-          currency: isCrypto ? '' : '$',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: decimals,
-        })}`
-      : `Over by: ${formatMoney(Math.abs(remaining), {
-          currency: isCrypto ? '' : '$',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: decimals,
-        })}`;
+    : `Remaining: ${formatMoney(remaining, {
+        currency: isCrypto ? '' : '$',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: decimals,
+        showPlusSign: true,
+      })}`;
 
   const allocationBadgeClass = isBalanced
     ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-    : remaining > 0
-      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-      : 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+    : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
 
   return (
     <Modal
@@ -323,7 +424,7 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
         <div className="space-y-2.5 max-h-[48vh] overflow-y-auto pr-0.5">
           {rows.map((row, idx) => {
             const showLoan = isDebtLoansCategory(row.category);
-            const filteredLoans = showLoan ? getFilteredLoans(row.loanId) : [];
+            const filteredLoans = showLoan ? getFilteredLoans(row.sign, row.loanId) : [];
             return (
               <div
                 key={idx}
@@ -355,17 +456,40 @@ export const TransactionSplitModal: React.FC<TransactionSplitModalProps> = ({
                     >
                       Amount ({txCurrency})
                     </label>
-                    <input
-                      id={`split-amount-${idx}`}
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={row.amount}
-                      onChange={(e) => handleAmountChange(idx, e.target.value)}
-                      placeholder="0.00"
-                      data-testid={`split-amount-${idx}`}
-                      className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-100 font-mono focus:outline-none focus:border-violet-500"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSignToggle(idx)}
+                        data-testid={`split-sign-${idx}`}
+                        aria-label={
+                          row.sign > 0
+                            ? `Split line ${idx + 1} sign: Inflow (+)`
+                            : `Split line ${idx + 1} sign: Outflow (-)`
+                        }
+                        title={
+                          row.sign > 0
+                            ? 'Inflow / Repayment (+). Click to switch to Outflow (-)'
+                            : 'Outflow / Expense (-). Click to switch to Inflow (+)'
+                        }
+                        className={`w-9 h-[38px] sm:h-[30px] shrink-0 rounded-lg border font-mono font-bold text-base sm:text-xs flex items-center justify-center transition-colors cursor-pointer whitespace-nowrap ${
+                          row.sign > 0
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/25'
+                            : 'bg-rose-500/15 text-rose-300 border-rose-500/40 hover:bg-rose-500/25'
+                        }`}
+                      >
+                        {row.sign > 0 ? '+' : '-'}
+                      </button>
+                      <input
+                        id={`split-amount-${idx}`}
+                        type="text"
+                        inputMode="decimal"
+                        value={row.amount}
+                        onChange={(e) => handleAmountChange(idx, e.target.value)}
+                        placeholder="0.00"
+                        data-testid={`split-amount-${idx}`}
+                        className="min-w-0 flex-1 text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-100 font-mono focus:outline-none focus:border-violet-500"
+                      />
+                    </div>
                   </div>
 
                   <div>

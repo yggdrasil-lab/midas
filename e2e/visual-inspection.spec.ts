@@ -219,10 +219,6 @@ for (const { name: platform, options } of PLATFORMS) {
               await page.locator('[data-testid="split-loan-0"] >> visible=true').first().selectOption('2');
               await page.locator('[data-testid="split-category-1"] >> visible=true').first().selectOption('Family');
               await page.locator('[data-testid="split-notes-1"] >> visible=true').first().fill('Food split');
-              await page.waitForTimeout(250);
-              await page.screenshot({
-                path: `screenshots/${platform}/14c-transaction-split-modal.png`,
-              });
               await page.locator('[data-testid="save-splits-btn"] >> visible=true').first().click();
               await expect(splitModal).toBeHidden();
 
@@ -231,7 +227,6 @@ for (const { name: platform, options } of PLATFORMS) {
               const lentFlowPill = page.locator('[data-testid="loan-flow-142"] >> visible=true').first();
               await expect(lentFlowPill).toBeVisible();
               await expect(lentFlowPill).toContainText('$5,000.00 of $5,020.00');
-              await lentFlowPill.scrollIntoViewIfNeeded();
             }
 
             const loanSelect143 = page.locator('[data-testid="modal-select-loan-143"] >> visible=true').first();
@@ -239,9 +234,44 @@ for (const { name: platform, options } of PLATFORMS) {
               await loanSelect143.selectOption('2');
             }
 
+            const splitBtn144 = page.locator('[data-testid="split-tx-btn-144"] >> visible=true').first();
+            if (await splitBtn144.isVisible()) {
+              await splitBtn144.scrollIntoViewIfNeeded();
+              await splitBtn144.click();
+              const splitModal = page.locator('[data-testid="transaction-split-modal"] >> visible=true').first();
+              await expect(splitModal).toBeVisible();
+              await expect(page.locator('[data-testid="split-sign-0"] >> visible=true').first()).toHaveText('+');
+              await page.locator('[data-testid="split-amount-0"] >> visible=true').first().fill('+1000');
+              await expect(page.locator('[data-testid="split-sign-1"] >> visible=true').first()).toHaveText('-');
+              await expect(page.locator('[data-testid="split-amount-1"] >> visible=true').first()).toHaveValue('862.83');
+              await expect(page.locator('[data-testid="split-allocation-pill"] >> visible=true').first()).toContainText('Balanced');
+              await page.locator('[data-testid="split-category-0"] >> visible=true').first().selectOption('Debt & Loans');
+              await page.locator('[data-testid="split-loan-0"] >> visible=true').first().selectOption('2');
+              await page.locator('[data-testid="split-category-1"] >> visible=true').first().selectOption('Travel');
+              await page.locator('[data-testid="split-notes-1"] >> visible=true').first().fill('Christchurch trip');
+              await page.waitForTimeout(250);
+              await page.screenshot({
+                path: `screenshots/${platform}/14c-transaction-split-modal.png`,
+              });
+              await page.locator('[data-testid="save-splits-btn"] >> visible=true').first().click();
+              await expect(splitModal).toBeHidden();
+
+              await expect(page.locator('[data-testid="open-split-badge-144"] >> visible=true').first()).toContainText('Split (2)');
+              const splitSummary144 = page.locator('[data-testid="split-summary-144"] >> visible=true').first();
+              await expect(splitSummary144).toContainText('+$1,000.00');
+              await expect(splitSummary144).toContainText('-$862.83');
+              const lentFlowPill144 = page.locator('[data-testid="loan-flow-144"] >> visible=true').first();
+              await expect(lentFlowPill144).toBeVisible();
+              await expect(lentFlowPill144).toContainText('$1,000.00 (from +$137.17 net)');
+              await lentFlowPill144.scrollIntoViewIfNeeded();
+            }
+
             await assertLoanRowHasNoOverlap(page, 140);
             if (await splitBtn142.isVisible()) {
               await assertLoanRowHasNoOverlap(page, 142);
+            }
+            if (await splitBtn144.isVisible()) {
+              await assertLoanRowHasNoOverlap(page, 144);
             }
 
             await page.waitForTimeout(250);
@@ -270,7 +300,7 @@ for (const { name: platform, options } of PLATFORMS) {
 
             const lentCard = page.locator('[data-testid="loan-card-2"] >> visible=true').first();
             if (await lentCard.isVisible()) {
-              await expect(lentCard).toContainText('60% repaid');
+              await expect(lentCard).toContainText('70% repaid');
               const lentToggle = page.locator('[data-testid="loan-payments-toggle-2"] >> visible=true').first();
               await lentToggle.scrollIntoViewIfNeeded();
               await lentToggle.click();
