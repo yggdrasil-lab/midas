@@ -198,16 +198,31 @@ export const RulesList: React.FC<RulesListProps> = ({
                       </span>
                     );
                   })()}
-                  {Boolean(rule.loan_name) && (
-                    <span
-                      data-testid={`rule-loan-badge-${rule.id}`}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border bg-rose-500/10 text-rose-300 border-rose-500/25 text-[10px] font-medium"
-                      title="Automatically links matching outflow transactions to this financing loan"
-                    >
-                      <Car className="w-2.5 h-2.5 shrink-0" />
-                      <span>{`-> ${rule.loan_name}`}</span>
-                    </span>
-                  )}
+                  {Boolean(rule.loan_name) && (() => {
+                    const isLent = rule.loan_type === 'lent';
+                    return (
+                      <span
+                        data-testid={`rule-loan-badge-${rule.id}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${
+                          isLent
+                            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25'
+                            : 'bg-rose-500/10 text-rose-300 border-rose-500/25'
+                        }`}
+                        title={
+                          isLent
+                            ? 'Automatically links matching Debt & Loans transactions to this receivable loan'
+                            : 'Automatically links matching outflow transactions to this financing loan'
+                        }
+                      >
+                        {isLent ? (
+                          <Landmark className="w-2.5 h-2.5 shrink-0" />
+                        ) : (
+                          <Car className="w-2.5 h-2.5 shrink-0" />
+                        )}
+                        <span>{isLent ? `<-> ${rule.loan_name}` : `-> ${rule.loan_name}`}</span>
+                      </span>
+                    );
+                  })()}
                   {(rule.target_tags || []).map((tag) => (
                     <span
                       key={tag}

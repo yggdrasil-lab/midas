@@ -111,7 +111,8 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.locator('[data-testid="account-inspection-modal"] >> visible=true').first()).toBeVisible();
     await expect(page.locator('text=Pak n Save Albany >> visible=true').first()).toBeVisible();
 
-    // Change category in the popup modal to Food
+    // Change category in the popup modal to Food (loan selector remains hidden for non-Debt & Loans)
+    await expect(page.getByTestId('modal-select-loan-101')).toHaveCount(0);
     const catSelect = page.locator('[data-testid="modal-select-category-101"] >> visible=true').first();
     await expect(catSelect).toBeVisible();
     await catSelect.selectOption('Food');
@@ -436,6 +437,7 @@ test.describe('Midas App Shell & Navigation', () => {
     await page.getByTestId('rule-max-amount-input').fill('20.00');
     await page.getByTestId('rule-direction-select').selectOption('inflow');
     await page.getByTestId('rule-category-select').selectOption('Fuel');
+    await expect(page.getByTestId('rule-loan-select')).toHaveCount(0);
     await expect(page.getByTestId('rule-counterpart-account-select')).toBeVisible();
     await page.getByTestId('rule-counterpart-account-select').selectOption('5');
     await page.getByTestId('save-rule-btn').click();

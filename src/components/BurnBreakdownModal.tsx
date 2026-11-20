@@ -421,7 +421,11 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
         fetchLoans().catch(() => null),
       ]);
       setReport(res);
-      setLoans((loansRes?.loans ?? []).filter((loan) => loan.is_active));
+      setLoans(
+        (loansRes?.loans ?? []).filter(
+          (loan) => loan.is_active && loan.loan_type !== 'lent' && loan.monthly_payment > 0
+        )
+      );
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load burn breakdown');

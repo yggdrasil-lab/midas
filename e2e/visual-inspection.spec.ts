@@ -1,5 +1,9 @@
 import { test, expect, devices } from '@playwright/test';
 import { setupMockApi } from './helpers/mock-data';
+import {
+  assertCardMetricsWithinBounds,
+  assertLoanRowHasNoOverlap,
+} from './helpers/layout-assertions';
 
 const PLATFORMS = [
   {
@@ -193,7 +197,7 @@ for (const { name: platform, options } of PLATFORMS) {
             await expect(page.locator('text=Moved transaction to "Groceries" >> visible=true').first()).toBeVisible();
           }
 
-          // Link debit transaction 140 to financing loan and verify rose loan flow pill
+          // Link debit transaction 140 to borrowed loan and inflow 142/143 to lent loan with partial amount
           const loanSelect = page.locator('[data-testid="modal-select-loan-140"] >> visible=true').first();
           if (await loanSelect.isVisible()) {
             await loanSelect.scrollIntoViewIfNeeded();
@@ -202,6 +206,32 @@ for (const { name: platform, options } of PLATFORMS) {
             await expect(loanFlowPill).toBeVisible();
             await expect(loanFlowPill).toContainText('ASB Everyday Checking');
             await expect(loanFlowPill).toContainText('Toyota Corolla Cross (TFS)');
+
+            const catSelect142 = page.locator('[data-testid="modal-select-category-142"] >> visible=true').first();
+            if (await catSelect142.isVisible()) {
+              await catSelect142.scrollIntoViewIfNeeded();
+              await catSelect142.selectOption('Debt & Loans');
+              const loanSelect142 = page.locator('[data-testid="modal-select-loan-142"] >> visible=true').first();
+              await loanSelect142.selectOption('2');
+              await page.locator('[data-testid="modal-loan-split-btn-142"] >> visible=true').first().click();
+              await page.locator('[data-testid="modal-loan-amount-input-142"] >> visible=true').first().fill('5000');
+              await page.locator('[data-testid="modal-loan-amount-save-142"] >> visible=true').first().click();
+              const lentFlowPill = page.locator('[data-testid="loan-flow-142"] >> visible=true').first();
+              await expect(lentFlowPill).toBeVisible();
+              await expect(lentFlowPill).toContainText('$5,000.00 of $5,020.00');
+              await lentFlowPill.scrollIntoViewIfNeeded();
+            }
+
+            const loanSelect143 = page.locator('[data-testid="modal-select-loan-143"] >> visible=true').first();
+            if (await loanSelect143.isVisible()) {
+              await loanSelect143.selectOption('2');
+            }
+
+            await assertLoanRowHasNoOverlap(page, 140);
+            if (await catSelect142.isVisible()) {
+              await assertLoanRowHasNoOverlap(page, 142);
+            }
+
             await page.waitForTimeout(250);
             await page.screenshot({
               path: `screenshots/${platform}/14b-loan-flow-pill.png`,
@@ -216,7 +246,7 @@ for (const { name: platform, options } of PLATFORMS) {
           }
           await page.waitForTimeout(200);
 
-          // Capture updated transaction-driven LoansTracker card + expanded Linked Payments
+          // Capture updated two-way LoansTracker cards (I Owe + Owed to Me) + expanded Linked Repayments
           const loanCard = page.locator('[data-testid="loan-card-1"] >> visible=true').first();
           if (await loanCard.isVisible()) {
             await expect(loanCard).toContainText('1/36 posted');
@@ -225,7 +255,20 @@ for (const { name: platform, options } of PLATFORMS) {
             await paymentsToggle.scrollIntoViewIfNeeded();
             await paymentsToggle.click();
             await expect(page.locator('[data-testid="loan-payments-list-1"] >> visible=true').first()).toContainText('Toyota Financial Services');
-            await loanCard.scrollIntoViewIfNeeded();
+
+            const lentCard = page.locator('[data-testid="loan-card-2"] >> visible=true').first();
+            if (await lentCard.isVisible()) {
+              await expect(lentCard).toContainText('60% repaid');
+              const lentToggle = page.locator('[data-testid="loan-payments-toggle-2"] >> visible=true').first();
+              await lentToggle.scrollIntoViewIfNeeded();
+              await lentToggle.click();
+              await expect(page.locator('[data-testid="loan-payments-list-2"] >> visible=true').first()).toContainText('$5,000.00 NZD');
+              await lentCard.scrollIntoViewIfNeeded();
+              await assertCardMetricsWithinBounds(lentCard);
+            } else {
+              await loanCard.scrollIntoViewIfNeeded();
+            }
+
             await page.waitForTimeout(300);
             await page.screenshot({
               path: `screenshots/${platform}/14-loans-overview.png`,

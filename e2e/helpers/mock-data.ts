@@ -61,7 +61,7 @@ function buildInitialMockCategories(): MockCategoryRecord[] {
     { id: 27, name: 'Family', parentId: null, parentName: null, sort: 100, txns: 3 },
     { id: 28, name: 'Finance', parentId: null, parentName: null, sort: 110, txns: 1 },
     { id: 29, name: 'Fees & Admin', parentId: 28, parentName: 'Finance', sort: 111, txns: 4, rules: 1 },
-    { id: 30, name: 'Debt & Loans', parentId: 28, parentName: 'Finance', sort: 112, txns: 2 },
+    { id: 30, name: 'Debt & Loans', parentId: 28, parentName: 'Finance', isSystem: true, sort: 112, txns: 2 },
     { id: 31, name: 'General', parentId: null, parentName: null, isSystem: true, sort: 900, txns: 4 },
     { id: 32, name: 'Transfers', parentId: null, parentName: null, isSystem: true, sort: 910, txns: 10 },
     { id: 33, name: 'Income', parentId: null, parentName: null, isSystem: true, sort: 920, txns: 6 },
@@ -139,6 +139,7 @@ export const MOCK_LOANS_DATA = {
       id: 1,
       name: 'Toyota Corolla Cross (TFS)',
       lender: 'Toyota Financial Services',
+      loan_type: 'borrowed' as const,
       principal_amount: 45399.42,
       annual_interest_rate: 0.0962,
       term_months: 36,
@@ -161,9 +162,40 @@ export const MOCK_LOANS_DATA = {
       last_payment_date: null,
       is_payment_due: true,
       linked_payments: [],
+      disbursements: [],
+    },
+    {
+      id: 2,
+      name: 'Loan to Brother',
+      lender: 'Brother',
+      loan_type: 'lent' as const,
+      principal_amount: 10000.0,
+      annual_interest_rate: 0.0,
+      term_months: 0,
+      monthly_payment: 0.0,
+      start_date: '2025-08-08',
+      asset_value: null,
+      currency: 'NZD',
+      is_active: true,
+      payments_made: 0,
+      payments_remaining: 0,
+      payoff_date: null,
+      next_payment_date: null,
+      remaining_principal: 10000.0,
+      principal_paid: 0.0,
+      remaining_interest: 0.0,
+      weekly_payment_equivalent: 0.0,
+      net_worth_impact: 10000.0,
+      total_paid_amount: 0.0,
+      interest_paid: 0.0,
+      last_payment_date: null,
+      is_payment_due: false,
+      linked_payments: [],
+      disbursements: [],
     },
   ],
   total_liabilities: 45399.42,
+  total_receivables: 10000.0,
   total_asset_value: 55000.0,
   net_loan_impact: 9600.58,
   total_monthly_payment: 1452.42,
@@ -903,6 +935,8 @@ export async function setupMockApi(page: Page) {
     counterpart_account_name?: string | null;
     loan_id?: number | null;
     loan_name?: string | null;
+    loan_type?: 'borrowed' | 'lent' | null;
+    loan_payment_amount?: number | null;
     exchange_rate?: number | null;
     fee_amount?: number | null;
     is_amortized_commitment?: boolean;
@@ -1128,6 +1162,53 @@ export async function setupMockApi(page: Page) {
       category: 'Debt & Loans',
       loan_id: null,
       loan_name: null,
+      loan_type: null,
+      loan_payment_amount: null,
+    },
+    {
+      id: 141,
+      transaction_date: '2025-08-08',
+      account_id: 1,
+      account_name: 'ASB Everyday Checking',
+      amount: -10000.0,
+      currency: 'NZD',
+      merchant: 'Transfer to Brother',
+      raw_description: 'TRANSFER TO BROTHER LOAN',
+      category: 'Debt & Loans',
+      loan_id: 2,
+      loan_name: 'Loan to Brother',
+      loan_type: 'lent',
+      loan_payment_amount: null,
+    },
+    {
+      id: 142,
+      transaction_date: '2026-11-19',
+      account_id: 1,
+      account_name: 'ASB Everyday Checking',
+      amount: 5020.0,
+      currency: 'NZD',
+      merchant: 'Tienzo E M Ti',
+      raw_description: 'TIENZO E M TI REPAYMENT',
+      category: 'Family',
+      loan_id: null,
+      loan_name: null,
+      loan_type: null,
+      loan_payment_amount: null,
+    },
+    {
+      id: 143,
+      transaction_date: '2026-11-17',
+      account_id: 1,
+      account_name: 'ASB Everyday Checking',
+      amount: 1000.0,
+      currency: 'NZD',
+      merchant: 'Tienzo E M Ti',
+      raw_description: 'TIENZO E M TI PARTIAL',
+      category: 'Debt & Loans',
+      loan_id: null,
+      loan_name: null,
+      loan_type: null,
+      loan_payment_amount: null,
     },
   ];
 
@@ -1165,19 +1246,135 @@ export async function setupMockApi(page: Page) {
     },
   ];
 
-  const mockLoans = MOCK_LOANS_DATA.loans.map((l) => ({ ...l }));
+  interface MockLoanRecord {
+    id: number;
+    name: string;
+    lender: string;
+    loan_type: 'borrowed' | 'lent';
+    principal_amount: number;
+    annual_interest_rate: number;
+    term_months: number;
+    monthly_payment: number;
+    start_date: string;
+    asset_value: number | null;
+    currency: string;
+    is_active: boolean;
+    payments_made: number;
+    payments_remaining: number;
+    payoff_date: string | null;
+    next_payment_date: string | null;
+    remaining_principal: number;
+    principal_paid: number;
+    remaining_interest: number;
+    weekly_payment_equivalent: number;
+    net_worth_impact: number;
+    total_paid_amount: number;
+    interest_paid: number;
+    last_payment_date: string | null;
+    is_payment_due: boolean;
+    linked_payments: unknown[];
+    disbursements: unknown[];
+  }
 
-  const resolveLoanName = (loanId: number | null | undefined): string | null => {
+  const mockLoans: MockLoanRecord[] = MOCK_LOANS_DATA.loans.map((l) => ({
+    ...l,
+    loan_type: l.loan_type ?? 'borrowed',
+    linked_payments: [...(l.linked_payments || [])],
+    disbursements: [...(l.disbursements || [])],
+  }));
+  let nextLoanId = 3;
+
+  const resolveLoan = (loanId: number | null | undefined): MockLoanRecord | null => {
     if (loanId === null || loanId === undefined) return null;
-    const found = mockLoans.find((l) => l.id === Number(loanId));
-    return found ? found.name : null;
+    return mockLoans.find((l) => l.id === Number(loanId)) ?? null;
   };
+
+  const resolveLoanName = (loanId: number | null | undefined): string | null =>
+    resolveLoan(loanId)?.name ?? null;
+
+  const resolveLoanType = (loanId: number | null | undefined): 'borrowed' | 'lent' | null =>
+    resolveLoan(loanId)?.loan_type ?? null;
 
   const computeLoansSummary = () => {
     const computedLoans = mockLoans.map((loan) => {
-      const linkedTxs = mockTransactions
-        .filter((tx) => tx.loan_id === loan.id && tx.amount < 0)
+      const isLent = loan.loan_type === 'lent';
+      const allLinkedTxs = mockTransactions
+        .filter((tx) => tx.loan_id === loan.id)
         .sort((a, b) => a.transaction_date.localeCompare(b.transaction_date));
+
+      if (isLent) {
+        const repaymentTxs = allLinkedTxs.filter((tx) => tx.amount > 0);
+        const disbursementTxs = allLinkedTxs.filter((tx) => tx.amount < 0);
+        let remaining = loan.principal_amount;
+        let totalRepaid = 0;
+
+        for (const tx of repaymentTxs) {
+          const rawAmt = Math.abs(tx.amount);
+          const appliedAmt =
+            tx.loan_payment_amount != null
+              ? Math.min(rawAmt, Number(tx.loan_payment_amount))
+              : rawAmt;
+          totalRepaid = Math.round((totalRepaid + appliedAmt) * 100) / 100;
+          remaining = Math.max(0, Math.round((remaining - appliedAmt) * 100) / 100);
+        }
+
+        const lastPaymentDate =
+          repaymentTxs.length > 0
+            ? repaymentTxs[repaymentTxs.length - 1].transaction_date
+            : null;
+
+        return {
+          ...loan,
+          payments_made: repaymentTxs.length,
+          payments_remaining: 0,
+          payoff_date: null,
+          next_payment_date: null,
+          remaining_principal: remaining,
+          principal_paid: totalRepaid,
+          total_paid_amount: totalRepaid,
+          interest_paid: 0,
+          last_payment_date: lastPaymentDate,
+          is_payment_due: false,
+          net_worth_impact: remaining,
+          linked_payments: [...repaymentTxs].reverse().map((tx) => {
+            const rawAmt = Math.abs(tx.amount);
+            const appliedAmt =
+              tx.loan_payment_amount != null
+                ? Math.min(rawAmt, Number(tx.loan_payment_amount))
+                : rawAmt;
+            return {
+              id: tx.id,
+              transaction_date: tx.transaction_date,
+              amount: tx.amount,
+              currency: tx.currency,
+              amount_nzd: rawAmt,
+              applied_amount: appliedAmt,
+              loan_payment_amount: tx.loan_payment_amount ?? null,
+              entry_type: 'repayment' as const,
+              merchant: tx.merchant,
+              account_id: tx.account_id,
+              account_name: tx.account_name,
+              category: tx.category,
+            };
+          }),
+          disbursements: [...disbursementTxs].reverse().map((tx) => ({
+            id: tx.id,
+            transaction_date: tx.transaction_date,
+            amount: tx.amount,
+            currency: tx.currency,
+            amount_nzd: Math.abs(tx.amount),
+            applied_amount: Math.abs(tx.amount),
+            loan_payment_amount: tx.loan_payment_amount ?? null,
+            entry_type: 'disbursement' as const,
+            merchant: tx.merchant,
+            account_id: tx.account_id,
+            account_name: tx.account_name,
+            category: tx.category,
+          })),
+        };
+      }
+
+      const linkedTxs = allLinkedTxs.filter((tx) => tx.amount < 0);
       const monthlyRate = loan.annual_interest_rate / 12;
       let remaining = loan.principal_amount;
       let totalPaid = 0;
@@ -1185,7 +1382,11 @@ export async function setupMockApi(page: Page) {
       let principalPaid = 0;
 
       for (const tx of linkedTxs) {
-        const paymentAmt = Math.abs(tx.amount);
+        const rawAmt = Math.abs(tx.amount);
+        const paymentAmt =
+          tx.loan_payment_amount != null
+            ? Math.min(rawAmt, Number(tx.loan_payment_amount))
+            : rawAmt;
         const interest = Math.round(remaining * monthlyRate * 100) / 100;
         const principalPortion = Math.min(
           remaining,
@@ -1218,42 +1419,59 @@ export async function setupMockApi(page: Page) {
         last_payment_date: lastPaymentDate,
         is_payment_due: isPaymentDue,
         net_worth_impact: netWorthImpact,
-        linked_payments: [...linkedTxs].reverse().map((tx) => ({
-          id: tx.id,
-          transaction_date: tx.transaction_date,
-          amount: tx.amount,
-          currency: tx.currency,
-          amount_nzd: Math.abs(tx.amount),
-          merchant: tx.merchant,
-          account_id: tx.account_id,
-          account_name: tx.account_name,
-          category: tx.category,
-        })),
+        linked_payments: [...linkedTxs].reverse().map((tx) => {
+          const rawAmt = Math.abs(tx.amount);
+          const appliedAmt =
+            tx.loan_payment_amount != null
+              ? Math.min(rawAmt, Number(tx.loan_payment_amount))
+              : rawAmt;
+          return {
+            id: tx.id,
+            transaction_date: tx.transaction_date,
+            amount: tx.amount,
+            currency: tx.currency,
+            amount_nzd: rawAmt,
+            applied_amount: appliedAmt,
+            loan_payment_amount: tx.loan_payment_amount ?? null,
+            entry_type: 'repayment' as const,
+            merchant: tx.merchant,
+            account_id: tx.account_id,
+            account_name: tx.account_name,
+            category: tx.category,
+          };
+        }),
+        disbursements: [],
       };
     });
 
+    const borrowedLoans = computedLoans.filter((l) => l.loan_type !== 'lent');
+    const lentLoans = computedLoans.filter((l) => l.loan_type === 'lent');
     const totalLiabilities = Math.round(
-      computedLoans.reduce((sum, l) => sum + l.remaining_principal, 0) * 100
+      borrowedLoans.reduce((sum, l) => sum + l.remaining_principal, 0) * 100
+    ) / 100;
+    const totalReceivables = Math.round(
+      lentLoans.reduce((sum, l) => sum + l.remaining_principal, 0) * 100
     ) / 100;
     const totalAssetValue = Math.round(
-      computedLoans.reduce((sum, l) => sum + (l.asset_value ?? 0), 0) * 100
+      borrowedLoans.reduce((sum, l) => sum + (l.asset_value ?? 0), 0) * 100
     ) / 100;
     const netLoanImpact = Math.round((totalAssetValue - totalLiabilities) * 100) / 100;
     const totalMonthlyPayment = Math.round(
-      computedLoans.reduce((sum, l) => sum + l.monthly_payment, 0) * 100
+      borrowedLoans.reduce((sum, l) => sum + l.monthly_payment, 0) * 100
     ) / 100;
     const totalWeeklyPayment = Math.round(
-      computedLoans.reduce((sum, l) => sum + l.weekly_payment_equivalent, 0) * 100
+      borrowedLoans.reduce((sum, l) => sum + l.weekly_payment_equivalent, 0) * 100
     ) / 100;
 
     return {
       loans: computedLoans,
       total_liabilities: totalLiabilities,
+      total_receivables: totalReceivables,
       total_asset_value: totalAssetValue,
       net_loan_impact: netLoanImpact,
       total_monthly_payment: totalMonthlyPayment,
       total_weekly_payment: totalWeeklyPayment,
-      latest_payoff_date: computedLoans[0]?.payoff_date || null,
+      latest_payoff_date: borrowedLoans[0]?.payoff_date || null,
     };
   };
 
@@ -1280,6 +1498,14 @@ export async function setupMockApi(page: Page) {
           const nextLoanId = body.loan_id != null ? Number(body.loan_id) : null;
           (existing as MockTransactionRecord).loan_id = nextLoanId;
           (existing as MockTransactionRecord).loan_name = resolveLoanName(nextLoanId);
+          (existing as MockTransactionRecord).loan_type = resolveLoanType(nextLoanId);
+          if (nextLoanId == null) {
+            (existing as MockTransactionRecord).loan_payment_amount = null;
+          }
+        }
+        if ('loan_payment_amount' in (body || {})) {
+          (existing as MockTransactionRecord).loan_payment_amount =
+            body.loan_payment_amount != null ? Number(body.loan_payment_amount) : null;
         }
       }
       await route.fulfill({
@@ -1439,6 +1665,7 @@ export async function setupMockApi(page: Page) {
     counterpart_account_name: string | null;
     loan_id: number | null;
     loan_name: string | null;
+    loan_type: 'borrowed' | 'lent' | null;
     priority: number;
     is_active: boolean;
     match_count: number;
@@ -1464,6 +1691,7 @@ export async function setupMockApi(page: Page) {
       counterpart_account_name: null,
       loan_id: null,
       loan_name: null,
+      loan_type: null,
       priority: 10,
       is_active: true,
       match_count: 4,
@@ -1487,6 +1715,7 @@ export async function setupMockApi(page: Page) {
       counterpart_account_name: null,
       loan_id: null,
       loan_name: null,
+      loan_type: null,
       priority: 15,
       is_active: true,
       match_count: 8,
@@ -1510,6 +1739,7 @@ export async function setupMockApi(page: Page) {
       counterpart_account_name: null,
       loan_id: null,
       loan_name: null,
+      loan_type: null,
       priority: 5,
       is_active: true,
       match_count: 6,
@@ -1533,6 +1763,7 @@ export async function setupMockApi(page: Page) {
       counterpart_account_name: null,
       loan_id: null,
       loan_name: null,
+      loan_type: null,
       priority: 6,
       is_active: true,
       match_count: 3,
@@ -1556,6 +1787,7 @@ export async function setupMockApi(page: Page) {
       counterpart_account_name: 'Manulife',
       loan_id: null,
       loan_name: null,
+      loan_type: null,
       priority: 8,
       is_active: true,
       match_count: 2,
@@ -1610,6 +1842,7 @@ export async function setupMockApi(page: Page) {
         counterpart_account_name: resolveAccountName(counterpartId),
         loan_id: loanId,
         loan_name: resolveLoanName(loanId),
+        loan_type: resolveLoanType(loanId),
         priority: body.priority ?? 10,
         is_active: body.is_active ?? true,
         match_count: 0,
@@ -1676,6 +1909,7 @@ export async function setupMockApi(page: Page) {
         counterpart_account_name: resolveAccountName(nextCounterpartId),
         loan_id: nextLoanId,
         loan_name: resolveLoanName(nextLoanId),
+        loan_type: resolveLoanType(nextLoanId),
         priority: body.priority ?? existing.priority,
         is_active: body.is_active !== undefined ? body.is_active : existing.is_active,
         updated_at: new Date().toISOString(),
@@ -1992,12 +2226,53 @@ export async function setupMockApi(page: Page) {
         body: JSON.stringify(computeLoansSummary()),
       });
     } else if (method === 'POST') {
+      const body = route.request().postDataJSON() || {};
+      const loanType: 'borrowed' | 'lent' = body.loan_type === 'lent' ? 'lent' : 'borrowed';
+      const newId = nextLoanId++;
+      const created: MockLoanRecord = {
+        id: newId,
+        name: body.name || 'New Loan',
+        lender: body.lender || 'Lender',
+        loan_type: loanType,
+        principal_amount: Number(body.principal_amount) || 0,
+        annual_interest_rate: Number(body.annual_interest_rate) || 0,
+        term_months: Number(body.term_months) || 0,
+        monthly_payment: Number(body.monthly_payment) || 0,
+        start_date: body.start_date || '2026-11-20',
+        asset_value: body.asset_value != null ? Number(body.asset_value) : null,
+        currency: body.currency || 'NZD',
+        is_active: true,
+        payments_made: 0,
+        payments_remaining: loanType === 'lent' ? 0 : Number(body.term_months) || 0,
+        payoff_date: loanType === 'lent' ? null : '2029-10-20',
+        next_payment_date: null,
+        remaining_principal: Number(body.principal_amount) || 0,
+        principal_paid: 0,
+        remaining_interest: 0,
+        weekly_payment_equivalent: 0,
+        net_worth_impact: Number(body.principal_amount) || 0,
+        total_paid_amount: 0,
+        interest_paid: 0,
+        last_payment_date: null,
+        is_payment_due: false,
+        linked_payments: [],
+        disbursements: [],
+      };
+      mockLoans.push(created);
+      const summary = computeLoansSummary();
+      const createdView = summary.loans.find((l) => l.id === newId) || created;
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify(computeLoansSummary().loans[0]),
+        body: JSON.stringify(createdView),
       });
     } else if (method === 'DELETE') {
+      const match = route.request().url().match(/\/api\/loans\/(\d+)/);
+      const delId = match ? Number(match[1]) : -1;
+      const idx = mockLoans.findIndex((l) => l.id === delId);
+      if (idx >= 0) {
+        mockLoans.splice(idx, 1);
+      }
       await route.fulfill({ status: 204, body: '' });
     } else {
       await route.continue();

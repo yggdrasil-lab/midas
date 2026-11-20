@@ -5,7 +5,7 @@ import {
   updateTransactionRecurrence,
   updateTransactionTags,
 } from '../services/api';
-import { CategorizationRuleCreate, RecurrenceType, Transaction } from '../types';
+import { CategorizationRuleCreate, LoanType, RecurrenceType, Transaction } from '../types';
 
 interface UseTransactionCategoryMutationOptions {
   onTransactionUpdated: (txId: number, patch: Partial<Transaction>) => void;
@@ -77,16 +77,34 @@ export function useTransactionCategoryMutation({
   );
 
   const handleLoanChange = useCallback(
-    async (txId: number, loanId: number | null, fallbackLoanName?: string | null) => {
+    async (
+      txId: number,
+      loanId: number | null,
+      loanPaymentAmount?: number | null,
+      fallbackLoanName?: string | null,
+      fallbackLoanType?: LoanType | null
+    ) => {
       setUpdatingId(txId);
       onError?.('');
       try {
-        const updated = await updateTransactionLoan(txId, loanId);
+        const updated = await updateTransactionLoan(txId, loanId, loanPaymentAmount);
         const resolvedLoanId = updated.loan_id !== undefined ? updated.loan_id : loanId;
         const resolvedLoanName =
           resolvedLoanId == null
             ? null
             : updated.loan_name ?? fallbackLoanName ?? null;
+        const resolvedLoanType =
+          resolvedLoanId == null
+            ? null
+            : updated.loan_type ?? fallbackLoanType ?? null;
+        const resolvedLoanPaymentAmount =
+          resolvedLoanId == null
+            ? null
+            : updated.loan_payment_amount !== undefined
+              ? updated.loan_payment_amount
+              : loanPaymentAmount !== undefined
+                ? loanPaymentAmount
+                : null;
         setSuccessNote(
           resolvedLoanId != null
             ? resolvedLoanName
@@ -97,6 +115,8 @@ export function useTransactionCategoryMutation({
         onTransactionUpdated(txId, {
           loan_id: resolvedLoanId ?? null,
           loan_name: resolvedLoanName,
+          loan_type: resolvedLoanType,
+          loan_payment_amount: resolvedLoanPaymentAmount,
         });
         onChanged();
       } catch (err) {
