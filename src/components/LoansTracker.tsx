@@ -399,17 +399,21 @@ export const LoansTracker: React.FC<LoansTrackerProps> = ({ summary, onChanged }
                     </div>
                     <div>
                       <div className="text-slate-400">Repaid</div>
-                      <div className="font-mono font-semibold text-slate-200 whitespace-nowrap">
-                        {formatMoney(loan.principal_paid, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{' '}
-                        /{' '}
-                        {formatMoney(loan.principal_amount, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{' '}
-                        {loan.currency}
+                      <div className="font-mono font-semibold text-slate-200 flex flex-wrap items-baseline gap-x-1">
+                        <span className="whitespace-nowrap">
+                          {formatMoney(loan.principal_paid, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>{' '}
+                        <span className="text-slate-400 font-normal whitespace-nowrap">
+                          /{' '}
+                          {formatMoney(loan.principal_amount, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{' '}
+                          {loan.currency}
+                        </span>
                       </div>
                     </div>
                     <div>

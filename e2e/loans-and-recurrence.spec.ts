@@ -1,5 +1,9 @@
 import { test, expect, devices } from '@playwright/test';
 import { setupMockApi } from './helpers/mock-data';
+import {
+  assertCardMetricsWithinBounds,
+  assertLoanRowHasNoOverlap,
+} from './helpers/layout-assertions';
 
 const MOBILE_PLATFORMS = [
   { name: 'ios', device: devices['iPhone 14'] },
@@ -124,6 +128,9 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await loanSelect143.selectOption('2');
       await expect(page.getByTestId('loan-flow-143')).toContainText('Repayment');
 
+      await assertLoanRowHasNoOverlap(page, 140);
+      await assertLoanRowHasNoOverlap(page, 142);
+
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${name}/15-transactions-recurrence.png`,
@@ -161,6 +168,9 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(lentPaymentsList).toContainText('$1,000.00 NZD');
       await expect(lentPaymentsList).toContainText('Disbursement');
       await expect(lentPaymentsList).toContainText('Transfer to Brother');
+
+      await lentCard.scrollIntoViewIfNeeded();
+      await assertCardMetricsWithinBounds(lentCard);
 
       await page.waitForTimeout(300);
       await page.screenshot({

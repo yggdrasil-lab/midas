@@ -159,7 +159,9 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   return (
     <div
       data-testid={rowTestId}
-      className={`p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors border ${rowContainerClasses}`}
+      className={`p-3 rounded-xl flex flex-col ${
+        showLoanSelector ? 'gap-2.5' : 'sm:flex-row sm:items-center justify-between gap-3'
+      } transition-colors border ${rowContainerClasses}`}
     >
       {/* Left: Date, badges, merchant */}
       <div className="space-y-1 min-w-0 flex-1">
@@ -442,7 +444,13 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
       </div>
 
       {/* Right: Amount & inline category selector */}
-      <div className="flex items-center justify-between sm:justify-end space-x-3 shrink-0">
+      <div
+        className={
+          showLoanSelector
+            ? 'flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border/40'
+            : 'flex items-center justify-between sm:justify-end space-x-3 shrink-0'
+        }
+      >
         {isAmortized ? (
           <span
             data-testid={`amortized-amount-${tx.id}`}
@@ -452,6 +460,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
           </span>
         ) : (
           <span
+            data-testid={`tx-amount-${tx.id}`}
             className={`text-xs font-semibold font-mono whitespace-nowrap ${
               isTransfer ? 'text-sky-300' : isDebit ? 'text-rose-400' : 'text-emerald-400'
             }`}

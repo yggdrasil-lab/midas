@@ -1,5 +1,9 @@
 import { test, expect, devices } from '@playwright/test';
 import { setupMockApi } from './helpers/mock-data';
+import {
+  assertCardMetricsWithinBounds,
+  assertLoanRowHasNoOverlap,
+} from './helpers/layout-assertions';
 
 const PLATFORMS = [
   {
@@ -223,6 +227,11 @@ for (const { name: platform, options } of PLATFORMS) {
               await loanSelect143.selectOption('2');
             }
 
+            await assertLoanRowHasNoOverlap(page, 140);
+            if (await catSelect142.isVisible()) {
+              await assertLoanRowHasNoOverlap(page, 142);
+            }
+
             await page.waitForTimeout(250);
             await page.screenshot({
               path: `screenshots/${platform}/14b-loan-flow-pill.png`,
@@ -255,6 +264,7 @@ for (const { name: platform, options } of PLATFORMS) {
               await lentToggle.click();
               await expect(page.locator('[data-testid="loan-payments-list-2"] >> visible=true').first()).toContainText('$5,000.00 NZD');
               await lentCard.scrollIntoViewIfNeeded();
+              await assertCardMetricsWithinBounds(lentCard);
             } else {
               await loanCard.scrollIntoViewIfNeeded();
             }
