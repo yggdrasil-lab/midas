@@ -1222,6 +1222,21 @@ export async function setupMockApi(page: Page) {
       loan_type: null,
       loan_payment_amount: null,
     },
+    {
+      id: 144,
+      transaction_date: '2026-11-16',
+      account_id: 1,
+      account_name: 'ASB Everyday Checking',
+      amount: 137.17,
+      currency: 'NZD',
+      merchant: 'Tienzo E M Ti',
+      raw_description: 'TIENZO E M TI NETTED SETTLEMENT',
+      category: 'Family',
+      loan_id: null,
+      loan_name: null,
+      loan_type: null,
+      loan_payment_amount: null,
+    },
   ];
 
   const mockAmortizedUtilities = [
@@ -1311,6 +1326,7 @@ export async function setupMockApi(page: Page) {
   interface LoanLinkedEntry {
     tx: MockTransactionRecord;
     appliedAmt: number;
+    signedAmt: number;
     loanPaymentAmount: number | null;
     splitId: number | null;
     notes: string | null;
@@ -1324,10 +1340,12 @@ export async function setupMockApi(page: Page) {
       if (tx.is_split && tx.splits && tx.splits.length > 0) {
         for (const split of tx.splits) {
           if (split.loan_id === loanId) {
-            const splitAmt = Math.min(rawAmt, Math.abs(Number(split.amount)));
+            const signedAmt = Number(split.amount);
+            const splitAmt = Math.abs(signedAmt);
             entries.push({
               tx,
               appliedAmt: splitAmt,
+              signedAmt,
               loanPaymentAmount: splitAmt,
               splitId: split.id,
               notes: split.notes ?? null,
@@ -1343,6 +1361,7 @@ export async function setupMockApi(page: Page) {
         entries.push({
           tx,
           appliedAmt,
+          signedAmt: Number(tx.amount),
           loanPaymentAmount: tx.loan_payment_amount ?? null,
           splitId: null,
           notes: null,
@@ -1359,9 +1378,15 @@ export async function setupMockApi(page: Page) {
       const allLinkedEntries = collectLoanEntries(loan.id);
 
       if (isLent) {
-        const repaymentEntries = allLinkedEntries.filter((e) => e.tx.amount > 0);
-        const disbursementEntries = allLinkedEntries.filter((e) => e.tx.amount < 0);
-        let remaining = loan.principal_amount;
+        const repaymentEntries = allLinkedEntries.filter((e) => e.signedAmt > 0);
+        const disbursementEntries = allLinkedEntries.filter((e) => e.signedAmt < 0);
+        const effectivePrincipal =
+          disbursementEntries.length > 0
+            ? Math.round(
+                disbursementEntries.reduce((sum, entry) => sum + entry.appliedAmt, 0) * 100
+              ) / 100
+            : loan.principal_amount;
+        let remaining = effectivePrincipal;
         let totalRepaid = 0;
 
         for (const entry of repaymentEntries) {
@@ -1376,6 +1401,7 @@ export async function setupMockApi(page: Page) {
 
         return {
           ...loan,
+          principal_amount: effectivePrincipal,
           payments_made: repaymentEntries.length,
           payments_remaining: 0,
           payoff_date: null,
@@ -1392,7 +1418,7 @@ export async function setupMockApi(page: Page) {
             transaction_date: entry.tx.transaction_date,
             amount: entry.tx.amount,
             currency: entry.tx.currency,
-            amount_nzd: Math.abs(entry.tx.amount),
+            amount_nzd: Math.abs(entry.signedAmt),
             applied_amount: entry.appliedAmt,
             loan_payment_amount: entry.loanPaymentAmount,
             split_id: entry.splitId,
@@ -1406,9 +1432,9 @@ export async function setupMockApi(page: Page) {
           disbursements: [...disbursementEntries].reverse().map((entry) => ({
             id: entry.tx.id,
             transaction_date: entry.tx.transaction_date,
-            amount: entry.tx.amount,
+            amount: entry.signedAmt,
             currency: entry.tx.currency,
-            amount_nzd: Math.abs(entry.tx.amount),
+            amount_nzd: Math.abs(entry.signedAmt),
             applied_amount: entry.appliedAmt,
             loan_payment_amount: entry.loanPaymentAmount,
             split_id: entry.splitId,
@@ -1422,7 +1448,7 @@ export async function setupMockApi(page: Page) {
         };
       }
 
-      const linkedEntries = allLinkedEntries.filter((e) => e.tx.amount < 0);
+      const linkedEntries = allLinkedEntries.filter((e) => e.signedAmt < 0);
       const monthlyRate = loan.annual_interest_rate / 12;
       let remaining = loan.principal_amount;
       let totalPaid = 0;
@@ -1541,6 +1567,24 @@ export async function setupMockApi(page: Page) {
         existing.splits = [];
         existing.is_split = false;
       } else {
+        const signedSum =
+          Math.round(
+            inputSplits.reduce(
+              (sum: number, s: { amount: number }) => sum + Number(s.amount),
+              0
+            ) * 100
+          ) / 100;
+        const parentAmt = Math.round(Number(existing.amount) * 100) / 100;
+        if (Math.abs(signedSum - parentAmt) > 0.01) {
+          await route.fulfill({
+            status: 422,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              detail: `Split amounts (${signedSum.toFixed(2)}) must sum to transaction amount (${parentAmt.toFixed(2)}).`,
+            }),
+          });
+          return;
+        }
         existing.loan_id = null;
         existing.loan_name = null;
         existing.loan_type = null;
@@ -1652,14 +1696,13 @@ export async function setupMockApi(page: Page) {
                 (s) => s.category.toLowerCase() === targetLower
               );
               if (matched.length === 0) return null;
-              const sign = tx.amount < 0 ? -1 : 1;
               const splitAmt =
                 Math.round(
-                  matched.reduce((sum, s) => sum + Math.abs(Number(s.amount)), 0) * 100
+                  matched.reduce((sum, s) => sum + Number(s.amount), 0) * 100
                 ) / 100;
               return {
                 ...tx,
-                amount: sign * splitAmt,
+                amount: splitAmt,
                 category: matched[0].category,
               };
             }

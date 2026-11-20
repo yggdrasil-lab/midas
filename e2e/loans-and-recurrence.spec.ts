@@ -149,8 +149,53 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await loanSelect143.selectOption('2');
       await expect(page.getByTestId('loan-flow-143')).toContainText('Repayment');
 
+      // Split netted +$137.17 inflow via TransactionSplitModal (+1,000 Debt & Loans -> Loan to Brother, -862.83 Travel)
+      const splitBtn144 = page.getByTestId('split-tx-btn-144');
+      await splitBtn144.scrollIntoViewIfNeeded();
+      await splitBtn144.click();
+
+      await expect(splitModal).toBeVisible();
+      await expect(page.getByTestId('split-sign-0')).toHaveText('+');
+      await page.getByTestId('split-amount-0').fill('+1000');
+      await expect(page.getByTestId('split-sign-1')).toHaveText('-');
+      await expect(page.getByTestId('split-amount-1')).toHaveValue('862.83');
+      await expect(page.getByTestId('split-allocation-pill')).toContainText('Balanced');
+
+      await page.getByTestId('split-category-0').selectOption('Debt & Loans');
+      const splitLoan144Row0 = page.getByTestId('split-loan-0');
+      await expect(splitLoan144Row0.locator('option')).toHaveCount(2);
+      await splitLoan144Row0.selectOption('2');
+
+      // Negative split row shows both borrowed and lent loans when Debt & Loans is selected
+      await page.getByTestId('split-category-1').selectOption('Debt & Loans');
+      await expect(page.getByTestId('split-loan-1').locator('option')).toHaveCount(3);
+      await page.getByTestId('split-category-1').selectOption('Travel');
+      await page.getByTestId('split-notes-1').fill('Christchurch trip');
+      await page.getByTestId('save-splits-btn').click();
+      await expect(splitModal).toBeHidden();
+
+      const splitBadge144 = page.getByTestId('open-split-badge-144');
+      await expect(splitBadge144).toBeVisible();
+      await expect(splitBadge144).toContainText('Split (2)');
+
+      const splitSummary144 = page.getByTestId('split-summary-144');
+      await expect(splitSummary144).toBeVisible();
+      await expect(splitSummary144).toContainText('Debt & Loans');
+      await expect(splitSummary144).toContainText('+$1,000.00');
+      await expect(splitSummary144).toContainText('Travel');
+      await expect(splitSummary144).toContainText('-$862.83');
+      await expect(splitSummary144).toContainText('Christchurch trip');
+
+      const lentFlowPill144 = page.getByTestId('loan-flow-144');
+      await expect(lentFlowPill144).toBeVisible();
+      await expect(lentFlowPill144).toContainText('Loan to Brother');
+      await expect(lentFlowPill144).toContainText('ASB Everyday Checking');
+      await expect(lentFlowPill144).toContainText('Repayment');
+      await expect(lentFlowPill144).toContainText('$1,000.00 (from +$137.17 net)');
+
       await assertLoanRowHasNoOverlap(page, 140);
       await assertLoanRowHasNoOverlap(page, 142);
+      await assertLoanRowHasNoOverlap(page, 144);
 
       await page.waitForTimeout(300);
       await page.screenshot({
@@ -160,8 +205,8 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await page.getByTestId('modal-close-done-btn').click();
       await expect(page.getByTestId('account-inspection-modal')).toBeHidden();
 
-      // 4. LoansTracker reflects borrowed 1/36 posted AND lent 60% repaid ($4,000.00 remaining)
-      await expect(page.getByTestId('loans-receivables-pill')).toContainText('Owed to Me: $4,000.00 NZD');
+      // 4. LoansTracker reflects borrowed 1/36 posted AND lent 70% repaid ($3,000.00 remaining)
+      await expect(page.getByTestId('loans-receivables-pill')).toContainText('Owed to Me: $3,000.00 NZD');
       await expect(loanCard).toContainText('1/36 posted');
       await expect(loanCard).toContainText('35/36 left');
       await expect(loanCard).toContainText('44,310.95 NZD');
@@ -176,17 +221,18 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(paymentsList).toContainText('1,452.42 NZD');
 
       await lentCard.scrollIntoViewIfNeeded();
-      await expect(lentCard).toContainText('60% repaid');
-      await expect(lentCard).toContainText('$4,000.00 NZD');
-      await expect(lentCard).toContainText('$6,000.00 / $10,000.00 NZD');
+      await expect(lentCard).toContainText('70% repaid');
+      await expect(lentCard).toContainText('$3,000.00 NZD');
+      await expect(lentCard).toContainText('$7,000.00 / $10,000.00 NZD');
       const lentToggle = page.getByTestId('loan-payments-toggle-2');
-      await expect(lentToggle).toContainText('Linked Repayments (2)');
+      await expect(lentToggle).toContainText('Linked Repayments (3)');
       await lentToggle.click();
       const lentPaymentsList = page.getByTestId('loan-payments-list-2');
       await expect(lentPaymentsList).toBeVisible();
       await expect(lentPaymentsList).toContainText('$5,000.00 NZD');
       await expect(lentPaymentsList).toContainText('of $5,020.00');
       await expect(lentPaymentsList).toContainText('$1,000.00 NZD');
+      await expect(lentPaymentsList).toContainText('of $137.17');
       await expect(lentPaymentsList).toContainText('Disbursement');
       await expect(lentPaymentsList).toContainText('Transfer to Brother');
 
@@ -237,6 +283,51 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await lentRuleBadge.scrollIntoViewIfNeeded();
       await expect(lentRuleBadge).toBeVisible();
       await expect(lentRuleBadge).toContainText('<-> Loan to Brother');
+    });
+
+    test(`supports direct negative sign typing and multi-disbursement lent summation on ${name}`, async ({ page }) => {
+      await page.getByRole('button', { name: 'Accounts' }).first().click();
+      await page.getByTestId('account-card-all').click();
+
+      // Typing '-862.83' directly in Row 0 flips Row 0 sign to '-' and auto-fills Row 1 as '+1000.00'
+      const splitBtn144 = page.getByTestId('split-tx-btn-144');
+      await splitBtn144.scrollIntoViewIfNeeded();
+      await splitBtn144.click();
+
+      const splitModal = page.getByTestId('transaction-split-modal');
+      await expect(splitModal).toBeVisible();
+      await page.getByTestId('split-amount-0').fill('-862.83');
+      await expect(page.getByTestId('split-sign-0')).toHaveText('-');
+      await expect(page.getByTestId('split-amount-0')).toHaveValue('862.83');
+      await expect(page.getByTestId('split-sign-1')).toHaveText('+');
+      await expect(page.getByTestId('split-amount-1')).toHaveValue('1000.00');
+      await expect(page.getByTestId('split-allocation-pill')).toContainText('Balanced');
+
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      await expect(splitModal).toBeHidden();
+
+      // Multi-disbursement top-up: split -$1,452.42 outflow (140) into -$500.00 lent top-up + -$952.42 Fuel
+      const splitBtn140 = page.getByTestId('split-tx-btn-140');
+      await splitBtn140.scrollIntoViewIfNeeded();
+      await splitBtn140.click();
+      await expect(splitModal).toBeVisible();
+      await expect(page.getByTestId('split-sign-0')).toHaveText('-');
+      await page.getByTestId('split-amount-0').fill('500');
+      await expect(page.getByTestId('split-sign-1')).toHaveText('-');
+      await expect(page.getByTestId('split-amount-1')).toHaveValue('952.42');
+      await page.getByTestId('split-loan-0').selectOption('2');
+      await page.getByTestId('split-category-1').selectOption('Fuel');
+      await page.getByTestId('save-splits-btn').click();
+      await expect(splitModal).toBeHidden();
+
+      await page.getByTestId('modal-close-done-btn').click();
+      await expect(page.getByTestId('account-inspection-modal')).toBeHidden();
+
+      const lentCard = page.getByTestId('loan-card-2');
+      await lentCard.scrollIntoViewIfNeeded();
+      await expect(page.getByTestId('loans-receivables-pill')).toContainText('Owed to Me: $10,500.00 NZD');
+      await expect(lentCard).toContainText('$10,500.00 NZD');
+      await expect(lentCard).toContainText('/ $10,500.00 NZD');
     });
   });
 }

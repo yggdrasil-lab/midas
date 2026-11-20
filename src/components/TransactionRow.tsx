@@ -18,6 +18,7 @@ import {
   formatSignedTransactionAmount,
   formatTransactionFee,
   getTransactionNzdAmount,
+  isCryptoCurrency,
 } from '../utils/format';
 
 const RECURRENCE_UNIT_LABELS: Record<string, string> = {
@@ -131,6 +132,23 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const isLinkedBtc = (tx.linked_currency || '').toUpperCase() === 'BTC';
   const isDebtAndLoansCategory = (tx.category || '').trim().toLowerCase() === 'debt & loans';
   const isSplit = Boolean(tx.is_split && tx.splits && tx.splits.length >= 2);
+  const rawSplits = tx.splits || [];
+  const areLegacyPositiveOutflowSplits =
+    isSplit &&
+    amt < 0 &&
+    rawSplits.every((s) => Number(s.amount) > 0) &&
+    Math.abs(rawSplits.reduce((sum, s) => sum + Number(s.amount), 0) - Math.abs(amt)) <= 0.01;
+  const effectiveSplits = isSplit
+    ? rawSplits.map((s) => ({
+        ...s,
+        signedAmount: areLegacyPositiveOutflowSplits
+          ? -Math.abs(Number(s.amount))
+          : Number(s.amount),
+      }))
+    : [];
+  const hasMixedSplitSigns =
+    effectiveSplits.some((s) => s.signedAmount > 0) &&
+    effectiveSplits.some((s) => s.signedAmount < 0);
   const selectableLoans = (loans || []).filter((loan) => {
     if (!loan.is_active && loan.id !== tx.loan_id) return false;
     if (amt < 0) return true;
@@ -145,7 +163,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
       (isDebtAndLoansCategory || tx.loan_id != null)
   );
   const splitLoanEntries = isSplit
-    ? (tx.splits || [])
+    ? effectiveSplits
         .map((s) => {
           const matchedLoan = s.loan_id != null ? loans?.find((l) => l.id === s.loan_id) : undefined;
           const resolvedName = s.loan_name || matchedLoan?.name || null;
@@ -155,7 +173,8 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             key: `split-${s.id}`,
             loanName: resolvedName,
             loanType: resolvedType,
-            paymentAmount: Math.abs(Number(s.amount)),
+            paymentAmount: Math.abs(s.signedAmount),
+            flowSignAmt: s.signedAmount,
           };
         })
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
@@ -172,11 +191,18 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     testId: string,
     loanName: string,
     loanType: 'borrowed' | 'lent',
-    paymentAmount: number | null | undefined
+    paymentAmount: number | null | undefined,
+    flowSignAmt: number = amt
   ) => {
     const isLent = loanType === 'lent';
-    const isRepayment = isLent && amt > 0;
-    const isDisbursement = isLent && amt < 0;
+    const isRepayment = isLent && flowSignAmt > 0;
+    const isDisbursement = isLent && flowSignAmt < 0;
+    const isCrypto = isCryptoCurrency(txCurrency);
+    const maxDigits = isCrypto ? 8 : 2;
+    const currencySymbol = isCrypto ? '' : '$';
+    const amtNum = Number(paymentAmount);
+    const exceedsNetParent =
+      paymentAmount != null && Math.abs(amtNum) > Math.abs(amt) + 0.005;
     return (
       <div
         key={key}
@@ -240,17 +266,39 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
                   : 'text-rose-300/90'
             }`}
           >
-            (
-            {formatMoney(Number(paymentAmount), {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{' '}
-            of{' '}
-            {formatMoney(Math.abs(amt), {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-            )
+            {exceedsNetParent ? (
+              <>
+                {formatMoney(amtNum, {
+                  currency: currencySymbol,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: maxDigits,
+                })}{' '}
+                (from{' '}
+                {formatMoney(amt, {
+                  currency: currencySymbol,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: maxDigits,
+                  showPlusSign: true,
+                })}{' '}
+                net)
+              </>
+            ) : (
+              <>
+                (
+                {formatMoney(amtNum, {
+                  currency: currencySymbol,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: maxDigits,
+                })}{' '}
+                of{' '}
+                {formatMoney(Math.abs(amt), {
+                  currency: currencySymbol,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: maxDigits,
+                })}
+                )
+              </>
+            )}
           </span>
         )}
       </div>
@@ -409,23 +457,35 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             data-testid={`split-summary-${tx.id}`}
             className="text-[11px] text-violet-200/90 flex items-center flex-wrap gap-x-1.5 gap-y-0.5"
           >
-            {tx.splits!.map((s, idx) => (
-              <React.Fragment key={s.id || idx}>
-                {idx > 0 && <span className="text-slate-500">|</span>}
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <span className="font-medium text-violet-300">{s.category}</span>
-                  <span className="font-mono text-slate-200">
-                    {formatMoney(Math.abs(Number(s.amount)), {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+            {effectiveSplits.map((s, idx) => {
+              const isCrypto = isCryptoCurrency(txCurrency);
+              const amountColorClass = hasMixedSplitSigns
+                ? s.signedAmount > 0
+                  ? 'text-emerald-400'
+                  : s.signedAmount < 0
+                    ? 'text-rose-400'
+                    : 'text-slate-200'
+                : 'text-slate-200';
+              return (
+                <React.Fragment key={s.id || idx}>
+                  {idx > 0 && <span className="text-slate-500">|</span>}
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    <span className="font-medium text-violet-300">{s.category}</span>
+                    <span className={`font-mono ${amountColorClass}`}>
+                      {formatMoney(s.signedAmount, {
+                        currency: isCrypto ? '' : '$',
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: isCrypto ? 8 : 2,
+                        showPlusSign: true,
+                      })}
+                    </span>
+                    {Boolean(s.notes) && (
+                      <span className="text-slate-400 truncate max-w-[120px]">({s.notes})</span>
+                    )}
                   </span>
-                  {Boolean(s.notes) && (
-                    <span className="text-slate-400 truncate max-w-[120px]">({s.notes})</span>
-                  )}
-                </span>
-              </React.Fragment>
-            ))}
+                </React.Fragment>
+              );
+            })}
           </div>
         )}
         {hasLinkedTransfer && Boolean(linkedCounterpartName) && (
@@ -498,7 +558,8 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
                 idx === 0 ? `loan-flow-${tx.id}` : `loan-flow-${tx.id}-${idx}`,
                 entry.loanName,
                 entry.loanType,
-                entry.paymentAmount
+                entry.paymentAmount,
+                entry.flowSignAmt
               )
             )
           : !isSplit &&
@@ -508,7 +569,8 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
               `loan-flow-${tx.id}`,
               tx.loan_name!,
               resolvedLoanType,
-              tx.loan_payment_amount
+              tx.loan_payment_amount,
+              amt
             )}
         <TagPillList
           tags={tags}
