@@ -200,6 +200,33 @@ for (const { name: platform, options } of PLATFORMS) {
           await page.waitForTimeout(200);
         }
 
+        // 5b-iii. Inspect Manulife (SGD) Counterpart Flow Modal
+        const manulifeCard = page.locator('[data-testid="account-card-5"] >> visible=true').first();
+        if (await manulifeCard.isVisible()) {
+          await manulifeCard.click();
+          await expect(page.getByRole('heading', { name: /Inspect Account: Manulife/i })).toBeVisible();
+          const manulifeModal = page.locator('[data-testid="account-inspection-modal"] >> visible=true').first();
+          await expect(manulifeModal).toContainText('14,527.89 SGD');
+          const row131 = page.locator('[data-testid="account-modal-tx-row-131"] >> visible=true').first();
+          const row132 = page.locator('[data-testid="account-modal-tx-row-132"] >> visible=true').first();
+          await expect(row131).toBeVisible();
+          await expect(row132).toBeVisible();
+          await expect(page.locator('[data-testid="counterpart-flow-132"] >> visible=true').first()).toBeVisible();
+          await row132.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/18-manulife-counterpart-modal.png`,
+          });
+
+          const doneBtn = page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first();
+          if (await doneBtn.isVisible()) {
+            await doneBtn.click();
+          } else {
+            await page.keyboard.press('Escape');
+          }
+          await page.waitForTimeout(200);
+        }
+
         // Open Record Balance Valuation Snapshot Modal
         const recordSnapshotBtn = page.locator('button:has-text("Record Valuation Snapshot"), button:has-text("Record Snapshot")').locator('visible=true').first();
         if (await recordSnapshotBtn.isVisible()) {

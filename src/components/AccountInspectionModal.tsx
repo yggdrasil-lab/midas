@@ -93,7 +93,7 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = ({
     account?.account_type === 'crypto' || displayCurrency.toUpperCase() === 'BTC';
   const amountFormatOpts = isCrypto
     ? { minimumFractionDigits: 2, maximumFractionDigits: 8 }
-    : {};
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

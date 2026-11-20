@@ -103,7 +103,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             value={draft.name}
             onChange={(e) => updateField('name', e.target.value)}
             data-testid="rule-name-input"
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -117,7 +117,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             max="100"
             value={draft.priority}
             onChange={(e) => updateField('priority', parseInt(e.target.value, 10) || 10)}
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -130,7 +130,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             value={draft.descriptionPattern}
             onChange={(e) => updateField('descriptionPattern', e.target.value)}
             data-testid="rule-pattern-input"
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
           />
         </div>
 
@@ -141,7 +141,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             onChange={(e) =>
               updateField('matchType', e.target.value as RuleFormDraft['matchType'])
             }
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           >
             <option value="contains">Contains</option>
             <option value="starts_with">Starts with</option>
@@ -164,7 +164,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
               value={draft.amountEquals}
               onChange={(e) => updateField('amountEquals', e.target.value)}
               data-testid="rule-amount-equals-input"
-              className="w-full text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+              className="w-full text-base sm:text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
             />
           </div>
         </div>
@@ -180,7 +180,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
               updateField('direction', e.target.value as RuleFormDraft['direction'])
             }
             data-testid="rule-direction-select"
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           >
             <option value="">Any</option>
             <option value="outflow">Outflow</option>
@@ -204,7 +204,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
                 value={draft.minAmount}
                 onChange={(e) => updateField('minAmount', e.target.value)}
                 data-testid="rule-min-amount-input"
-                className="w-full text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                className="w-full text-base sm:text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
               />
             </div>
           </div>
@@ -224,7 +224,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
                 value={draft.maxAmount}
                 onChange={(e) => updateField('maxAmount', e.target.value)}
                 data-testid="rule-max-amount-input"
-                className="w-full text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+                className="w-full text-base sm:text-xs pl-6 pr-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
               />
             </div>
           </div>
@@ -236,7 +236,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             value={draft.targetCategory}
             onChange={(e) => updateField('targetCategory', e.target.value)}
             data-testid="rule-category-select"
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           >
             {selectableCategories.map((cat) => (
               <option key={cat} value={cat}>
@@ -255,7 +255,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             placeholder="e.g. Power/Water Utilities"
             value={draft.renameMerchant}
             onChange={(e) => updateField('renameMerchant', e.target.value)}
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           />
         </div>
 
@@ -269,7 +269,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             value={draft.targetTags}
             onChange={(e) => updateField('targetTags', e.target.value)}
             data-testid="rule-tags-input"
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
           />
         </div>
 
@@ -282,7 +282,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             onChange={(e) =>
               updateField('targetRecurrence', e.target.value as RecurrenceType | '')
             }
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           >
             {RECURRENCE_OPTIONS.map((opt) => (
               <option key={opt.label} value={opt.value}>
@@ -305,7 +305,7 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
             value={draft.counterpartAccountId}
             onChange={(e) => updateField('counterpartAccountId', e.target.value)}
             data-testid="rule-counterpart-account-select"
-            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+            className="w-full text-base sm:text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
           >
             <option value="">None (No counterpart account)</option>
             {selectableAccounts.map((acc) => (
