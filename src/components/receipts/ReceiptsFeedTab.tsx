@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
 import { Button, EmptyState, FileDropzone, LoadingState, StatusBadge } from '@yggdrasil-lab/ui';
 import { Receipt } from '../../types';
-import { formatMoney } from '../../utils/format';
+import {
+  formatReceiptAmount,
+  getReceiptStatusMeta,
+  isReceiptPending,
+  type ReceiptFeedFilter,
+} from '../../utils/receipts';
+import { ReceiptCandidatesPanel } from './ReceiptCandidatesPanel';
 import { ReceiptItemsEditor } from './ReceiptItemsEditor';
 
 interface ReceiptsFeedTabProps {
@@ -13,10 +19,13 @@ interface ReceiptsFeedTabProps {
   reprocessingId: number | null;
   updatingItemId?: number | null;
   expandedReceiptId: number | null;
+  statusFilter: ReceiptFeedFilter;
+  onChangeStatusFilter: (filter: ReceiptFeedFilter) => void;
   onToggleExpand: (id: number) => void;
   onUploadFile: (file: File) => Promise<void>;
   onDeleteReceipt: (id: number) => Promise<void>;
   onReprocessReceipt: (id: number) => Promise<void>;
+  onReceiptLinked?: (updatedReceipt: Receipt) => void | Promise<void>;
   onUpdateReceiptItem?: (
     receiptId: number,
     itemId: number,
@@ -25,7 +34,7 @@ interface ReceiptsFeedTabProps {
 }
 
 /**
- * Receipts upload dropzone and expandable itemized receipt feed tab.
+ * Receipts upload dropzone, status filters, candidate linking drawer, and itemized feed tab.
  */
 export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
   receipts,
@@ -35,13 +44,63 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
   reprocessingId,
   updatingItemId,
   expandedReceiptId,
+  statusFilter,
+  onChangeStatusFilter,
   onToggleExpand,
   onUploadFile,
   onDeleteReceipt,
   onReprocessReceipt,
+  onReceiptLinked,
   onUpdateReceiptItem,
 }) => {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+
+  const counts = useMemo(() => {
+    const needsReview = receipts.filter((r) => r.status === 'needs_review').length;
+    const pending = receipts.filter((r) => isReceiptPending(r)).length;
+    const matched = receipts.filter(
+      (r) => r.status === 'matched' || r.status === 'verified'
+    ).length;
+    return {
+      all: receipts.length,
+      pending,
+      needs_review: needsReview,
+      matched,
+    };
+  }, [receipts]);
+
+  const filteredReceipts = useMemo(() => {
+    switch (statusFilter) {
+      case 'pending':
+        return receipts.filter((r) => isReceiptPending(r));
+      case 'needs_review':
+        return receipts.filter((r) => r.status === 'needs_review');
+      case 'matched':
+        return receipts.filter(
+          (r) => r.status === 'matched' || r.status === 'verified'
+        );
+      case 'all':
+      default:
+        return receipts;
+    }
+  }, [receipts, statusFilter]);
+
+  const filterOptions: Array<{
+    id: ReceiptFeedFilter;
+    label: string;
+    count: number;
+    highlightAmber?: boolean;
+  }> = [
+    { id: 'all', label: 'All', count: counts.all },
+    { id: 'pending', label: 'Pending', count: counts.pending },
+    {
+      id: 'needs_review',
+      label: 'Needs Review',
+      count: counts.needs_review,
+      highlightAmber: counts.needs_review > 0,
+    },
+    { id: 'matched', label: 'Matched', count: counts.matched },
+  ];
 
   const handleFileChange = async (file: File | null) => {
     setPendingFile(file);
@@ -71,6 +130,37 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
         {uploading && <LoadingState label="Parsing receipt with Hydrogen Vision..." variant="amber" />}
       </FileDropzone>
 
+      {receipts.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-1.5"
+          data-testid="receipt-status-filters"
+        >
+          {filterOptions.map((opt) => {
+            const isSelected = statusFilter === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                data-testid={`receipt-filter-${opt.id}`}
+                onClick={() => onChangeStatusFilter(opt.id)}
+                className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors inline-flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold'
+                    : opt.highlightAmber
+                      ? 'bg-amber-500/10 text-amber-200 border-amber-500/25 hover:border-amber-500/40'
+                      : 'bg-card/40 text-slate-400 hover:text-slate-200 border-border/60'
+                }`}
+              >
+                <span>{opt.label}</span>
+                <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-background/60 text-slate-300">
+                  {opt.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {loading && !receipts.length ? (
         <LoadingState label="Loading receipts..." variant="amber" />
       ) : receipts.length === 0 ? (
@@ -79,20 +169,37 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
           description="Upload a photo or PDF to parse granular line items."
           variant="dashed"
         />
+      ) : filteredReceipts.length === 0 ? (
+        <EmptyState
+          title="No receipts match this filter"
+          description="Switch back to All to inspect every recorded receipt."
+          variant="dashed"
+        />
       ) : (
         <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
-          {receipts.map((r) => {
+          {filteredReceipts.map((r) => {
             const isExpanded = expandedReceiptId === r.id;
-            const isMatched = r.status === 'matched' || r.status === 'verified';
+            const statusMeta = getReceiptStatusMeta(r.status);
+            const isNeedsReview = r.status === 'needs_review';
 
             return (
               <div
                 key={r.id}
-                className="p-3 bg-card/60 hover:bg-card/80 border border-border rounded-xl transition-all"
+                className={`p-3 rounded-xl border transition-all ${
+                  isNeedsReview
+                    ? 'bg-amber-500/[0.04] hover:bg-amber-500/[0.07] border-amber-500/35'
+                    : 'bg-card/60 hover:bg-card/80 border-border'
+                }`}
               >
                 <div
-                  className="flex items-center justify-between cursor-pointer"
+                  className="flex items-center justify-between gap-2 cursor-pointer"
                   onClick={() => onToggleExpand(r.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onToggleExpand(r.id);
+                    }
+                  }}
                   role="button"
                   tabIndex={0}
                   data-testid={`receipt-row-${r.id}`}
@@ -103,8 +210,8 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
                         {r.receipt_date}
                       </span>
                       <StatusBadge
-                        label={isMatched ? 'Matched to Ledger' : 'Unlinked'}
-                        variant={isMatched ? 'success' : 'warning'}
+                        label={statusMeta.label}
+                        variant={statusMeta.variant}
                         className="px-1.5 py-0.5 text-[10px] shrink-0"
                       />
                       {r.is_processed === false && (
@@ -126,11 +233,8 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-2 shrink-0">
-                    <span className="text-xs font-bold font-mono text-slate-100">
-                      {formatMoney(Number(r.total_amount), {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                    <span className="text-xs font-bold font-mono text-slate-100 whitespace-nowrap">
+                      {formatReceiptAmount(Number(r.total_amount), r.currency)}
                     </span>
                     <button
                       type="button"
@@ -156,6 +260,20 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
 
                 {isExpanded && (
                   <div className="mt-3 pt-3 border-t border-border/60 space-y-3 animate-in fade-in">
+                    {r.order_number && (
+                      <div
+                        data-testid={`receipt-order-${r.id}`}
+                        className="flex items-center justify-between gap-2 text-[11px] text-slate-400 bg-background/40 px-2.5 py-1.5 rounded-lg border border-border/50"
+                      >
+                        <span className="uppercase tracking-wider text-[10px] font-medium">
+                          Order Ref
+                        </span>
+                        <span className="font-mono text-slate-200 truncate">
+                          {r.order_number}
+                        </span>
+                      </div>
+                    )}
+
                     {r.is_processed === false && r.has_image && (
                       <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
                         <span>Original photo saved; vision parsing pending.</span>
@@ -173,6 +291,13 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
                           {reprocessingId === r.id ? 'Parsing...' : 'Retry Parse'}
                         </Button>
                       </div>
+                    )}
+
+                    {r.transaction_id == null && (
+                      <ReceiptCandidatesPanel
+                        receipt={r}
+                        onLinked={onReceiptLinked}
+                      />
                     )}
 
                     <ReceiptItemsEditor

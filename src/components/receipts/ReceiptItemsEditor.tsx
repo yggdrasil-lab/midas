@@ -4,7 +4,7 @@ import { TagPillList } from '@yggdrasil-lab/ui';
 import { useCategories } from '../../hooks/useCategories';
 import { getReceiptImageUrl } from '../../services/api';
 import { Receipt } from '../../types';
-import { formatMoney } from '../../utils/format';
+import { formatReceiptAmount } from '../../utils/receipts';
 
 interface ReceiptItemsEditorProps {
   receipt: Receipt;
@@ -106,33 +106,18 @@ export const ReceiptItemsEditor: React.FC<ReceiptItemsEditorProps> = ({
 
                     <div className="text-right shrink-0">
                       <div className="font-mono font-medium text-slate-100">
-                        {formatMoney(Number(item.total_price), {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                        {formatReceiptAmount(Number(item.total_price), r.currency)}
                       </div>
                       {item.discount_amount && Number(item.discount_amount) > 0 ? (
                         <div className="text-[10px] text-emerald-400 font-mono">
-                          Reg.{' '}
-                          {formatMoney(Number(item.unit_price), {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{' '}
-                          (-
-                          {formatMoney(Number(item.discount_amount), {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                          )
+                          Reg. {formatReceiptAmount(Number(item.unit_price), r.currency)} (-
+                          {formatReceiptAmount(Number(item.discount_amount), r.currency)})
                         </div>
                       ) : (
                         item.quantity > 1 && (
                           <div className="text-[10px] text-slate-400">
                             {item.quantity}x @{' '}
-                            {formatMoney(Number(item.unit_price), {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {formatReceiptAmount(Number(item.unit_price), r.currency)}
                           </div>
                         )
                       )}

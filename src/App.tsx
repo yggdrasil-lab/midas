@@ -31,9 +31,10 @@ import { RunwayClock } from './components/RunwayClock';
 import { TagSpendingBreakdown } from './components/TagSpendingBreakdown';
 import { ToolsHubView } from './components/ToolsHubView';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
-import { fetchRunway } from './services/api';
+import { fetchReceipts, fetchRunway } from './services/api';
 import { useCategories } from './hooks/useCategories';
-import { RunwayData } from './types';
+import { Receipt, RunwayData } from './types';
+import { isReceiptPending } from './utils/receipts';
 
 const DESKTOP_TABS = [
   { id: 'overview', label: 'Full Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
@@ -64,6 +65,8 @@ export const App: React.FC = () => {
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isReceiptsModalOpen, setIsReceiptsModalOpen] = useState(false);
   const [budgetRefreshKey, setBudgetRefreshKey] = useState(0);
+  const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
+  const [needsReviewReceiptsCount, setNeedsReviewReceiptsCount] = useState(0);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   const {
@@ -91,8 +94,20 @@ export const App: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchRunway();
+      const [res, receiptRows] = await Promise.all([
+        fetchRunway(),
+        fetchReceipts().catch((receiptErr) => {
+          console.warn('Failed to fetch receipt attention counts:', receiptErr);
+          return [] as Receipt[];
+        }),
+      ]);
       setData(res);
+      setNeedsReviewReceiptsCount(
+        receiptRows.filter((r) => r.status === 'needs_review').length
+      );
+      setPendingReceiptsCount(
+        receiptRows.filter((r) => isReceiptPending(r)).length
+      );
       setSessionExpired(false);
       setBudgetRefreshKey((prev) => prev + 1);
       void refreshCategories();
@@ -172,6 +187,8 @@ export const App: React.FC = () => {
           <div className="max-w-lg lg:max-w-3xl mx-auto pb-24 lg:pb-0">
             <ToolsHubView
               baselineBurn={runway.breakdown.weekly_burn_rate}
+              pendingReceiptsCount={pendingReceiptsCount}
+              needsReviewReceiptsCount={needsReviewReceiptsCount}
               onRefreshRunway={loadData}
               onOpenReceiptsClick={() => setIsReceiptsModalOpen(true)}
               onOpenDataClick={() => setIsDataModalOpen(true)}

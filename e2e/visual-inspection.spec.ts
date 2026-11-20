@@ -584,11 +584,17 @@ for (const { name: platform, options } of PLATFORMS) {
         }
 
         // 10. Receipts & Granular Product Hub Feed Modal
+        const needsReviewToolBadge = page.locator('[data-testid="receipts-needs-review-badge"] >> visible=true').first();
+        await expect(needsReviewToolBadge).toContainText('1 Needs Review');
+
         const receiptsBtn = page.locator('[data-testid="spending-receipts-btn"], [data-testid="receipts-hub-btn"], [data-testid="header-receipts-btn"]').locator('visible=true').first();
         if (await receiptsBtn.isVisible()) {
           await receiptsBtn.click();
           await expect(page.getByRole('heading', { name: /Receipts &.*Hub/i })).toBeVisible();
           await expect(page.locator('text=Chemist Warehouse Albany >> visible=true').first()).toBeVisible();
+          await expect(page.locator('text=Sydney Roasters Online >> visible=true').first()).toBeVisible();
+          await expect(page.locator('text=AUD 179.74 >> visible=true').first()).toBeVisible();
+          await expect(page.locator('[data-testid="receipt-row-3"] >> visible=true').first()).toContainText('Needs Review');
           // Expand first receipt item
           const expandBtn = page.locator('[data-testid="receipt-row-1"] >> visible=true').first();
           if (await expandBtn.isVisible()) {
@@ -599,6 +605,33 @@ for (const { name: platform, options } of PLATFORMS) {
           await page.screenshot({
             path: `screenshots/${platform}/11-receipts-hub-feed.png`,
           });
+
+          // Expand cross-currency needs_review receipt to inspect suggested candidates & 1-tap Link
+          const needsReviewRow = page.locator('[data-testid="receipt-row-3"] >> visible=true').first();
+          await expect(needsReviewRow).toBeVisible();
+          await needsReviewRow.scrollIntoViewIfNeeded();
+          await needsReviewRow.click();
+          await expect(page.locator('[data-testid="receipt-order-3"] >> visible=true').first()).toContainText('ORD-48219');
+          const candidatesPanel = page.locator('[data-testid="receipt-candidates-panel-3"] >> visible=true').first();
+          await expect(candidatesPanel).toBeVisible();
+          await expect(candidatesPanel).toContainText('Suggested Matches');
+          await expect(candidatesPanel).toContainText('Orig. AUD 179.74');
+          await expect(candidatesPanel).toContainText('94% match');
+          const linkCandidateBtn = page.locator('[data-testid="link-receipt-candidate-3-201"] >> visible=true').first();
+          await expect(linkCandidateBtn).toBeVisible();
+          const linkBtnBox = await linkCandidateBtn.boundingBox();
+          expect(linkBtnBox).not.toBeNull();
+          expect(linkBtnBox!.height).toBeGreaterThanOrEqual(44);
+          await linkCandidateBtn.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(300);
+          await page.screenshot({
+            path: `screenshots/${platform}/11b-receipts-needs-review-candidates.png`,
+          });
+
+          await linkCandidateBtn.click();
+          await expect(page.locator('[data-testid="receipts-hub-status-banner"] >> visible=true').first()).toContainText('Linked "Sydney Roasters Online"');
+          await expect(page.locator('[data-testid="receipt-row-3"] >> visible=true').first()).toContainText('Matched to Ledger');
+          await expect(page.locator('[data-testid="receipt-candidates-panel-3"]')).toHaveCount(0);
 
           // Verify deleting an unlinked receipt from the UI removes it
           const deleteBtn = page.locator('[data-testid="delete-receipt-2"] >> visible=true').first();

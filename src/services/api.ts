@@ -22,6 +22,7 @@ import {
   ProductUpdatePayload,
   Receipt,
   ReceiptItem,
+  ReceiptTransactionCandidate,
   RecurrenceType,
   RunwayAiSynthesisResult,
   RunwayData,
@@ -660,6 +661,17 @@ export async function fetchProductStatistics(
   return res.json();
 }
 
+export async function getReceiptCandidates(
+  receiptId: number
+): Promise<ReceiptTransactionCandidate[]> {
+  const res = await authFetch(`${API_BASE}/receipts/${receiptId}/candidates`);
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `Failed to load receipt candidates: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function linkReceipt(
   receiptId: number,
   transactionId: number
@@ -668,7 +680,8 @@ export async function linkReceipt(
     method: 'POST',
   });
   if (!res.ok) {
-    throw new Error(`Failed to link receipt: ${res.statusText}`);
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `Failed to link receipt: ${res.statusText}`);
   }
   return res.json();
 }

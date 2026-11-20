@@ -12,7 +12,11 @@ import {
   uploadReceipt,
 } from '../services/api';
 import { Product, Receipt } from '../types';
-import { formatMoney } from '../utils/format';
+import {
+  formatReceiptAmount,
+  isReceiptPending,
+  type ReceiptFeedFilter,
+} from '../utils/receipts';
 import { ProductsCatalogTab } from './receipts/ProductsCatalogTab';
 import { ReceiptsFeedTab } from './receipts/ReceiptsFeedTab';
 
@@ -45,6 +49,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [expandedReceiptId, setExpandedReceiptId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ReceiptFeedFilter>('all');
 
   const [selectedDomain, setSelectedDomain] = useState('all');
   const [selectedTag, setSelectedTag] = useState('all');
@@ -81,6 +86,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     } else {
       setStatusMsg(null);
       setError(null);
+      setStatusFilter('all');
     }
   }, [isOpen, selectedDomain, selectedTag, filterFavorites]);
 
@@ -90,10 +96,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     setStatusMsg(null);
     try {
       const res = await uploadReceipt(file);
-      const formattedTotal = formatMoney(res.total_amount, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      const formattedTotal = formatReceiptAmount(res.total_amount, res.currency);
       setStatusMsg(
         res.is_processed === false
           ? `Saved original receipt "${res.merchant}" for later processing or manual linking.`
@@ -135,10 +138,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     setStatusMsg(null);
     try {
       const res = await reprocessReceipt(id);
-      const formattedTotal = formatMoney(res.total_amount, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+      const formattedTotal = formatReceiptAmount(res.total_amount, res.currency);
       setStatusMsg(`Processed receipt from ${res.merchant} (${formattedTotal}).`);
       await loadData();
       onReceiptLinked?.();
@@ -174,6 +174,18 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
       setUpdatingItemId(null);
     }
   };
+
+  const handleCandidateLinked = async (updated: Receipt) => {
+    setReceipts((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    setStatusMsg(
+      `Linked "${updated.merchant}" to transaction #${updated.transaction_id}.`
+    );
+    await loadData();
+    onReceiptLinked?.();
+  };
+
+  const needsReviewCount = receipts.filter((r) => r.status === 'needs_review').length;
+  const pendingCount = receipts.filter((r) => isReceiptPending(r)).length;
 
   const handleReconcile = async () => {
     setReconciling(true);
@@ -262,25 +274,56 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
             idPrefix="receipts-hub-tab"
           />
 
-          <Button
-            variant="outline"
-            size="xs"
-            icon={
-              <RefreshCw
-                className={`w-3 h-3 text-amber-400 ${reconciling ? 'animate-spin' : ''}`}
-              />
-            }
-            onClick={handleReconcile}
-            disabled={reconciling}
-            title="Auto-match unlinked receipts with bank transactions"
-          >
-            Reconcile
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {needsReviewCount > 0 ? (
+              <button
+                type="button"
+                data-testid="receipts-hub-needs-review-badge"
+                onClick={() => {
+                  setActiveTab('receipts');
+                  setStatusFilter('needs_review');
+                }}
+                className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-colors whitespace-nowrap"
+              >
+                {needsReviewCount} Needs Review
+              </button>
+            ) : pendingCount > 0 ? (
+              <button
+                type="button"
+                data-testid="receipts-hub-pending-badge"
+                onClick={() => {
+                  setActiveTab('receipts');
+                  setStatusFilter('pending');
+                }}
+                className="px-2 py-1 text-[11px] font-medium rounded-lg bg-slate-800/80 text-slate-300 border border-border hover:text-white transition-colors whitespace-nowrap"
+              >
+                {pendingCount} Pending
+              </button>
+            ) : null}
+
+            <Button
+              variant="outline"
+              size="xs"
+              icon={
+                <RefreshCw
+                  className={`w-3 h-3 text-amber-400 ${reconciling ? 'animate-spin' : ''}`}
+                />
+              }
+              onClick={handleReconcile}
+              disabled={reconciling}
+              title="Auto-match unlinked receipts with bank transactions"
+            >
+              Reconcile
+            </Button>
+          </div>
         </div>
 
         {error && <AlertBanner variant="error">{error}</AlertBanner>}
         {statusMsg && (
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
+          <div
+            data-testid="receipts-hub-status-banner"
+            className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in"
+          >
             <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
             <span>{statusMsg}</span>
           </div>
@@ -295,12 +338,15 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
             reprocessingId={reprocessingId}
             updatingItemId={updatingItemId}
             expandedReceiptId={expandedReceiptId}
+            statusFilter={statusFilter}
+            onChangeStatusFilter={setStatusFilter}
             onToggleExpand={(id) =>
               setExpandedReceiptId((prev) => (prev === id ? null : id))
             }
             onUploadFile={handleUploadFile}
             onDeleteReceipt={handleDeleteReceipt}
             onReprocessReceipt={handleReprocessReceipt}
+            onReceiptLinked={handleCandidateLinked}
             onUpdateReceiptItem={handleUpdateReceiptItem}
           />
         ) : (

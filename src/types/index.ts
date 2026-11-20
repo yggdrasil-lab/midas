@@ -443,7 +443,9 @@ export interface Receipt {
   total_amount: number;
   currency: string;
   tax_amount?: number | null;
-  status: 'unlinked' | 'matched' | 'verified';
+  status: 'unlinked' | 'needs_review' | 'matched' | 'verified';
+  order_number?: string | null;
+  source_email_message_id?: string | null;
   image_path?: string | null;
   image_mime_type?: string | null;
   image_filename?: string | null;
@@ -454,6 +456,22 @@ export interface Receipt {
   items: ReceiptItem[];
   created_at: string;
   updated_at: string;
+}
+
+export interface ReceiptTransactionCandidate {
+  transaction_id: number;
+  transaction_date: string;
+  merchant: string | null;
+  raw_description: string;
+  amount: number;
+  currency: string;
+  account_id: number;
+  account_name: string | null;
+  original_amount?: number | null;
+  original_currency?: string | null;
+  estimated_receipt_amount?: number | null;
+  confidence: number;
+  match_reason: string;
 }
 
 export interface ProductStatisticItem {

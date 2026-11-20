@@ -2195,7 +2195,59 @@ export async function setupMockApi(page: Page) {
     });
   });
 
-  let mockReceipts = [
+  interface MockReceiptItemRecord {
+    id: number;
+    receipt_id: number;
+    item_name: string;
+    brand?: string | null;
+    category: string;
+    domain?: string | null;
+    product_type?: string | null;
+    volume_ml?: string | null;
+    quantity: number;
+    unit_price: number;
+    discount_amount?: number | null;
+    total_price: number;
+    inherited_tags?: string[];
+    created_at: string;
+  }
+
+  interface MockReceiptRecord {
+    id: number;
+    merchant: string;
+    receipt_date: string;
+    total_amount: number;
+    currency: string;
+    status: 'unlinked' | 'needs_review' | 'matched' | 'verified';
+    transaction_id: number | null;
+    order_number?: string | null;
+    source_email_message_id?: string | null;
+    has_image: boolean;
+    is_processed: boolean;
+    image_mime_type?: string | null;
+    image_filename?: string | null;
+    created_at: string;
+    updated_at: string;
+    items: MockReceiptItemRecord[];
+  }
+
+  interface MockReceiptCandidateRecord {
+    transaction_id: number;
+    transaction_date: string;
+    merchant: string | null;
+    raw_description: string;
+    amount: number;
+    currency: string;
+    account_id: number;
+    account_name: string | null;
+    original_amount?: number | null;
+    original_currency?: string | null;
+    estimated_receipt_amount?: number | null;
+    confidence: number;
+    match_reason: string;
+  }
+
+  let mockReceipts: MockReceiptRecord[] = [
     {
       id: 1,
       merchant: 'Chemist Warehouse Albany',
@@ -2273,13 +2325,148 @@ export async function setupMockApi(page: Page) {
         },
       ],
     },
+    {
+      id: 3,
+      merchant: 'Sydney Roasters Online',
+      receipt_date: '2026-11-12',
+      total_amount: 179.74,
+      currency: 'AUD',
+      status: 'needs_review',
+      transaction_id: null,
+      order_number: 'ORD-48219',
+      source_email_message_id: '<order-48219@example-roasters.test>',
+      has_image: false,
+      is_processed: true,
+      created_at: '2026-11-12T08:15:00Z',
+      updated_at: '2026-11-12T08:15:00Z',
+      items: [
+        {
+          id: 4,
+          receipt_id: 3,
+          item_name: 'Single Origin Espresso Beans 1kg',
+          brand: 'Sydney Roasters',
+          category: 'Groceries',
+          domain: null,
+          product_type: 'coffee',
+          volume_ml: null,
+          quantity: 2.0,
+          unit_price: 89.87,
+          total_price: 179.74,
+          created_at: '2026-11-12T08:15:00Z',
+        },
+      ],
+    },
   ];
 
+  const mockReceiptCandidates: Record<number, MockReceiptCandidateRecord[]> = {
+    3: [
+      {
+        transaction_id: 201,
+        transaction_date: '2026-11-12',
+        merchant: 'Sydney Roasters Pty',
+        raw_description: 'CARD PURCHASE SYDNEY ROASTERS AUD 179.74',
+        amount: -195.4,
+        currency: 'NZD',
+        account_id: 1,
+        account_name: 'ASB Everyday Checking',
+        original_amount: 179.74,
+        original_currency: 'AUD',
+        estimated_receipt_amount: 179.74,
+        confidence: 0.94,
+        match_reason: 'Same date, merchant similarity, exact AUD original amount match',
+      },
+      {
+        transaction_id: 202,
+        transaction_date: '2026-11-13',
+        merchant: 'AU Online Merchant',
+        raw_description: 'VISA INTL PURCHASE SYDNEY AU',
+        amount: -196.1,
+        currency: 'NZD',
+        account_id: 2,
+        account_name: 'ANZ Low Rate Visa',
+        original_amount: null,
+        original_currency: null,
+        estimated_receipt_amount: 180.25,
+        confidence: 0.68,
+        match_reason: 'Estimated FX match within 1 day',
+      },
+    ],
+    2: [
+      {
+        transaction_id: 203,
+        transaction_date: '2026-11-02',
+        merchant: 'Bunnings Albany',
+        raw_description: 'EFTPOS BUNNINGS WAREHOUSE ALBANY',
+        amount: -32.5,
+        currency: 'NZD',
+        account_id: 1,
+        account_name: 'ASB Everyday Checking',
+        original_amount: null,
+        original_currency: null,
+        estimated_receipt_amount: null,
+        confidence: 0.89,
+        match_reason: 'Exact NZD amount match on receipt date',
+      },
+    ],
+  };
+
   await page.route(/\/api\/receipts(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const statusParam = url.searchParams.get('status');
+    const results = statusParam
+      ? mockReceipts.filter((r) => r.status === statusParam)
+      : mockReceipts;
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(mockReceipts),
+      body: JSON.stringify(results),
+    });
+  });
+
+  await page.route(/\/api\/receipts\/(\d+)\/candidates(\?.*)?$/, async (route) => {
+    const match = route.request().url().match(/\/api\/receipts\/(\d+)\/candidates/);
+    const id = match ? Number(match[1]) : 0;
+    const receipt = mockReceipts.find((r) => r.id === id);
+    if (!receipt) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Receipt not found' }),
+      });
+      return;
+    }
+    const candidates = receipt.transaction_id != null ? [] : mockReceiptCandidates[id] || [];
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(candidates),
+    });
+  });
+
+  await page.route(/\/api\/receipts\/(\d+)\/link\/(\d+)(\?.*)?$/, async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    const match = route.request().url().match(/\/api\/receipts\/(\d+)\/link\/(\d+)/);
+    const receiptId = match ? Number(match[1]) : 0;
+    const txId = match ? Number(match[2]) : 0;
+    const receipt = mockReceipts.find((r) => r.id === receiptId);
+    if (!receipt) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Receipt not found' }),
+      });
+      return;
+    }
+    receipt.transaction_id = txId;
+    receipt.status = 'matched';
+    receipt.updated_at = new Date().toISOString();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(receipt),
     });
   });
 

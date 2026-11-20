@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { AlertBanner, Button, LoadingState, Modal, StatusBadge } from '@yggdrasil-lab/ui';
 import { fetchReceipt, updateReceiptItem } from '../../services/api';
 import { Receipt } from '../../types';
-import { formatMoney } from '../../utils/format';
+import { formatReceiptAmount, getReceiptStatusMeta } from '../../utils/receipts';
+import { ReceiptCandidatesPanel } from './ReceiptCandidatesPanel';
 import { ReceiptItemsEditor } from './ReceiptItemsEditor';
 
 interface ReceiptDetailModalProps {
@@ -13,8 +14,8 @@ interface ReceiptDetailModalProps {
 }
 
 /**
- * Modal opened from a matched transaction to inspect the stored receipt photo
- * and edit individual line-item categories and interface tags.
+ * Modal opened from a transaction or receipt link to inspect the stored receipt photo,
+ * review status, link candidate ledger transactions, and edit line-item categories/tags.
  */
 export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   receiptId,
@@ -80,6 +81,8 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
     }
   };
 
+  const statusMeta = receipt ? getReceiptStatusMeta(receipt.status) : null;
+
   return (
     <Modal
       isOpen={isOpen}
@@ -95,37 +98,48 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
         ) : receipt ? (
           <>
             <div className="flex items-center justify-between gap-2 p-3 bg-card/60 rounded-xl border border-border flex-wrap">
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-mono text-slate-400">{receipt.receipt_date}</span>
-                  <StatusBadge
-                    label={
-                      receipt.status === 'matched' || receipt.status === 'verified'
-                        ? 'Matched to Ledger'
-                        : 'Unlinked'
-                    }
-                    variant={
-                      receipt.status === 'matched' || receipt.status === 'verified'
-                        ? 'success'
-                        : 'warning'
-                    }
-                    className="px-1.5 py-0.5 text-[10px]"
-                  />
+                  {statusMeta && (
+                    <StatusBadge
+                      label={statusMeta.label}
+                      variant={statusMeta.variant}
+                      className="px-1.5 py-0.5 text-[10px]"
+                    />
+                  )}
                 </div>
-                <div className="text-sm font-semibold text-slate-100">{receipt.merchant}</div>
+                <div className="text-sm font-semibold text-slate-100 truncate">
+                  {receipt.merchant}
+                </div>
+                {receipt.order_number && (
+                  <div
+                    data-testid="receipt-detail-order-number"
+                    className="text-[11px] font-mono text-slate-400"
+                  >
+                    Order #{receipt.order_number}
+                  </div>
+                )}
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <div className="text-sm font-bold font-mono text-slate-100">
-                  {formatMoney(Number(receipt.total_amount), {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {formatReceiptAmount(Number(receipt.total_amount), receipt.currency)}
                 </div>
                 <div className="text-[11px] text-slate-400">
                   {receipt.items.length} {receipt.items.length === 1 ? 'item' : 'items'}
                 </div>
               </div>
             </div>
+
+            {receipt.transaction_id == null && (
+              <ReceiptCandidatesPanel
+                receipt={receipt}
+                onLinked={(updated) => {
+                  setReceipt(updated);
+                  onReceiptUpdated?.();
+                }}
+              />
+            )}
 
             <div className="max-h-[46vh] sm:max-h-[60vh] overflow-y-auto pr-1">
               <ReceiptItemsEditor
