@@ -5,10 +5,11 @@ import {
   applyAllRules,
   createRule,
   deleteRule,
+  fetchAccounts,
   fetchRules,
   updateRule,
 } from '../services/api';
-import { CategorizationRule, CategorizationRuleCreate } from '../types';
+import { Account, CategorizationRule, CategorizationRuleCreate } from '../types';
 import {
   DEFAULT_RULE_DRAFT,
   RuleEditorForm,
@@ -45,6 +46,10 @@ function draftFromPrefill(prefill: Partial<CategorizationRuleCreate>): RuleFormD
     targetTags: (prefill.target_tags || []).join(', '),
     targetRecurrence: prefill.target_recurrence || '',
     renameMerchant: prefill.rename_merchant || '',
+    counterpartAccountId:
+      prefill.counterpart_account_id !== undefined && prefill.counterpart_account_id !== null
+        ? String(prefill.counterpart_account_id)
+        : '',
     priority: prefill.priority || 10,
     applyRetroactively: prefill.apply_retroactively !== false,
   };
@@ -63,6 +68,8 @@ function draftFromRule(rule: CategorizationRule): RuleFormDraft {
     targetTags: (rule.target_tags || []).join(', '),
     targetRecurrence: rule.target_recurrence || '',
     renameMerchant: rule.rename_merchant || '',
+    counterpartAccountId:
+      rule.counterpart_account_id != null ? String(rule.counterpart_account_id) : '',
     priority: rule.priority,
     applyRetroactively: true,
   };
@@ -79,6 +86,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
   prefillRule,
 }) => {
   const [rules, setRules] = useState<CategorizationRule[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -94,8 +102,12 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchRules();
-      setRules(res);
+      const [rulesRes, accountsRes] = await Promise.all([
+        fetchRules(),
+        fetchAccounts(),
+      ]);
+      setRules(rulesRes);
+      setAccounts(accountsRes);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load categorization rules');
@@ -162,6 +174,9 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       .split(',')
       .map((t) => t.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-'))
       .filter(Boolean);
+    const rawCounterpart = draft.counterpartAccountId.trim();
+    const counterpartNum = rawCounterpart !== '' ? parseInt(rawCounterpart, 10) : NaN;
+    const parsedCounterpart = !isNaN(counterpartNum) ? counterpartNum : null;
     const payload: CategorizationRuleCreate = {
       name: draft.name.trim(),
       description_pattern: draft.descriptionPattern.trim(),
@@ -174,6 +189,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       target_tags: Array.from(new Set(parsedTags)),
       target_recurrence: draft.targetRecurrence || null,
       rename_merchant: draft.renameMerchant.trim() || null,
+      counterpart_account_id: parsedCounterpart,
       priority: draft.priority,
       apply_retroactively: draft.applyRetroactively,
     };
@@ -257,7 +273,8 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
       r.description_pattern.toLowerCase().includes(q) ||
       r.target_category.toLowerCase().includes(q) ||
       (r.direction && r.direction.toLowerCase().includes(q)) ||
-      (r.rename_merchant && r.rename_merchant.toLowerCase().includes(q))
+      (r.rename_merchant && r.rename_merchant.toLowerCase().includes(q)) ||
+      (r.counterpart_account_name && r.counterpart_account_name.toLowerCase().includes(q))
     );
   });
 
@@ -306,6 +323,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
         {isFormOpen && (
           <RuleEditorForm
             draft={draft}
+            accounts={accounts}
             isEditing={Boolean(editingRuleId)}
             saving={isSaving}
             onChange={setDraft}

@@ -427,6 +427,7 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.getByTestId('rule-direction-badge-3')).toContainText('Outflow');
     await expect(page.getByTestId('rule-range-badge-4')).toContainText('<= $29.99');
     await expect(page.getByTestId('rule-direction-badge-4')).toContainText('Outflow');
+    await expect(page.getByTestId('rule-counterpart-pill-5')).toContainText('Manulife');
 
     await page.getByRole('button', { name: /New Rule/i }).click();
     await page.getByTestId('rule-name-input').fill('BPme Fuel Refund');
@@ -435,6 +436,8 @@ test.describe('Midas App Shell & Navigation', () => {
     await page.getByTestId('rule-max-amount-input').fill('20.00');
     await page.getByTestId('rule-direction-select').selectOption('inflow');
     await page.getByTestId('rule-category-select').selectOption('Fuel');
+    await expect(page.getByTestId('rule-counterpart-account-select')).toBeVisible();
+    await page.getByTestId('rule-counterpart-account-select').selectOption('5');
     await page.getByTestId('save-rule-btn').click();
 
     await expect(page.locator('text=Min amount must be less than or equal to max amount.')).toBeVisible();
@@ -443,20 +446,79 @@ test.describe('Midas App Shell & Navigation', () => {
     await page.getByTestId('rule-max-amount-input').fill('200.00');
     await page.getByTestId('save-rule-btn').click();
 
-    await expect(page.getByTestId('rule-row-5')).toBeVisible();
-    await expect(page.getByTestId('rule-range-badge-5')).toContainText('$10.00 - $200.00');
-    await expect(page.getByTestId('rule-direction-badge-5')).toContainText('Inflow');
+    await expect(page.getByTestId('rule-row-6')).toBeVisible();
+    await expect(page.getByTestId('rule-range-badge-6')).toContainText('$10.00 - $200.00');
+    await expect(page.getByTestId('rule-direction-badge-6')).toContainText('Inflow');
+    await expect(page.getByTestId('rule-counterpart-pill-6')).toContainText('Manulife');
 
-    await page.getByTestId('edit-rule-5').click();
+    await page.getByTestId('edit-rule-6').click();
     await expect(page.getByTestId('rule-min-amount-input')).toHaveValue('10');
     await expect(page.getByTestId('rule-max-amount-input')).toHaveValue('200');
     await expect(page.getByTestId('rule-direction-select')).toHaveValue('inflow');
+    await expect(page.getByTestId('rule-counterpart-account-select')).toHaveValue('5');
 
     await page.getByTestId('rule-max-amount-input').fill('');
     await page.getByTestId('rule-direction-select').selectOption('outflow');
+    await page.getByTestId('rule-counterpart-account-select').selectOption('');
     await page.getByTestId('save-rule-btn').click();
 
-    await expect(page.getByTestId('rule-range-badge-5')).toContainText('>= $10.00');
-    await expect(page.getByTestId('rule-direction-badge-5')).toContainText('Outflow');
+    await expect(page.getByTestId('rule-range-badge-6')).toContainText('>= $10.00');
+    await expect(page.getByTestId('rule-direction-badge-6')).toContainText('Outflow');
+    await expect(page.getByTestId('rule-counterpart-pill-6')).toHaveCount(0);
+  });
+
+  test('omits exchange_rate when recording a manual snapshot on non-NZD Manulife account', async ({ page }) => {
+    let capturedSnapshotPayload: Record<string, unknown> | null = null;
+    await page.route(/\/api\/accounts\/5\/snapshots$/, async (route) => {
+      if (route.request().method() === 'POST') {
+        capturedSnapshotPayload = route.request().postDataJSON() as Record<string, unknown>;
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 100,
+            snapshot_date: '2026-11-18',
+            account_id: 5,
+            balance: Number(capturedSnapshotPayload.balance),
+            currency: 'SGD',
+            exchange_rate: 1.29,
+            balance_nzd: Math.round(Number(capturedSnapshotPayload.balance) * 1.29 * 100) / 100,
+            source: 'manual',
+            notes: capturedSnapshotPayload.notes || null,
+          }),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+
+    const accountsTab = page
+      .locator('header nav button:has-text("Accounts"), nav button:has-text("Accounts")')
+      .locator('visible=true')
+      .first();
+    await accountsTab.click();
+
+    await page.getByTestId('account-card-5').click();
+    await expect(page.getByRole('heading', { name: /Inspect Account: Manulife/i })).toBeVisible();
+    await page.getByTestId('modal-record-snapshot-btn').click();
+
+    await expect(
+      page.getByRole('heading', { name: /Record Balance Valuation Snapshot: Manulife/i })
+    ).toBeVisible();
+    const balanceInput = page.getByPlaceholder('0.00');
+    await expect(balanceInput).toHaveValue('14527.89');
+    await balanceInput.fill('15100.50');
+    await page.getByRole('button', { name: /Confirm & Save Valuation/i }).click();
+
+    await expect
+      .poll(() => capturedSnapshotPayload)
+      .not.toBeNull();
+    expect(capturedSnapshotPayload).toMatchObject({
+      account_id: 5,
+      balance: 15100.5,
+      currency: 'SGD',
+      source: 'manual',
+    });
+    expect(capturedSnapshotPayload?.exchange_rate).toBeUndefined();
   });
 });

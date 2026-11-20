@@ -168,6 +168,8 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
         tx.merchant.toLowerCase().includes(q) ||
         tx.category.toLowerCase().includes(q) ||
         (tx.account_name || '').toLowerCase().includes(q) ||
+        (tx.linked_account_name || '').toLowerCase().includes(q) ||
+        (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
         (tx.raw_description || '').toLowerCase().includes(q) ||
         (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
     );

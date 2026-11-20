@@ -267,7 +267,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
         onClose={() => setIsSnapshotModalOpen(false)}
         accounts={accounts}
         initialAccountId={snapshotInitialAccountId}
-        getAccountLatestBalance={getAccountLatestBalance}
+        getAccountLatestBalance={getAccountLatestNativeBalance}
         onSnapshotSaved={handleSnapshotSaved}
         onError={setError}
       />

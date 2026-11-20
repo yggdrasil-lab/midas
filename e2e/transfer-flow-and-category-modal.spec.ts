@@ -55,10 +55,42 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await btcSpendRow.scrollIntoViewIfNeeded();
       await expect(btcSpendRow).toContainText('-0.005005 BTC');
       await expect(page.getByTestId('tx-fee-109')).toHaveText('Fee: 0.000005 BTC');
+
+      await expect(page.getByTestId('account-modal-tx-row-130')).toBeVisible();
+      await expect(page.getByTestId('account-modal-tx-row-131')).toHaveCount(0);
+      const manulifeTransferPill = page.getByTestId('transfer-flow-130');
+      await manulifeTransferPill.scrollIntoViewIfNeeded();
+      await expect(manulifeTransferPill).toBeVisible();
+      await expect(manulifeTransferPill).toContainText('DBS Multiplier');
+      await expect(manulifeTransferPill).toContainText('Manulife');
+
+      const manulifeDividendPill = page.getByTestId('counterpart-flow-132');
+      await manulifeDividendPill.scrollIntoViewIfNeeded();
+      await expect(manulifeDividendPill).toBeVisible();
+      await expect(manulifeDividendPill).toContainText('Manulife');
+      await expect(manulifeDividendPill).toContainText('DBS Multiplier');
+
       await page.waitForTimeout(300);
       await page.screenshot({
         path: `screenshots/${name}/17-transfer-flow.png`,
       });
+
+      await page.getByTestId('modal-close-done-btn').click();
+
+      // 3. Inspect Manulife single-account ledger: contribution transfer + counterpart dividend pill
+      await page.getByTestId('account-card-5').click();
+      const manulifeModal = page.getByTestId('account-inspection-modal');
+      await expect(manulifeModal).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Inspect Account: Manulife/i })).toBeVisible();
+      await expect(manulifeModal).toContainText('14,527.89 SGD');
+      await expect(manulifeModal).toContainText('0.00 SGD');
+      await expect(manulifeModal).toContainText('300.00 SGD');
+      await expect(page.getByTestId('account-modal-tx-row-131')).toBeVisible();
+      await expect(page.getByTestId('transfer-flow-131')).toContainText('DBS Multiplier');
+      await expect(page.getByTestId('transfer-flow-131')).toContainText('Manulife');
+      await expect(page.getByTestId('account-modal-tx-row-132')).toBeVisible();
+      await expect(page.getByTestId('counterpart-flow-132')).toContainText('Manulife');
+      await expect(page.getByTestId('counterpart-flow-132')).toContainText('DBS Multiplier');
     });
   });
 }

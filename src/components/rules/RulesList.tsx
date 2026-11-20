@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import {
   ArrowRight,
+  ArrowRightLeft,
   CheckCircle2,
+  Landmark,
   Pencil,
   Plus,
   Trash2,
@@ -161,6 +163,40 @@ export const RulesList: React.FC<RulesListProps> = ({
                   <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-medium border border-emerald-500/20 text-[10px]">
                     {rule.target_category}
                   </span>
+                  {Boolean(rule.counterpart_account_name) && (() => {
+                    const isTransferTarget =
+                      rule.target_category.trim().toLowerCase() === 'transfers' ||
+                      rule.target_category.trim().toLowerCase() === 'transfer';
+                    const pillColors = isTransferTarget
+                      ? 'bg-sky-500/10 text-sky-300 border-sky-500/25'
+                      : rule.direction === 'outflow'
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+                        : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25';
+                    return (
+                      <span
+                        data-testid={`rule-counterpart-pill-${rule.id}`}
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${pillColors}`}
+                        title={
+                          isTransferTarget
+                            ? 'Auto-mirrors linked transfer leg to counterpart account'
+                            : 'Counterpart account flow attribution'
+                        }
+                      >
+                        {isTransferTarget ? (
+                          <ArrowRightLeft className="w-2.5 h-2.5 shrink-0" />
+                        ) : (
+                          <Landmark className="w-2.5 h-2.5 shrink-0" />
+                        )}
+                        <span>
+                          {isTransferTarget
+                            ? rule.counterpart_account_name
+                            : rule.direction === 'outflow'
+                              ? `to ${rule.counterpart_account_name}`
+                              : `from ${rule.counterpart_account_name}`}
+                        </span>
+                      </span>
+                    );
+                  })()}
                   {(rule.target_tags || []).map((tag) => (
                     <span
                       key={tag}

@@ -185,6 +185,8 @@ export interface Transaction {
   linked_account_name?: string | null;
   linked_amount?: number | null;
   linked_currency?: string | null;
+  counterpart_account_id?: number | null;
+  counterpart_account_name?: string | null;
   exchange_rate?: number | null;
   fee_amount?: number | null;
   tags?: string[];
@@ -309,6 +311,8 @@ export interface CategorizationRule {
   target_tags?: string[];
   target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
+  counterpart_account_id?: number | null;
+  counterpart_account_name?: string | null;
   priority: number;
   is_active: boolean;
   match_count: number;
@@ -328,6 +332,7 @@ export interface CategorizationRuleCreate {
   target_tags?: string[];
   target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
+  counterpart_account_id?: number | null;
   priority?: number;
   is_active?: boolean;
   apply_retroactively?: boolean;
@@ -345,6 +350,7 @@ export interface CategorizationRuleUpdate {
   target_tags?: string[];
   target_recurrence?: RecurrenceType | null;
   rename_merchant?: string | null;
+  counterpart_account_id?: number | null;
   priority?: number;
   is_active?: boolean;
   apply_retroactively?: boolean;

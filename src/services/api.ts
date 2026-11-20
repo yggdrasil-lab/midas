@@ -165,6 +165,7 @@ export async function fetchInstitutions(): Promise<InstitutionInfo[]> {
     { name: 'Interactive Brokers', default_tier: 'growth', default_type: 'brokerage', currency: 'USD' },
     { name: 'Simplicity', default_tier: 'locked', default_type: 'kiwisaver', currency: 'NZD' },
     { name: 'DBS Bank', default_tier: 'cash', default_type: 'savings', currency: 'SGD' },
+    { name: 'Manulife', default_tier: 'locked', default_type: 'brokerage', currency: 'SGD' },
     { name: 'BDO Unibank', default_tier: 'cash', default_type: 'checking', currency: 'PHP' },
     { name: 'BPI', default_tier: 'cash', default_type: 'checking', currency: 'PHP' },
     { name: 'Wise', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
@@ -229,7 +230,11 @@ export async function fetchAccountTransactions(params?: {
   }
   const txs: Transaction[] = await res.json();
   if (params?.accountId !== undefined) {
-    return txs.filter((tx) => tx.account_id === params.accountId);
+    return txs.filter(
+      (tx) =>
+        tx.account_id === params.accountId ||
+        (tx.counterpart_account_id === params.accountId && tx.linked_transaction_id == null)
+    );
   }
   return txs;
 }

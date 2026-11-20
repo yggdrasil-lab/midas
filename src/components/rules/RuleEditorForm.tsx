@@ -3,7 +3,7 @@ import { Check, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@yggdrasil-lab/ui';
 import { RECURRENCE_OPTIONS } from '../../constants/categories';
 import { useCategories } from '../../hooks/useCategories';
-import { RecurrenceType, RuleDirection } from '../../types';
+import { Account, RecurrenceType, RuleDirection } from '../../types';
 
 export interface RuleFormDraft {
   name: string;
@@ -17,6 +17,7 @@ export interface RuleFormDraft {
   targetTags: string;
   targetRecurrence: RecurrenceType | '';
   renameMerchant: string;
+  counterpartAccountId: string;
   priority: number;
   applyRetroactively: boolean;
 }
@@ -33,12 +34,14 @@ export const DEFAULT_RULE_DRAFT: RuleFormDraft = {
   targetTags: '',
   targetRecurrence: '',
   renameMerchant: '',
+  counterpartAccountId: '',
   priority: 10,
   applyRetroactively: true,
 };
 
 interface RuleEditorFormProps {
   draft: RuleFormDraft;
+  accounts: Account[];
   isEditing: boolean;
   saving: boolean;
   onChange: (updater: (prev: RuleFormDraft) => RuleFormDraft) => void;
@@ -51,6 +54,7 @@ interface RuleEditorFormProps {
  */
 export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
   draft,
+  accounts,
   isEditing,
   saving,
   onChange,
@@ -62,6 +66,9 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
     !draft.targetCategory || categoryNames.includes(draft.targetCategory)
       ? categoryNames
       : [draft.targetCategory, ...categoryNames];
+  const selectableAccounts = accounts.filter(
+    (acc) => acc.is_active || String(acc.id) === draft.counterpartAccountId
+  );
 
   const updateField = <K extends keyof RuleFormDraft>(key: K, value: RuleFormDraft[K]) => {
     onChange((prev) => ({ ...prev, [key]: value }));
@@ -283,6 +290,33 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label
+            htmlFor="rule-counterpart-account-select"
+            className="text-[11px] text-slate-300 block mb-1"
+          >
+            Counterpart Account <span className="text-slate-400">(optional)</span>
+          </label>
+          <select
+            id="rule-counterpart-account-select"
+            aria-label="Counterpart Account"
+            value={draft.counterpartAccountId}
+            onChange={(e) => updateField('counterpartAccountId', e.target.value)}
+            data-testid="rule-counterpart-account-select"
+            className="w-full text-xs px-2.5 py-1.5 bg-background border border-border rounded-lg text-slate-200 focus:outline-none focus:border-amber-500"
+          >
+            <option value="">None (No counterpart account)</option>
+            {selectableAccounts.map((acc) => (
+              <option key={acc.id} value={String(acc.id)}>
+                {acc.name} ({acc.currency || 'NZD'})
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+            For <span className="text-sky-300 font-medium">Transfers</span>, auto-mirrors a linked counter-leg onto this account. For <span className="text-emerald-300 font-medium">Income</span> or other categories, attributes the flow (such as dividends or payouts) without creating a duplicate leg.
+          </p>
         </div>
       </div>
 

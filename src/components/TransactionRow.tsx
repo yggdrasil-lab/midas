@@ -2,6 +2,7 @@ import React from 'react';
 import {
   ArrowRight,
   ArrowRightLeft,
+  Landmark,
   Receipt as ReceiptIcon,
   RefreshCw,
   Repeat,
@@ -103,11 +104,12 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         maximumFractionDigits: Number(tx.exchange_rate) >= 100 ? 2 : 6,
       }).format(Number(tx.exchange_rate))
     : '';
+  const linkedCounterpartName = tx.linked_account_name || tx.counterpart_account_name;
   const transferFromAccount = isDebit
     ? tx.account_name || 'Source Account'
-    : tx.linked_account_name || 'Source Account';
+    : linkedCounterpartName || 'Source Account';
   const transferToAccount = isDebit
-    ? tx.linked_account_name || 'Destination Account'
+    ? linkedCounterpartName || 'Destination Account'
     : tx.account_name || 'Destination Account';
   const hasCrossCurrencyLeg =
     hasLinkedTransfer &&
@@ -241,7 +243,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             {originSummary}
           </div>
         )}
-        {hasLinkedTransfer && tx.linked_account_name && (
+        {hasLinkedTransfer && Boolean(linkedCounterpartName) && (
           <div
             className="inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg bg-sky-500/10 border border-sky-500/25 text-[11px] text-sky-200"
             data-testid={`transfer-flow-${tx.id}`}
@@ -269,6 +271,39 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
                 {tx.linked_currency})
               </span>
             )}
+          </div>
+        )}
+        {!hasLinkedTransfer && Boolean(tx.counterpart_account_name) && (
+          <div
+            className={`inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg border text-[11px] ${
+              amt > 0
+                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
+                : 'bg-amber-500/10 border-amber-500/25 text-amber-200'
+            }`}
+            data-testid={`counterpart-flow-${tx.id}`}
+          >
+            <Landmark
+              className={`w-3 h-3 shrink-0 ${
+                amt > 0 ? 'text-emerald-400' : 'text-amber-400'
+              }`}
+            />
+            <span
+              className="font-semibold truncate max-w-[140px]"
+              title={amt > 0 ? tx.counterpart_account_name || '' : tx.account_name || 'Account'}
+            >
+              {amt > 0 ? tx.counterpart_account_name : tx.account_name || 'Account'}
+            </span>
+            <ArrowRight
+              className={`w-3 h-3 shrink-0 ${
+                amt > 0 ? 'text-emerald-400' : 'text-amber-400'
+              }`}
+            />
+            <span
+              className="font-semibold truncate max-w-[140px]"
+              title={amt > 0 ? tx.account_name || 'Account' : tx.counterpart_account_name || ''}
+            >
+              {amt > 0 ? tx.account_name || 'Account' : tx.counterpart_account_name}
+            </span>
           </div>
         )}
         <TagPillList
