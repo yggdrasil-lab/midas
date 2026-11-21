@@ -668,5 +668,97 @@ for (const { name: platform, options } of PLATFORMS) {
         }
       }
     });
+
+    test(`renders clickable PDF document card for PDF receipts on ${platform}`, async ({ page }) => {
+      await page.route(/\/api\/receipts\/1$/, async (route) => {
+        if (route.request().method() !== 'GET') {
+          await route.fallback();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 1,
+            transaction_id: 101,
+            receipt_date: '2026-11-03',
+            merchant: 'Chemist Warehouse Albany',
+            total_amount: 74.98,
+            currency: 'NZD',
+            status: 'matched',
+            has_image: true,
+            is_processed: true,
+            image_mime_type: 'application/pdf',
+            image_filename: 'TaxInvoice.pdf',
+            created_at: '2026-11-03T10:00:00Z',
+            updated_at: '2026-11-03T10:00:00Z',
+            items: [
+              {
+                id: 1,
+                receipt_id: 1,
+                item_name: 'Vitamin C 1000mg 150 Tablets',
+                brand: 'Blackmores',
+                category: 'Health',
+                domain: '01-health',
+                product_type: 'supplement',
+                volume_ml: null,
+                quantity: 1.0,
+                unit_price: 34.99,
+                discount_amount: 5.0,
+                total_price: 29.99,
+                inherited_tags: ['weekly-shop', 'pantry'],
+                created_at: '2026-11-03T10:00:00Z',
+              },
+            ],
+          }),
+        });
+      });
+
+      const budgetTab = page
+        .locator('header nav button:has-text("Spending & Budgets"), nav button:has-text("Budgets")')
+        .locator('visible=true')
+        .first();
+      await expect(budgetTab).toBeVisible();
+      await budgetTab.click();
+
+      const groceriesCard = page.locator('[data-testid="category-row-groceries"] >> visible=true').first();
+      await expect(groceriesCard).toBeVisible();
+      await groceriesCard.click();
+
+      const openReceiptBtn = page.locator('[data-testid="open-receipt-101"] >> visible=true').first();
+      await expect(openReceiptBtn).toBeVisible();
+      await openReceiptBtn.click();
+
+      const receiptModal = page.locator('[data-testid="receipt-detail-modal"] >> visible=true').first();
+      await expect(receiptModal).toBeVisible();
+
+      const previewContainer = receiptModal.getByTestId('receipt-attachment-preview-1');
+      await expect(previewContainer).toBeVisible();
+      await expect(previewContainer).toContainText('Stored Receipt Document');
+      await expect(previewContainer).toContainText('Open PDF');
+
+      const pdfCard = previewContainer.getByTestId('receipt-pdf-card');
+      await expect(pdfCard).toBeVisible();
+      await expect(pdfCard).toContainText('TaxInvoice.pdf');
+      await expect(pdfCard).toContainText('PDF Document');
+      await expect(pdfCard).toHaveAttribute('href', '/api/receipts/1/image');
+      await expect(pdfCard).toHaveAttribute('target', '_blank');
+      await expect(pdfCard).toHaveAttribute('rel', 'noopener noreferrer');
+      await expect(previewContainer.locator('img')).toHaveCount(0);
+
+      const [previewBox, cardBox] = await Promise.all([
+        previewContainer.boundingBox(),
+        pdfCard.boundingBox(),
+      ]);
+      expect(previewBox).not.toBeNull();
+      expect(cardBox).not.toBeNull();
+      expect(cardBox!.height).toBeGreaterThanOrEqual(44);
+      expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(previewBox!.x + previewBox!.width + 1);
+
+      await page.waitForTimeout(250);
+      await page.screenshot({
+        path: `screenshots/${platform}/08e-receipt-pdf-document-card.png`,
+      });
+    });
   });
 }
