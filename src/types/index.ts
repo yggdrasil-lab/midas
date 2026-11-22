@@ -559,6 +559,13 @@ export interface ProductUpdatePayload {
 
 export type PeriodType = 'week' | 'last_week' | 'month' | 'last_month' | 'annual' | 'custom' | 'all';
 
+export type CashflowDirection = 'inflow' | 'outflow';
+
+export interface CashflowTransactionsPage {
+  transactions: Transaction[];
+  totalCount: number;
+}
+
 export interface SyncAccountSummary {
   account_id: number;
   account_name: string;

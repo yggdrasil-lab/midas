@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { registerCashflowMockRoutes } from './cashflow-mock';
 
 interface MockCategoryRecord {
   id: number;
@@ -2914,4 +2915,16 @@ export async function setupMockApi(page: Page) {
       await route.continue();
     }
   });
+}
+
+/**
+ * Sets up the shared mock API routes plus cashflow projection (`flow=inflow|outflow`),
+ * dynamic breakdown updates, and synthetic payslip 901 fixture routes.
+ */
+export async function setupCashflowMockApi(
+  page: Page,
+  options?: { cashflowPageSize?: number }
+): Promise<void> {
+  await setupMockApi(page);
+  await registerCashflowMockRoutes(page, options?.cashflowPageSize);
 }

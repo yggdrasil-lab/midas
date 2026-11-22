@@ -5,6 +5,8 @@ import {
   AssetSnapshotCreatePayload,
   AverageBurnReportResponse,
   BudgetRule,
+  CashflowDirection,
+  CashflowTransactionsPage,
   CategorizationRule,
   CategorizationRuleCreate,
   CategorizationRuleUpdate,
@@ -371,6 +373,51 @@ function appendPeriodParams(
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
   }
+}
+
+export interface FetchFlowTransactionsParams {
+  flow: CashflowDirection;
+  period: PeriodType;
+  startDate?: string;
+  endDate?: string;
+  category?: string;
+  includeSubclasses?: boolean;
+  includeAmortized?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export async function fetchFlowTransactions(
+  params: FetchFlowTransactionsParams
+): Promise<CashflowTransactionsPage> {
+  const searchParams = new URLSearchParams();
+  appendPeriodParams(searchParams, params.period, params.startDate, params.endDate);
+  searchParams.set('flow', params.flow);
+  searchParams.set('limit', String(params.limit ?? 200));
+  if (params.offset && params.offset > 0) {
+    searchParams.set('offset', String(params.offset));
+  }
+  if (params.category) {
+    searchParams.set('category', params.category);
+  }
+  if (params.includeSubclasses) {
+    searchParams.set('include_subclasses', 'true');
+  }
+  if (params.includeAmortized) {
+    searchParams.set('include_amortized', 'true');
+  }
+  const res = await authFetch(`${API_BASE}/transactions?${searchParams.toString()}`);
+  if (!res.ok) {
+    throw new Error(await readApiError(res, `Failed to fetch ${params.flow} transactions`));
+  }
+  const transactions: Transaction[] = await res.json();
+  const rawTotal = res.headers.get('X-Total-Count');
+  const parsedTotal = rawTotal !== null && rawTotal.trim() !== '' ? Number(rawTotal) : NaN;
+  const totalCount =
+    Number.isInteger(parsedTotal) && parsedTotal >= 0
+      ? parsedTotal
+      : transactions.filter((t) => !t.is_amortized_commitment).length;
+  return { transactions, totalCount };
 }
 
 export async function fetchTagSpendingSummary(
