@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { TransactionList } from '../components/TransactionList';
-import { LoanItem, Transaction } from '../types';
+import { Account, LoanItem, Transaction } from '../types';
 import { useTransactionCategoryMutation } from './useTransactionCategoryMutation';
 
 export type SharedCashflowListProps = Omit<
@@ -11,6 +11,7 @@ export type SharedCashflowListProps = Omit<
 interface UseCashflowListBindingsParams {
   categoryNames: readonly string[];
   loans: LoanItem[];
+  accounts: Account[];
   reload: () => void;
   onDataChanged: () => void;
   patchTransactionLocal: (txId: number, patch: Partial<Transaction>) => void;
@@ -20,17 +21,19 @@ interface UseCashflowListBindingsParams {
 function buildCashflowListProps(params: {
   categoryNames: readonly string[];
   loans: LoanItem[];
+  accounts: Account[];
   mutation: ReturnType<typeof useTransactionCategoryMutation>;
   withReload: (task: Promise<void>) => Promise<void>;
   reload: () => void;
   onDataChanged: () => void;
   patchTransactionLocal: (txId: number, patch: Partial<Transaction>) => void;
 }): SharedCashflowListProps {
-  const { categoryNames, loans, mutation, withReload, reload, onDataChanged, patchTransactionLocal } = params;
+  const { categoryNames, loans, accounts, mutation, withReload, reload, onDataChanged, patchTransactionLocal } = params;
   return {
     categories: categoryNames,
     updatingId: mutation.updatingId,
     loans,
+    accounts,
     showAccountBadge: true,
     onCategoryChange: (txId, cat) => void withReload(mutation.handleCategoryChange(txId, cat)),
     onTagsChange: (txId, tags) => void mutation.handleTagsChange(txId, tags),
@@ -38,6 +41,10 @@ function buildCashflowListProps(params: {
     onLoanChange: (txId, loanId, amt) => {
       const matched = loans.find((l) => l.id === loanId);
       void withReload(mutation.handleLoanChange(txId, loanId, amt, matched?.name ?? null, matched?.loan_type ?? null));
+    },
+    onCounterpartChange: (txId, counterpartId) => {
+      const matched = accounts.find((a) => a.id === counterpartId) ?? null;
+      void withReload(mutation.handleCounterpartChange(txId, counterpartId, matched));
     },
     onCreateRule: mutation.handleCreateRuleFromTx,
     onReceiptUpdated: () => { reload(); onDataChanged(); },
@@ -55,7 +62,7 @@ function buildCashflowListProps(params: {
  * cashflow modal reloads and parent spending breakdown refreshes.
  */
 export function useCashflowListBindings(params: UseCashflowListBindingsParams) {
-  const { categoryNames, loans, reload, onDataChanged, patchTransactionLocal, setError } = params;
+  const { categoryNames, loans, accounts, reload, onDataChanged, patchTransactionLocal, setError } = params;
   const mutationSucceededRef = useRef(false);
 
   const handleUpdated = useCallback(
@@ -83,7 +90,7 @@ export function useCashflowListBindings(params: UseCashflowListBindingsParams) {
   );
 
   const listProps = buildCashflowListProps({
-    categoryNames, loans, mutation, withReload, reload, onDataChanged, patchTransactionLocal,
+    categoryNames, loans, accounts, mutation, withReload, reload, onDataChanged, patchTransactionLocal,
   });
   return { mutation, listProps };
 }

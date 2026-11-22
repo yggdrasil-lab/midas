@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
-import { LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
+import { Account, LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { ReceiptDetailModal } from './receipts/ReceiptDetailModal';
 import { TransactionRow } from './TransactionRow';
@@ -23,6 +23,8 @@ interface TransactionListProps {
     loanId: number | null,
     loanPaymentAmount?: number | null
   ) => void;
+  accounts?: Account[];
+  onCounterpartChange?: (txId: number, counterpartAccountId: number | null) => void;
   onCreateRule: (tx: Transaction) => void;
   onReceiptUpdated?: () => void;
   onSplitsUpdated?: (updatedTx: Transaction) => void;
@@ -35,33 +37,69 @@ interface TransactionListProps {
   getRuleBtnTestId?: (tx: Transaction) => string;
 }
 
+interface TransactionListModalsProps {
+  selectedReceipt: { id: number; documentType?: ReceiptDocumentType | null } | null;
+  splittingTx: Transaction | null;
+  categories: readonly string[];
+  loans: LoanItem[];
+  onCloseReceipt: () => void;
+  onCloseSplit: () => void;
+  onReceiptUpdated?: () => void;
+  onSplitsUpdated?: (updatedTx: Transaction) => void;
+}
+
+const TransactionListModals: React.FC<TransactionListModalsProps> = ({
+  selectedReceipt,
+  splittingTx,
+  categories,
+  loans,
+  onCloseReceipt,
+  onCloseSplit,
+  onReceiptUpdated,
+  onSplitsUpdated,
+}) => (
+  <>
+    <ReceiptDetailModal
+      receiptId={selectedReceipt?.id ?? null}
+      documentType={selectedReceipt?.documentType}
+      isOpen={selectedReceipt !== null}
+      onClose={onCloseReceipt}
+      onReceiptUpdated={onReceiptUpdated}
+    />
+    <TransactionSplitModal
+      transaction={splittingTx}
+      isOpen={splittingTx !== null}
+      onClose={onCloseSplit}
+      categories={categories}
+      loans={loans}
+      onSaved={(updatedTx) => {
+        onSplitsUpdated?.(updatedTx);
+        onReceiptUpdated?.();
+      }}
+    />
+  </>
+);
+
 /**
  * Scrollable transaction list wrapper with unified loading, empty, and row states.
  */
-export const TransactionList: React.FC<TransactionListProps> = ({
-  transactions,
-  categories,
-  loading,
-  loadingLabel = 'Loading transactions...',
-  emptyTitle,
-  emptyDescription,
-  updatingId,
-  onCategoryChange,
-  onTagsChange,
-  onRecurrenceChange,
-  loans,
-  onLoanChange,
-  onCreateRule,
-  onReceiptUpdated,
-  onSplitsUpdated,
-  showAccountBadge = true,
-  fallbackCurrency,
-  scrollable = true,
-  listTestId,
-  getRowTestId,
-  getSelectTestId,
-  getRuleBtnTestId,
-}) => {
+export const TransactionList: React.FC<TransactionListProps> = (props) => {
+  const {
+    transactions,
+    categories,
+    loading,
+    loadingLabel = 'Loading transactions...',
+    emptyTitle,
+    emptyDescription,
+    updatingId,
+    loans,
+    accounts,
+    scrollable = true,
+    listTestId,
+    getRowTestId,
+    getSelectTestId,
+    getRuleBtnTestId,
+  } = props;
   const [selectedReceipt, setSelectedReceipt] = useState<{
     id: number;
     documentType?: ReceiptDocumentType | null;
@@ -72,26 +110,15 @@ export const TransactionList: React.FC<TransactionListProps> = ({
     [transactions]
   );
 
-  if (loading) {
-    return <LoadingState label={loadingLabel} variant="amber" />;
-  }
-
+  if (loading) return <LoadingState label={loadingLabel} variant="amber" />;
   if (displayTransactions.length === 0) {
-    return (
-      <EmptyState
-        title={emptyTitle}
-        description={emptyDescription}
-        variant="dashed"
-      />
-    );
+    return <EmptyState title={emptyTitle} description={emptyDescription} variant="dashed" />;
   }
 
   return (
     <>
       <div
-        className={
-          scrollable ? 'space-y-2 max-h-[50vh] overflow-y-auto pr-1' : 'space-y-2'
-        }
+        className={scrollable ? 'space-y-2 max-h-[50vh] overflow-y-auto pr-1' : 'space-y-2'}
         data-testid={listTestId}
       >
         {displayTransactions.map((tx) => (
@@ -100,43 +127,33 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             transaction={tx}
             categories={categories}
             updating={updatingId === tx.id}
-            onCategoryChange={onCategoryChange}
-            onTagsChange={onTagsChange}
-            onRecurrenceChange={onRecurrenceChange}
+            onCategoryChange={props.onCategoryChange}
+            onTagsChange={props.onTagsChange}
+            onRecurrenceChange={props.onRecurrenceChange}
             loans={loans}
-            onLoanChange={onLoanChange}
-            onCreateRule={onCreateRule}
-            onOpenReceipt={(receiptId, documentType) =>
-              setSelectedReceipt({ id: receiptId, documentType })
-            }
-            onOpenSplit={(rowTx) => setSplittingTx(rowTx)}
-            showAccountBadge={showAccountBadge}
-            fallbackCurrency={fallbackCurrency}
+            onLoanChange={props.onLoanChange}
+            accounts={accounts}
+            onCounterpartChange={props.onCounterpartChange}
+            onCreateRule={props.onCreateRule}
+            onOpenReceipt={(receiptId, documentType) => setSelectedReceipt({ id: receiptId, documentType })}
+            onOpenSplit={setSplittingTx}
+            showAccountBadge={props.showAccountBadge ?? true}
+            fallbackCurrency={props.fallbackCurrency}
             rowTestId={getRowTestId?.(tx)}
             selectTestId={getSelectTestId?.(tx)}
             ruleBtnTestId={getRuleBtnTestId?.(tx)}
           />
         ))}
       </div>
-
-      <ReceiptDetailModal
-        receiptId={selectedReceipt?.id ?? null}
-        documentType={selectedReceipt?.documentType}
-        isOpen={selectedReceipt !== null}
-        onClose={() => setSelectedReceipt(null)}
-        onReceiptUpdated={onReceiptUpdated}
-      />
-
-      <TransactionSplitModal
-        transaction={splittingTx}
-        isOpen={splittingTx !== null}
-        onClose={() => setSplittingTx(null)}
+      <TransactionListModals
+        selectedReceipt={selectedReceipt}
+        splittingTx={splittingTx}
         categories={categories}
         loans={loans || []}
-        onSaved={(updatedTx) => {
-          onSplitsUpdated?.(updatedTx);
-          onReceiptUpdated?.();
-        }}
+        onCloseReceipt={() => setSelectedReceipt(null)}
+        onCloseSplit={() => setSplittingTx(null)}
+        onReceiptUpdated={props.onReceiptUpdated}
+        onSplitsUpdated={props.onSplitsUpdated}
       />
     </>
   );

@@ -84,3 +84,15 @@ export function getTransactionNzdAmount(tx: {
   }
   return absAmount;
 }
+
+/**
+ * Formats an NZD Reporting Currency equivalent label (e.g. "NZD $6,820.40").
+ */
+export function formatNzdEquivalent(amount: number): string {
+  const formatted = formatMoney(Number(amount) || 0, {
+    currency: '$',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `NZD ${formatted}`;
+}
