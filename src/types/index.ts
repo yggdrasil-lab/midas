@@ -210,6 +210,8 @@ export interface TransactionSplitInput {
   notes?: string | null;
 }
 
+export type ReceiptDocumentType = 'receipt' | 'payslip';
+
 export interface Transaction {
   id: number;
   transaction_date: string;
@@ -229,6 +231,7 @@ export interface Transaction {
   amortized_cadence?: 'week' | 'month' | null;
   excluded_from_period_budget?: boolean;
   receipt_id?: number | null;
+  receipt_document_type?: ReceiptDocumentType | null;
   linked_transaction_id?: number | null;
   linked_account_name?: string | null;
   linked_amount?: number | null;
@@ -438,6 +441,7 @@ export interface ReceiptItem {
 export interface Receipt {
   id: number;
   transaction_id?: number | null;
+  document_type?: ReceiptDocumentType;
   receipt_date: string;
   merchant: string;
   total_amount: number;

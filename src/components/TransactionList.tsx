@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
-import { LoanItem, RecurrenceType, Transaction } from '../types';
+import { LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { ReceiptDetailModal } from './receipts/ReceiptDetailModal';
 import { TransactionRow } from './TransactionRow';
@@ -62,7 +62,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   getSelectTestId,
   getRuleBtnTestId,
 }) => {
-  const [selectedReceiptId, setSelectedReceiptId] = useState<number | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<{
+    id: number;
+    documentType?: ReceiptDocumentType | null;
+  } | null>(null);
   const [splittingTx, setSplittingTx] = useState<Transaction | null>(null);
   const displayTransactions = useMemo(
     () => collapsePairedTransfers(transactions),
@@ -103,7 +106,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({
             loans={loans}
             onLoanChange={onLoanChange}
             onCreateRule={onCreateRule}
-            onOpenReceipt={(receiptId) => setSelectedReceiptId(receiptId)}
+            onOpenReceipt={(receiptId, documentType) =>
+              setSelectedReceipt({ id: receiptId, documentType })
+            }
             onOpenSplit={(rowTx) => setSplittingTx(rowTx)}
             showAccountBadge={showAccountBadge}
             fallbackCurrency={fallbackCurrency}
@@ -115,9 +120,10 @@ export const TransactionList: React.FC<TransactionListProps> = ({
       </div>
 
       <ReceiptDetailModal
-        receiptId={selectedReceiptId}
-        isOpen={selectedReceiptId !== null}
-        onClose={() => setSelectedReceiptId(null)}
+        receiptId={selectedReceipt?.id ?? null}
+        documentType={selectedReceipt?.documentType}
+        isOpen={selectedReceipt !== null}
+        onClose={() => setSelectedReceipt(null)}
         onReceiptUpdated={onReceiptUpdated}
       />
 

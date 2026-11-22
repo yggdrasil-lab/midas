@@ -4,7 +4,7 @@ import { TagPillList } from '@yggdrasil-lab/ui';
 import { useCategories } from '../../hooks/useCategories';
 import { getReceiptImageUrl } from '../../services/api';
 import { Receipt, ReceiptItem } from '../../types';
-import { formatReceiptAmount } from '../../utils/receipts';
+import { formatReceiptAmount, isPayslipDocument } from '../../utils/receipts';
 
 type UpdateReceiptItemFn = (
   receiptId: number,
@@ -61,10 +61,18 @@ export const ReceiptItemsEditor: React.FC<ReceiptItemsEditorProps> = ({
   );
 };
 
+function resolveAttachmentHeader(isPdf: boolean, isPayslip: boolean): string {
+  if (isPdf) {
+    return isPayslip ? 'Stored Payslip Document' : 'Stored Receipt Document';
+  }
+  return isPayslip ? 'Stored Payslip Image' : 'Stored Receipt Image';
+}
+
 function ReceiptAttachmentPreview({ receipt: r }: { receipt: Receipt }) {
   const isPdf =
     r.image_mime_type === 'application/pdf' ||
     Boolean(r.image_filename?.toLowerCase().endsWith('.pdf'));
+  const isPayslip = isPayslipDocument(r.document_type);
   const attachmentUrl = getReceiptImageUrl(r.id);
   const canRenderImage =
     !isPdf && (!r.image_mime_type || r.image_mime_type.startsWith('image/'));
@@ -72,7 +80,7 @@ function ReceiptAttachmentPreview({ receipt: r }: { receipt: Receipt }) {
   return (
     <div className="space-y-1.5" data-testid={`receipt-attachment-preview-${r.id}`}>
       <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-        <span>{isPdf ? 'Stored Receipt Document' : 'Stored Receipt Image'}</span>
+        <span>{resolveAttachmentHeader(isPdf, isPayslip)}</span>
         <a
           href={attachmentUrl}
           target="_blank"
@@ -84,13 +92,13 @@ function ReceiptAttachmentPreview({ receipt: r }: { receipt: Receipt }) {
         </a>
       </div>
       {isPdf ? (
-        <PdfReceiptCard url={attachmentUrl} filename={r.image_filename} />
+        <PdfReceiptCard url={attachmentUrl} filename={r.image_filename} isPayslip={isPayslip} />
       ) : (
         canRenderImage && (
           <div className="rounded-lg border border-border/60 bg-background/60 overflow-hidden max-h-56 flex items-center justify-center">
             <img
               src={attachmentUrl}
-              alt={r.image_filename || `${r.merchant} receipt`}
+              alt={r.image_filename || `${r.merchant} ${isPayslip ? 'payslip' : 'receipt'}`}
               className="max-h-56 w-auto object-contain"
               loading="lazy"
             />
@@ -101,7 +109,15 @@ function ReceiptAttachmentPreview({ receipt: r }: { receipt: Receipt }) {
   );
 }
 
-function PdfReceiptCard({ url, filename }: { url: string; filename?: string | null }) {
+function PdfReceiptCard({
+  url,
+  filename,
+  isPayslip = false,
+}: {
+  url: string;
+  filename?: string | null;
+  isPayslip?: boolean;
+}) {
   return (
     <a
       href={url}
@@ -116,7 +132,7 @@ function PdfReceiptCard({ url, filename }: { url: string; filename?: string | nu
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-medium text-slate-100 truncate">
-            {filename || 'Receipt PDF'}
+            {filename || (isPayslip ? 'Payslip PDF' : 'Receipt PDF')}
           </div>
           <div className="text-[11px] text-slate-400">PDF Document</div>
         </div>
