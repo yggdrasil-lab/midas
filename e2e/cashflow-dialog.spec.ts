@@ -42,6 +42,7 @@ async function verifyInflowAndPayslipModal(page: Page): Promise<void> {
   await expect(modal).toContainText('$1,600.00');
   await expect(modal).toContainText('Northwind Salary');
   await expect(modal).toContainText('Vanguard ETF Dividend');
+  await expect(modal.getByTestId('cashflow-select-category-902')).toHaveValue('Dividends');
   await expect(modal.getByTestId('cashflow-chip-income')).toBeVisible();
   await expect(modal.getByTestId('cashflow-chip-dividends')).toBeVisible();
 
@@ -64,7 +65,7 @@ async function verifyOutflowReconciliationAndAnnualInspect(page: Page): Promise<
   await modal.getByTestId('cashflow-modal-flow-outflow').click();
 
   await expect(modal).toContainText('$750.00');
-  await expect(modal).toContainText('Fixed & Annual');
+  await expect(modal).toContainText('Fixed + 52w');
   await expect(modal).toContainText('$136.99');
   await expect(modal.getByTestId('cashflow-actual-section')).toContainText('Harbour Fresh Market');
   await expect(modal.getByTestId('cashflow-actual-section')).toContainText('Spark Broadband');
@@ -233,5 +234,34 @@ test.describe('Cashflow Summary Cards & Inspection Dialog', () => {
     await expect(
       page.locator('[data-testid="summary-card-outflow"] >> visible=true').first()
     ).toContainText('$665.00');
+  });
+
+  test('clears stale prior-flow rows when switching flow returns an API error', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setupCashflowMockApi(page);
+    await page.goto('/');
+
+    await page.locator('[data-testid="summary-card-inflow"] >> visible=true').first().click();
+    const modal = page.getByTestId('cashflow-inspection-modal');
+    await expect(modal).toContainText('Northwind Salary');
+
+    await page.route(/\/api\/transactions(\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      if (url.searchParams.get('flow') === 'outflow') {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Outflow projection unavailable' }),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+
+    await modal.getByTestId('cashflow-modal-flow-outflow').click();
+    await expect(modal).toContainText('Outflow projection unavailable');
+    await expect(modal).not.toContainText('Northwind Salary');
   });
 });

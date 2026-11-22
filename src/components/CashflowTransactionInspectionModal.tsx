@@ -270,7 +270,7 @@ const CashflowExcludedSection: React.FC<CashflowExcludedSectionProps> = ({ trans
         variant="card"
         defaultOpen={false}
         className="!p-3 !bg-card/40 !rounded-xl !shadow-none"
-        title={`Excluded from Period Outflow (${transactions.length}) (${formatMoney(excludedTotal, MONEY_OPTS)} NZD)`}
+        title={`Excluded (${transactions.length}): ${formatMoney(excludedTotal, MONEY_OPTS)} NZD`}
       >
         <TransactionList
           transactions={transactions}
@@ -378,7 +378,7 @@ const CashflowStatusAndSearch: React.FC<CashflowStatusAndSearchProps> = ({
       </div>
     )}
     {(hasTransactions || Boolean(searchQuery)) && (
-      <SearchInput value={searchQuery} onChange={onSearchChange} placeholder="Filter by merchant, category, or account..." variant="amber" data-testid="cashflow-search-input" />
+      <SearchInput value={searchQuery} onChange={onSearchChange} placeholder="Filter merchant, category, account..." variant="amber" data-testid="cashflow-search-input" />
     )}
   </>
 );

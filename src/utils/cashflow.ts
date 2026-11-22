@@ -205,7 +205,7 @@ function buildThirdSummaryMetric(params: {
     subvalue = `${params.annualizedCount} 52w /${unit}`;
   }
   return {
-    thirdMetricLabel: 'Fixed & Annual',
+    thirdMetricLabel: 'Fixed + 52w',
     thirdMetricValue: params.amortizedVolume + params.annualizedShareTotal,
     thirdMetricSubvalue: subvalue,
   };

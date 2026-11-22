@@ -53,12 +53,14 @@ function buildFlowRequestParams(opts: {
   };
 }
 
-function useCashflowPageFetcher(params: {
+interface CashflowPageFetcherParams {
   period: PeriodType;
   startDate?: string;
   endDate?: string;
   includeSubclasses: boolean;
-}) {
+}
+
+function useCashflowPageFetcher(params: CashflowPageFetcherParams) {
   const { period, startDate, endDate, includeSubclasses } = params;
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -84,7 +86,10 @@ function useCashflowPageFetcher(params: {
       setTransactions((prev) => mergeLoadedCashflowPage(prev, page, isLoadMore));
       if (!isLoadMore && flow === 'inflow' && category === 'ALL') setInflowCategories(deriveInflowCategoryChips(page.transactions));
     } catch (err) {
-      if (seq === requestSeqRef.current) setError(err instanceof Error ? err.message : `Failed to load ${flow} transactions`);
+      if (seq === requestSeqRef.current) {
+        if (!isLoadMore) { setTransactions([]); setTotalCount(0); }
+        setError(err instanceof Error ? err.message : `Failed to load ${flow} transactions`);
+      }
     } finally {
       if (seq === requestSeqRef.current) { setLoading(false); setLoadingMore(false); }
     }
