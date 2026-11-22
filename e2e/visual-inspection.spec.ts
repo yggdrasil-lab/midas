@@ -1,9 +1,35 @@
-import { test, expect, devices } from '@playwright/test';
-import { setupMockApi } from './helpers/mock-data';
+import { test, expect, devices, type Page } from '@playwright/test';
+import { setupCashflowMockApi, setupMockApi } from './helpers/mock-data';
 import {
   assertCardMetricsWithinBounds,
   assertLoanRowHasNoOverlap,
 } from './helpers/layout-assertions';
+
+async function captureCashflowModalScreenshots(page: Page, platform: string): Promise<void> {
+  await setupCashflowMockApi(page);
+  await page.goto('/');
+
+  const inflowCard = page.locator('[data-testid="summary-card-inflow"] >> visible=true').first();
+  await inflowCard.scrollIntoViewIfNeeded();
+  await inflowCard.click();
+
+  const modal = page.getByTestId('cashflow-inspection-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText('Northwind Salary');
+  await expect(modal.getByTestId('cashflow-select-category-902')).toHaveValue('Dividends');
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `screenshots/${platform}/20-cashflow-inflow-modal.png` });
+
+  await modal.getByTestId('cashflow-modal-flow-outflow').click();
+  await expect(modal).toContainText('Fixed + 52w');
+  await expect(modal).toContainText('Harbour Fresh Market');
+  const excluded = modal.getByTestId('cashflow-excluded-section');
+  await expect(excluded).toContainText('Excluded (1): $450.00 NZD');
+  await excluded.locator('button').first().click();
+  await expect(excluded.getByTestId('cashflow-excluded-list')).toContainText('Alex Tan Advance');
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `screenshots/${platform}/21-cashflow-outflow-modal.png` });
+}
 
 const PLATFORMS = [
   {
@@ -892,6 +918,12 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.screenshot({
         path: `screenshots/${platform}/11b-receipts-hub-payslip.png`,
       });
+    });
+
+    test(`captures cashflow inflow and outflow inspection modals on ${platform}`, async ({
+      page,
+    }) => {
+      await captureCashflowModalScreenshots(page, platform);
     });
   });
 }
