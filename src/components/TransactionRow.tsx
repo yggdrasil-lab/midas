@@ -192,6 +192,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     tx.loan_type || loans?.find((l) => l.id === tx.loan_id)?.loan_type || 'borrowed';
   const tags = tx.tags || [];
   const isPayslip = isPayslipDocument(tx.receipt_document_type);
+  const openReceiptId = tx.has_receipt ? tx.receipt_id ?? null : null;
 
   const renderLoanFlowPill = (
     key: string,
@@ -420,10 +421,10 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
           )}
         </div>
 
-        {tx.has_receipt && tx.receipt_id && onOpenReceipt ? (
+        {openReceiptId != null && onOpenReceipt ? (
           <button
             type="button"
-            onClick={() => onOpenReceipt(tx.receipt_id!, tx.receipt_document_type)}
+            onClick={() => onOpenReceipt(openReceiptId, tx.receipt_document_type)}
             className="text-xs font-semibold text-slate-200 hover:text-amber-300 truncate text-left transition-colors cursor-pointer block max-w-full"
             title={
               isPayslip

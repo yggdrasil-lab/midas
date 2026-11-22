@@ -4,6 +4,56 @@ import { formatMoney } from './format';
 
 export type ReceiptFeedFilter = 'all' | 'pending' | 'needs_review' | 'matched';
 
+export interface ReceiptFeedCounts {
+  all: number;
+  pending: number;
+  needs_review: number;
+  matched: number;
+}
+
+/**
+ * Returns true when a receipt is still awaiting ledger reconciliation.
+ */
+export function isReceiptPending(
+  receipt: Pick<Receipt, 'status'>
+): boolean {
+  return receipt.status === 'needs_review' || receipt.status === 'unlinked';
+}
+
+const RECEIPT_FEED_PREDICATES: Record<
+  ReceiptFeedFilter,
+  (receipt: Pick<Receipt, 'status'>) => boolean
+> = {
+  all: () => true,
+  pending: isReceiptPending,
+  needs_review: (receipt) => receipt.status === 'needs_review',
+  matched: (receipt) => receipt.status === 'matched' || receipt.status === 'verified',
+};
+
+/**
+ * Computes feed filter counts across all, pending, needs_review, and matched receipts.
+ */
+export function computeReceiptFeedCounts(
+  receipts: readonly Pick<Receipt, 'status'>[]
+): ReceiptFeedCounts {
+  return {
+    all: receipts.length,
+    pending: receipts.filter(RECEIPT_FEED_PREDICATES.pending).length,
+    needs_review: receipts.filter(RECEIPT_FEED_PREDICATES.needs_review).length,
+    matched: receipts.filter(RECEIPT_FEED_PREDICATES.matched).length,
+  };
+}
+
+/**
+ * Filters a receipt feed list by workflow status tab using table-driven predicates.
+ */
+export function filterReceiptsByStatus<T extends Pick<Receipt, 'status'>>(
+  receipts: readonly T[],
+  statusFilter: ReceiptFeedFilter
+): T[] {
+  return receipts.filter(RECEIPT_FEED_PREDICATES[statusFilter]);
+}
+
 /**
  * Returns true when the receipt document discriminator marks a payroll payslip.
  */
@@ -88,15 +138,6 @@ export function getReceiptStatusMeta(
     default:
       return { label: 'Unlinked', variant: 'idle' };
   }
-}
-
-/**
- * Returns true when a receipt is still awaiting ledger reconciliation.
- */
-export function isReceiptPending(
-  receipt: Pick<Receipt, 'status'>
-): boolean {
-  return receipt.status === 'needs_review' || receipt.status === 'unlinked';
 }
 
 /**

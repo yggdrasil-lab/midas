@@ -785,6 +785,10 @@ for (const { name: platform, options } of PLATFORMS) {
       await expect(openPayslipBtn).toBeVisible();
       await expect(openPayslipBtn).toHaveText('Payslip');
       await expect(openPayslipBtn).toHaveAttribute('title', 'Inspect attached payslip PDF');
+      await page.waitForTimeout(250);
+      await page.screenshot({
+        path: `screenshots/${platform}/08e-income-payslip-row.png`,
+      });
       await openPayslipBtn.click();
 
       const receiptModal = page.locator('[data-testid="receipt-detail-modal"] >> visible=true').first();
@@ -793,10 +797,21 @@ for (const { name: platform, options } of PLATFORMS) {
       await expect(receiptModal.getByTestId('receipt-detail-order-number')).toContainText(
         'Pay Period: 2026-11-01 to 2026-11-30'
       );
-      await expect(receiptModal.getByTestId('receipt-detail-summary-subtext')).toContainText(
-        'PAYE Tax: $1,180.25'
-      );
+      const summarySubtext = receiptModal.getByTestId('receipt-detail-summary-subtext');
+      await expect(summarySubtext).toContainText('PAYE Tax: $1,180.25');
       await expect(receiptModal).not.toContainText('0 items');
+
+      if (platform !== 'desktop') {
+        const netPayAmount = receiptModal.getByText('$4,250.50').first();
+        const [amountBox, subtextBox] = await Promise.all([
+          netPayAmount.boundingBox(),
+          summarySubtext.boundingBox(),
+        ]);
+        expect(amountBox).not.toBeNull();
+        expect(subtextBox).not.toBeNull();
+        expect(Math.abs(amountBox!.y - subtextBox!.y)).toBeLessThan(12);
+        expect(amountBox!.x).toBeLessThan(subtextBox!.x);
+      }
 
       const previewContainer = receiptModal.getByTestId('receipt-attachment-preview-4');
       await expect(previewContainer).toBeVisible();
@@ -847,6 +862,7 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.locator('[data-testid="receipts-hub-btn"] >> visible=true').first().click();
 
       const payslipFeedRow = page.locator('[data-testid="receipt-row-4"] >> visible=true').first();
+      await payslipFeedRow.scrollIntoViewIfNeeded();
       await expect(payslipFeedRow).toBeVisible();
       await expect(payslipFeedRow).toContainText('Payslip');
       await expect(payslipFeedRow).toContainText('Matched to Ledger');
@@ -861,9 +877,21 @@ for (const { name: platform, options } of PLATFORMS) {
       await expect(page.locator('[data-testid="receipt-paye-4"] >> visible=true').first()).toContainText(
         '$1,180.25'
       );
-      await expect(
-        page.locator('[data-testid="receipt-attachment-preview-4"] >> visible=true').first()
-      ).toContainText('Stored Payslip Document');
+      const feedPreview = page.locator('[data-testid="receipt-attachment-preview-4"] >> visible=true').first();
+      await expect(feedPreview).toContainText('Stored Payslip Document');
+      const feedPdfCard = feedPreview.getByTestId('receipt-pdf-card');
+      await expect(feedPdfCard).toBeVisible();
+      await payslipFeedRow.evaluate((el) => {
+        const card = el.parentElement;
+        if (card) {
+          card.scrollIntoView({ block: 'start' });
+        }
+      });
+      await feedPdfCard.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(250);
+      await page.screenshot({
+        path: `screenshots/${platform}/11b-receipts-hub-payslip.png`,
+      });
     });
   });
 }

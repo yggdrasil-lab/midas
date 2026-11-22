@@ -39,6 +39,23 @@ function resolveLoadingLabel(effectiveDocType?: ReceiptDocumentType | null): str
   return 'Loading document details...';
 }
 
+function formatReceiptLoadError(err: unknown, documentType?: ReceiptDocumentType | null): string {
+  console.error(err);
+  if (err instanceof Error) return err.message;
+  return isPayslipDocument(documentType)
+    ? 'Failed to load payslip details'
+    : 'Failed to load receipt details';
+}
+
+function applyUpdatedReceiptItem(
+  prev: Receipt | null,
+  itemId: number,
+  updated: Receipt['items'][number]
+): Receipt | null {
+  if (!prev) return prev;
+  return { ...prev, items: prev.items.map((it) => (it.id === itemId ? updated : it)) };
+}
+
 function useReceiptDetailState({
   receiptId,
   documentType,
@@ -66,14 +83,7 @@ function useReceiptDetailState({
     setError(null);
     fetchReceipt(receiptId)
       .then((res) => active && setReceipt(res))
-      .catch((err) => {
-        console.error(err);
-        if (!active) return;
-        const fallback = isPayslipDocument(documentType)
-          ? 'Failed to load payslip details'
-          : 'Failed to load receipt details';
-        setError(err instanceof Error ? err.message : fallback);
-      })
+      .catch((err) => active && setError(formatReceiptLoadError(err, documentType)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -89,9 +99,7 @@ function useReceiptDetailState({
     setError(null);
     try {
       const updated = await updateReceiptItem(rId, itemId, patch);
-      setReceipt((prev) =>
-        prev ? { ...prev, items: prev.items.map((it) => (it.id === itemId ? updated : it)) } : prev
-      );
+      setReceipt((prev) => applyUpdatedReceiptItem(prev, itemId, updated));
       onReceiptUpdated?.();
     } catch (err) {
       console.error(err);
@@ -115,48 +123,33 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   onClose,
   onReceiptUpdated,
 }) => {
-  const { receipt, setReceipt, loading, updatingItemId, error, handleUpdateItem } =
-    useReceiptDetailState({ receiptId, documentType, isOpen, onReceiptUpdated });
-  const effectiveDocType = receipt ? receipt.document_type : documentType;
+  const state = useReceiptDetailState({ receiptId, documentType, isOpen, onReceiptUpdated });
+  const effectiveDocType = state.receipt ? state.receipt.document_type : documentType;
   const isPayslip = isPayslipDocument(effectiveDocType);
-  const statusMeta = receipt ? getReceiptStatusMeta(receipt.status) : null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={resolveModalTitle(receipt, isPayslip)}
+      title={resolveModalTitle(state.receipt, isPayslip)}
       className="sm:max-w-2xl"
     >
       <div className="space-y-4" data-testid="receipt-detail-modal">
-        {error && <AlertBanner variant="error">{error}</AlertBanner>}
-
-        {loading ? (
+        {state.error && <AlertBanner variant="error">{state.error}</AlertBanner>}
+        {state.loading ? (
           <LoadingState label={resolveLoadingLabel(effectiveDocType)} variant="amber" />
-        ) : receipt ? (
-          <>
-            <ReceiptDetailSummaryCard receipt={receipt} isPayslip={isPayslip} statusMeta={statusMeta} />
-
-            {receipt.transaction_id == null && (
-              <ReceiptCandidatesPanel
-                receipt={receipt}
-                onLinked={(updated) => {
-                  setReceipt(updated);
-                  onReceiptUpdated?.();
-                }}
-              />
-            )}
-
-            <div className="max-h-[46vh] sm:max-h-[60vh] overflow-y-auto pr-1">
-              <ReceiptItemsEditor
-                receipt={receipt}
-                updatingItemId={updatingItemId}
-                onUpdateItem={handleUpdateItem}
-              />
-            </div>
-          </>
+        ) : state.receipt ? (
+          <ReceiptDetailBody
+            receipt={state.receipt}
+            isPayslip={isPayslip}
+            updatingItemId={state.updatingItemId}
+            onLinked={(updated) => {
+              state.setReceipt(updated);
+              onReceiptUpdated?.();
+            }}
+            onUpdateItem={state.handleUpdateItem}
+          />
         ) : null}
-
         <div className="pt-2 flex justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
             Done
@@ -167,6 +160,37 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
   );
 };
 
+function ReceiptDetailBody({
+  receipt,
+  isPayslip,
+  updatingItemId,
+  onLinked,
+  onUpdateItem,
+}: {
+  receipt: Receipt;
+  isPayslip: boolean;
+  updatingItemId: number | null;
+  onLinked: (updated: Receipt) => void;
+  onUpdateItem: (rId: number, itemId: number, patch: { category?: string; tags?: string[] }) => Promise<void>;
+}) {
+  const statusMeta = getReceiptStatusMeta(receipt.status);
+  return (
+    <>
+      <ReceiptDetailSummaryCard receipt={receipt} isPayslip={isPayslip} statusMeta={statusMeta} />
+      {receipt.transaction_id == null && (
+        <ReceiptCandidatesPanel receipt={receipt} onLinked={onLinked} />
+      )}
+      <div className="max-h-[46vh] sm:max-h-[60vh] overflow-y-auto pr-1">
+        <ReceiptItemsEditor
+          receipt={receipt}
+          updatingItemId={updatingItemId}
+          onUpdateItem={onUpdateItem}
+        />
+      </div>
+    </>
+  );
+}
+
 function ReceiptDetailSummaryCard({
   receipt,
   isPayslip,
@@ -174,15 +198,15 @@ function ReceiptDetailSummaryCard({
 }: {
   receipt: Receipt;
   isPayslip: boolean;
-  statusMeta: ReturnType<typeof getReceiptStatusMeta> | null;
+  statusMeta: ReturnType<typeof getReceiptStatusMeta>;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 p-3 bg-card/60 rounded-xl border border-border flex-wrap">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-card/60 rounded-xl border border-border">
       <div className="space-y-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-mono text-slate-400">{receipt.receipt_date}</span>
           {isPayslip && <StatusBadge label="Payslip" variant="info" className="px-1.5 py-0.5 text-[10px]" />}
-          {statusMeta && <StatusBadge label={statusMeta.label} variant={statusMeta.variant} className="px-1.5 py-0.5 text-[10px]" />}
+          <StatusBadge label={statusMeta.label} variant={statusMeta.variant} className="px-1.5 py-0.5 text-[10px]" />
         </div>
         <div className="text-sm font-semibold text-slate-100 truncate">{receipt.merchant}</div>
         {Boolean(receipt.order_number) && (
@@ -191,7 +215,7 @@ function ReceiptDetailSummaryCard({
           </div>
         )}
       </div>
-      <div className="text-right shrink-0">
+      <div className="flex items-baseline justify-between gap-2 sm:block sm:text-right shrink-0">
         <div className="text-sm font-bold font-mono text-slate-100">
           {formatReceiptAmount(Number(receipt.total_amount), receipt.currency)}
         </div>
