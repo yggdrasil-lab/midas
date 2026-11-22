@@ -11,7 +11,7 @@ import {
   Split,
 } from 'lucide-react';
 import { TagPillList } from '@yggdrasil-lab/ui';
-import { LoanItem, RecurrenceType, Transaction } from '../types';
+import { LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
 import { isTransferCategory, RECURRENCE_OPTIONS } from '../constants/categories';
 import {
   formatMoney,
@@ -20,6 +20,7 @@ import {
   getTransactionNzdAmount,
   isCryptoCurrency,
 } from '../utils/format';
+import { isPayslipDocument } from '../utils/receipts';
 import {
   areLegacyPositiveOutflowSplits,
   hasValidSplitLines,
@@ -54,7 +55,7 @@ interface TransactionRowProps {
     loanPaymentAmount?: number | null
   ) => void;
   onCreateRule: (tx: Transaction) => void;
-  onOpenReceipt?: (receiptId: number) => void;
+  onOpenReceipt?: (receiptId: number, documentType?: ReceiptDocumentType | null) => void;
   onOpenSplit?: (tx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
@@ -190,6 +191,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
   const resolvedLoanType =
     tx.loan_type || loans?.find((l) => l.id === tx.loan_id)?.loan_type || 'borrowed';
   const tags = tx.tags || [];
+  const isPayslip = isPayslipDocument(tx.receipt_document_type);
 
   const renderLoanFlowPill = (
     key: string,
@@ -356,26 +358,14 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
             </span>
           )}
           {Boolean(tx.has_receipt) && (
-            tx.receipt_id && onOpenReceipt ? (
-              <button
-                type="button"
-                onClick={() => onOpenReceipt(tx.receipt_id!)}
-                data-testid={`open-receipt-${tx.id}`}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer whitespace-nowrap"
-                title="Inspect receipt items, categories, tags & photo"
-              >
-                <ReceiptIcon className="w-2.5 h-2.5" />
-                <span>{tx.is_receipt_split ? 'Receipt Split' : 'Receipt'}</span>
-              </button>
-            ) : (
-              <span
-                className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium flex items-center space-x-1 whitespace-nowrap"
-                title="Matched Itemized Receipt"
-              >
-                <ReceiptIcon className="w-2.5 h-2.5" />
-                <span>{tx.is_receipt_split ? 'Receipt Split' : 'Receipt'}</span>
-              </span>
-            )
+            <TransactionReceiptBadge
+              txId={tx.id}
+              receiptId={tx.receipt_id}
+              isSplit={Boolean(tx.is_receipt_split)}
+              isPayslip={isPayslip}
+              documentType={tx.receipt_document_type}
+              onOpenReceipt={onOpenReceipt}
+            />
           )}
           {isSplit &&
             (onOpenSplit ? (
@@ -433,9 +423,13 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
         {tx.has_receipt && tx.receipt_id && onOpenReceipt ? (
           <button
             type="button"
-            onClick={() => onOpenReceipt(tx.receipt_id!)}
+            onClick={() => onOpenReceipt(tx.receipt_id!, tx.receipt_document_type)}
             className="text-xs font-semibold text-slate-200 hover:text-amber-300 truncate text-left transition-colors cursor-pointer block max-w-full"
-            title="Click to inspect receipt items & photo"
+            title={
+              isPayslip
+                ? 'Click to inspect attached payslip PDF'
+                : 'Click to inspect receipt items & photo'
+            }
           >
             {tx.merchant}
           </button>
@@ -795,3 +789,53 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
     </div>
   );
 };
+
+interface TransactionReceiptBadgeProps {
+  txId: number;
+  receiptId?: number | null;
+  isSplit: boolean;
+  isPayslip: boolean;
+  documentType?: ReceiptDocumentType | null;
+  onOpenReceipt?: (receiptId: number, documentType?: ReceiptDocumentType | null) => void;
+}
+
+function TransactionReceiptBadge({
+  txId,
+  receiptId,
+  isSplit,
+  isPayslip,
+  documentType,
+  onOpenReceipt,
+}: TransactionReceiptBadgeProps) {
+  const label = isSplit ? 'Receipt Split' : isPayslip ? 'Payslip' : 'Receipt';
+  const title = isPayslip
+    ? 'Inspect attached payslip PDF'
+    : receiptId && onOpenReceipt
+      ? 'Inspect receipt items, categories, tags & photo'
+      : 'Matched Itemized Receipt';
+
+  if (receiptId && onOpenReceipt) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenReceipt(receiptId, documentType)}
+        data-testid={`open-receipt-${txId}`}
+        className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer whitespace-nowrap"
+        title={title}
+      >
+        <ReceiptIcon className="w-2.5 h-2.5" />
+        <span>{label}</span>
+      </button>
+    );
+  }
+
+  return (
+    <span
+      className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium flex items-center space-x-1 whitespace-nowrap"
+      title={title}
+    >
+      <ReceiptIcon className="w-2.5 h-2.5" />
+      <span>{label}</span>
+    </span>
+  );
+}

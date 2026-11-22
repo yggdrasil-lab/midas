@@ -595,6 +595,8 @@ for (const { name: platform, options } of PLATFORMS) {
           await expect(page.locator('text=Sydney Roasters Online >> visible=true').first()).toBeVisible();
           await expect(page.locator('text=AUD 179.74 >> visible=true').first()).toBeVisible();
           await expect(page.locator('[data-testid="receipt-row-3"] >> visible=true').first()).toContainText('Needs Review');
+          await expect(page.locator('[data-testid="receipt-row-4"] >> visible=true').first()).toContainText('Payslip');
+          await expect(page.locator('[data-testid="receipt-row-4"] >> visible=true').first()).toContainText('Acme Corp');
           // Expand first receipt item
           const expandBtn = page.locator('[data-testid="receipt-row-1"] >> visible=true').first();
           if (await expandBtn.isVisible()) {
@@ -759,6 +761,109 @@ for (const { name: platform, options } of PLATFORMS) {
       await page.screenshot({
         path: `screenshots/${platform}/08e-receipt-pdf-document-card.png`,
       });
+    });
+
+    test(`renders payslip badge, modal details, and PDF preview on ${platform}`, async ({ page }) => {
+      const accountsTab = page
+        .locator('header nav button:has-text("Accounts"), nav button:has-text("Accounts")')
+        .locator('visible=true')
+        .first();
+      await expect(accountsTab).toBeVisible();
+      await accountsTab.click();
+
+      const asbCard = page.locator('[data-testid="account-card-1"] >> visible=true').first();
+      await expect(asbCard).toBeVisible();
+      await asbCard.click();
+
+      const payslipTxRow = page.locator('[data-testid="account-modal-tx-row-150"] >> visible=true').first();
+      await payslipTxRow.scrollIntoViewIfNeeded();
+      await expect(payslipTxRow).toBeVisible();
+      await expect(payslipTxRow).toContainText('Acme Corp Salary');
+      await expect(payslipTxRow).toContainText('+$4,250.50 NZD');
+
+      const openPayslipBtn = page.locator('[data-testid="open-receipt-150"] >> visible=true').first();
+      await expect(openPayslipBtn).toBeVisible();
+      await expect(openPayslipBtn).toHaveText('Payslip');
+      await expect(openPayslipBtn).toHaveAttribute('title', 'Inspect attached payslip PDF');
+      await openPayslipBtn.click();
+
+      const receiptModal = page.locator('[data-testid="receipt-detail-modal"] >> visible=true').first();
+      await expect(receiptModal).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Payslip: Acme Corp' })).toBeVisible();
+      await expect(receiptModal.getByTestId('receipt-detail-order-number')).toContainText(
+        'Pay Period: 2026-11-01 to 2026-11-30'
+      );
+      await expect(receiptModal.getByTestId('receipt-detail-summary-subtext')).toContainText(
+        'PAYE Tax: $1,180.25'
+      );
+      await expect(receiptModal).not.toContainText('0 items');
+
+      const previewContainer = receiptModal.getByTestId('receipt-attachment-preview-4');
+      await expect(previewContainer).toBeVisible();
+      await expect(previewContainer).toContainText('Stored Payslip Document');
+      await expect(previewContainer).toContainText('Open PDF');
+
+      const pdfCard = previewContainer.getByTestId('receipt-pdf-card');
+      await expect(pdfCard).toBeVisible();
+      await expect(pdfCard).toContainText('payslip.pdf');
+      await expect(pdfCard).toHaveAttribute('href', '/api/receipts/4/image');
+
+      const [previewBox, cardBox] = await Promise.all([
+        previewContainer.boundingBox(),
+        pdfCard.boundingBox(),
+      ]);
+      expect(previewBox).not.toBeNull();
+      expect(cardBox).not.toBeNull();
+      expect(cardBox!.height).toBeGreaterThanOrEqual(44);
+      expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(previewBox!.x + previewBox!.width + 1);
+
+      const pdfResponse = await page.evaluate(async () => {
+        const res = await fetch('/api/receipts/4/image');
+        const text = await res.text();
+        return {
+          status: res.status,
+          contentType: res.headers.get('content-type') || '',
+          prefix: text.slice(0, 8),
+        };
+      });
+      expect(pdfResponse.status).toBe(200);
+      expect(pdfResponse.contentType).toContain('application/pdf');
+      expect(pdfResponse.prefix).toBe('%PDF-1.4');
+
+      await page.waitForTimeout(250);
+      await page.screenshot({
+        path: `screenshots/${platform}/08f-payslip-detail-modal.png`,
+      });
+
+      await receiptModal.getByRole('button', { name: 'Done' }).click();
+      await expect(receiptModal).toBeHidden();
+      await page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first().click();
+
+      const toolsTab = page
+        .locator('header nav button:has-text("Tools"), nav button:has-text("Tools")')
+        .locator('visible=true')
+        .first();
+      await toolsTab.click();
+      await page.locator('[data-testid="receipts-hub-btn"] >> visible=true').first().click();
+
+      const payslipFeedRow = page.locator('[data-testid="receipt-row-4"] >> visible=true').first();
+      await expect(payslipFeedRow).toBeVisible();
+      await expect(payslipFeedRow).toContainText('Payslip');
+      await expect(payslipFeedRow).toContainText('Matched to Ledger');
+      await expect(payslipFeedRow).toContainText('Acme Corp');
+      await payslipFeedRow.click();
+
+      const payPeriodRow = page.locator('[data-testid="receipt-order-4"] >> visible=true').first();
+      await expect(payPeriodRow).toBeVisible();
+      await expect(payPeriodRow).toContainText('Pay Period');
+      await expect(payPeriodRow).toContainText('2026-11-01 to 2026-11-30');
+      await expect(payPeriodRow).not.toContainText('Order Ref');
+      await expect(page.locator('[data-testid="receipt-paye-4"] >> visible=true').first()).toContainText(
+        '$1,180.25'
+      );
+      await expect(
+        page.locator('[data-testid="receipt-attachment-preview-4"] >> visible=true').first()
+      ).toContainText('Stored Payslip Document');
     });
   });
 }

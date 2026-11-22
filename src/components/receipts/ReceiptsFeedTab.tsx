@@ -5,6 +5,7 @@ import { Receipt } from '../../types';
 import {
   formatReceiptAmount,
   getReceiptStatusMeta,
+  isPayslipDocument,
   isReceiptPending,
   type ReceiptFeedFilter,
 } from '../../utils/receipts';
@@ -177,141 +178,260 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
         />
       ) : (
         <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
-          {filteredReceipts.map((r) => {
-            const isExpanded = expandedReceiptId === r.id;
-            const statusMeta = getReceiptStatusMeta(r.status);
-            const isNeedsReview = r.status === 'needs_review';
-
-            return (
-              <div
-                key={r.id}
-                className={`p-3 rounded-xl border transition-all ${
-                  isNeedsReview
-                    ? 'bg-amber-500/[0.04] hover:bg-amber-500/[0.07] border-amber-500/35'
-                    : 'bg-card/60 hover:bg-card/80 border-border'
-                }`}
-              >
-                <div
-                  className="flex items-center justify-between gap-2 cursor-pointer"
-                  onClick={() => onToggleExpand(r.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onToggleExpand(r.id);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  data-testid={`receipt-row-${r.id}`}
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap shrink-0">
-                        {r.receipt_date}
-                      </span>
-                      <StatusBadge
-                        label={statusMeta.label}
-                        variant={statusMeta.variant}
-                        className="px-1.5 py-0.5 text-[10px] shrink-0"
-                      />
-                      {r.is_processed === false && (
-                        <StatusBadge
-                          label="Unprocessed"
-                          variant="idle"
-                          className="px-1.5 py-0.5 text-[10px] shrink-0"
-                        />
-                      )}
-                      {r.items && r.items.length > 0 && (
-                        <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
-                          ({r.items.length} {r.items.length === 1 ? 'item' : 'items'})
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs font-semibold text-slate-200 truncate">
-                      {r.merchant}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <span className="text-xs font-bold font-mono text-slate-100 whitespace-nowrap">
-                      {formatReceiptAmount(Number(r.total_amount), r.currency)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void onDeleteReceipt(r.id);
-                      }}
-                      disabled={deletingId === r.id}
-                      data-testid={`delete-receipt-${r.id}`}
-                      aria-label={`Delete receipt ${r.merchant}`}
-                      title="Delete receipt"
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-slate-400" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-400" />
-                    )}
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="mt-3 pt-3 border-t border-border/60 space-y-3 animate-in fade-in">
-                    {r.order_number && (
-                      <div
-                        data-testid={`receipt-order-${r.id}`}
-                        className="flex items-center justify-between gap-2 text-[11px] text-slate-400 bg-background/40 px-2.5 py-1.5 rounded-lg border border-border/50"
-                      >
-                        <span className="uppercase tracking-wider text-[10px] font-medium">
-                          Order Ref
-                        </span>
-                        <span className="font-mono text-slate-200 truncate">
-                          {r.order_number}
-                        </span>
-                      </div>
-                    )}
-
-                    {r.is_processed === false && r.has_image && (
-                      <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
-                        <span>Original photo saved; vision parsing pending.</span>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => void onReprocessReceipt(r.id)}
-                          disabled={reprocessingId === r.id}
-                          icon={
-                            <RefreshCw
-                              className={`w-3 h-3 text-amber-400 ${reprocessingId === r.id ? 'animate-spin' : ''}`}
-                            />
-                          }
-                        >
-                          {reprocessingId === r.id ? 'Parsing...' : 'Retry Parse'}
-                        </Button>
-                      </div>
-                    )}
-
-                    {r.transaction_id == null && (
-                      <ReceiptCandidatesPanel
-                        receipt={r}
-                        onLinked={onReceiptLinked}
-                      />
-                    )}
-
-                    <ReceiptItemsEditor
-                      receipt={r}
-                      updatingItemId={updatingItemId}
-                      onUpdateItem={onUpdateReceiptItem}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {filteredReceipts.map((r) => (
+            <ReceiptFeedRow
+              key={r.id}
+              receipt={r}
+              isExpanded={expandedReceiptId === r.id}
+              deletingId={deletingId}
+              reprocessingId={reprocessingId}
+              updatingItemId={updatingItemId}
+              onToggleExpand={onToggleExpand}
+              onDeleteReceipt={onDeleteReceipt}
+              onReprocessReceipt={onReprocessReceipt}
+              onReceiptLinked={onReceiptLinked}
+              onUpdateReceiptItem={onUpdateReceiptItem}
+            />
+          ))}
         </div>
       )}
     </div>
   );
 };
+
+interface ReceiptFeedRowProps {
+  receipt: Receipt;
+  isExpanded: boolean;
+  deletingId: number | null;
+  reprocessingId: number | null;
+  updatingItemId?: number | null;
+  onToggleExpand: (id: number) => void;
+  onDeleteReceipt: (id: number) => Promise<void>;
+  onReprocessReceipt: (id: number) => Promise<void>;
+  onReceiptLinked?: (updatedReceipt: Receipt) => void | Promise<void>;
+  onUpdateReceiptItem?: (
+    receiptId: number,
+    itemId: number,
+    patch: { category?: string; tags?: string[] }
+  ) => Promise<void>;
+}
+
+function ReceiptFeedRow({
+  receipt: r,
+  isExpanded,
+  deletingId,
+  reprocessingId,
+  updatingItemId,
+  onToggleExpand,
+  onDeleteReceipt,
+  onReprocessReceipt,
+  onReceiptLinked,
+  onUpdateReceiptItem,
+}: ReceiptFeedRowProps) {
+  const isNeedsReview = r.status === 'needs_review';
+  const isPayslip = isPayslipDocument(r.document_type);
+
+  return (
+    <div
+      className={`p-3 rounded-xl border transition-all ${
+        isNeedsReview
+          ? 'bg-amber-500/[0.04] hover:bg-amber-500/[0.07] border-amber-500/35'
+          : 'bg-card/60 hover:bg-card/80 border-border'
+      }`}
+    >
+      <ReceiptFeedRowHeader
+        receipt={r}
+        isPayslip={isPayslip}
+        isExpanded={isExpanded}
+        deletingId={deletingId}
+        onToggleExpand={onToggleExpand}
+        onDeleteReceipt={onDeleteReceipt}
+      />
+
+      {isExpanded && (
+        <ReceiptFeedRowDetails
+          receipt={r}
+          isPayslip={isPayslip}
+          reprocessingId={reprocessingId}
+          updatingItemId={updatingItemId}
+          onReprocessReceipt={onReprocessReceipt}
+          onReceiptLinked={onReceiptLinked}
+          onUpdateReceiptItem={onUpdateReceiptItem}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReceiptFeedRowHeader({
+  receipt: r,
+  isPayslip,
+  isExpanded,
+  deletingId,
+  onToggleExpand,
+  onDeleteReceipt,
+}: {
+  receipt: Receipt;
+  isPayslip: boolean;
+  isExpanded: boolean;
+  deletingId: number | null;
+  onToggleExpand: (id: number) => void;
+  onDeleteReceipt: (id: number) => Promise<void>;
+}) {
+  const statusMeta = getReceiptStatusMeta(r.status);
+  return (
+    <div
+      className="flex items-center justify-between gap-2 cursor-pointer"
+      onClick={() => onToggleExpand(r.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggleExpand(r.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      data-testid={`receipt-row-${r.id}`}
+    >
+      <div className="space-y-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap shrink-0">
+            {r.receipt_date}
+          </span>
+          {isPayslip && <StatusBadge label="Payslip" variant="info" className="px-1.5 py-0.5 text-[10px] shrink-0" />}
+          <StatusBadge label={statusMeta.label} variant={statusMeta.variant} className="px-1.5 py-0.5 text-[10px] shrink-0" />
+          {r.is_processed === false && <StatusBadge label="Unprocessed" variant="idle" className="px-1.5 py-0.5 text-[10px] shrink-0" />}
+          {r.items && r.items.length > 0 && (
+            <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
+              ({r.items.length} {r.items.length === 1 ? 'item' : 'items'})
+            </span>
+          )}
+        </div>
+        <div className="text-xs font-semibold text-slate-200 truncate">{r.merchant}</div>
+      </div>
+
+      <ReceiptFeedRowActions
+        receipt={r}
+        isPayslip={isPayslip}
+        isExpanded={isExpanded}
+        deletingId={deletingId}
+        onDeleteReceipt={onDeleteReceipt}
+      />
+    </div>
+  );
+}
+
+function ReceiptFeedRowActions({
+  receipt: r,
+  isPayslip,
+  isExpanded,
+  deletingId,
+  onDeleteReceipt,
+}: {
+  receipt: Receipt;
+  isPayslip: boolean;
+  isExpanded: boolean;
+  deletingId: number | null;
+  onDeleteReceipt: (id: number) => Promise<void>;
+}) {
+  return (
+    <div className="flex items-center space-x-2 shrink-0">
+      <span className="text-xs font-bold font-mono text-slate-100 whitespace-nowrap">
+        {formatReceiptAmount(Number(r.total_amount), r.currency)}
+      </span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          void onDeleteReceipt(r.id);
+        }}
+        disabled={deletingId === r.id}
+        data-testid={`delete-receipt-${r.id}`}
+        aria-label={`Delete ${isPayslip ? 'payslip' : 'receipt'} ${r.merchant}`}
+        title={isPayslip ? 'Delete payslip' : 'Delete receipt'}
+        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+      {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+    </div>
+  );
+}
+
+function ReceiptFeedMetadataRow({
+  testId,
+  label,
+  value,
+}: {
+  testId: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div
+      data-testid={testId}
+      className="flex items-center justify-between gap-2 text-[11px] text-slate-400 bg-background/40 px-2.5 py-1.5 rounded-lg border border-border/50"
+    >
+      <span className="uppercase tracking-wider text-[10px] font-medium">{label}</span>
+      <span className="font-mono text-slate-200 truncate">{value}</span>
+    </div>
+  );
+}
+
+function ReceiptFeedRowDetails({
+  receipt: r,
+  isPayslip,
+  reprocessingId,
+  updatingItemId,
+  onReprocessReceipt,
+  onReceiptLinked,
+  onUpdateReceiptItem,
+}: {
+  receipt: Receipt;
+  isPayslip: boolean;
+  reprocessingId: number | null;
+  updatingItemId?: number | null;
+  onReprocessReceipt: (id: number) => Promise<void>;
+  onReceiptLinked?: (updatedReceipt: Receipt) => void | Promise<void>;
+  onUpdateReceiptItem?: ReceiptFeedRowProps['onUpdateReceiptItem'];
+}) {
+  const showPaye = isPayslip && r.tax_amount != null && Number(r.tax_amount) > 0;
+  return (
+    <div className="mt-3 pt-3 border-t border-border/60 space-y-3 animate-in fade-in">
+      {Boolean(r.order_number) && (
+        <ReceiptFeedMetadataRow
+          testId={`receipt-order-${r.id}`}
+          label={isPayslip ? 'Pay Period' : 'Order Ref'}
+          value={r.order_number!}
+        />
+      )}
+
+      {showPaye && (
+        <ReceiptFeedMetadataRow
+          testId={`receipt-paye-${r.id}`}
+          label="PAYE Tax"
+          value={formatReceiptAmount(Number(r.tax_amount), r.currency)}
+        />
+      )}
+
+      {r.is_processed === false && r.has_image && (
+        <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
+          <span>Original photo saved; vision parsing pending.</span>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => void onReprocessReceipt(r.id)}
+            disabled={reprocessingId === r.id}
+            icon={<RefreshCw className={`w-3 h-3 text-amber-400 ${reprocessingId === r.id ? 'animate-spin' : ''}`} />}
+          >
+            {reprocessingId === r.id ? 'Parsing...' : 'Retry Parse'}
+          </Button>
+        </div>
+      )}
+
+      {r.transaction_id == null && <ReceiptCandidatesPanel receipt={r} onLinked={onReceiptLinked} />}
+
+      <ReceiptItemsEditor receipt={r} updatingItemId={updatingItemId} onUpdateItem={onUpdateReceiptItem} />
+    </div>
+  );
+}

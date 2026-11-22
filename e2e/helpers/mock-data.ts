@@ -927,6 +927,7 @@ export async function setupMockApi(page: Page) {
     recurrence?: string | null;
     has_receipt?: boolean;
     receipt_id?: number | null;
+    receipt_document_type?: 'receipt' | 'payslip' | null;
     linked_transaction_id?: number | null;
     linked_account_name?: string | null;
     linked_amount?: number | null;
@@ -1236,6 +1237,20 @@ export async function setupMockApi(page: Page) {
       loan_name: null,
       loan_type: null,
       loan_payment_amount: null,
+    },
+    {
+      id: 150,
+      transaction_date: '2026-11-19',
+      account_id: 1,
+      account_name: 'ASB Everyday Checking',
+      amount: 4250.5,
+      currency: 'NZD',
+      merchant: 'Acme Corp Salary',
+      raw_description: 'DC ACME CORP PAYROLL',
+      category: 'Income',
+      has_receipt: true,
+      receipt_id: 4,
+      receipt_document_type: 'payslip',
     },
   ];
 
@@ -2214,9 +2229,11 @@ export async function setupMockApi(page: Page) {
 
   interface MockReceiptRecord {
     id: number;
+    document_type?: 'receipt' | 'payslip';
     merchant: string;
     receipt_date: string;
     total_amount: number;
+    tax_amount?: number | null;
     currency: string;
     status: 'unlinked' | 'needs_review' | 'matched' | 'verified';
     transaction_id: number | null;
@@ -2356,6 +2373,26 @@ export async function setupMockApi(page: Page) {
         },
       ],
     },
+    {
+      id: 4,
+      document_type: 'payslip',
+      merchant: 'Acme Corp',
+      receipt_date: '2026-11-19',
+      total_amount: 4250.5,
+      tax_amount: 1180.25,
+      currency: 'NZD',
+      status: 'matched',
+      transaction_id: 150,
+      order_number: '2026-11-01 to 2026-11-30',
+      source_email_message_id: '<payslip-2026-11@acme-payroll.test>',
+      has_image: true,
+      is_processed: true,
+      image_mime_type: 'application/pdf',
+      image_filename: 'payslip.pdf',
+      created_at: '2026-11-19T08:00:00Z',
+      updated_at: '2026-11-19T08:00:00Z',
+      items: [],
+    },
   ];
 
   const mockReceiptCandidates: Record<number, MockReceiptCandidateRecord[]> = {
@@ -2471,6 +2508,24 @@ export async function setupMockApi(page: Page) {
   });
 
   await page.route(/\/api\/receipts\/(\d+)\/image$/, async (route) => {
+    const match = route.request().url().match(/\/api\/receipts\/(\d+)\/image$/);
+    const id = match ? Number(match[1]) : 0;
+    const receipt = mockReceipts.find((r) => r.id === id);
+    if (
+      receipt?.image_mime_type === 'application/pdf' ||
+      receipt?.image_filename?.toLowerCase().endsWith('.pdf')
+    ) {
+      const minimalPdf = Buffer.from(
+        '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n',
+        'utf-8'
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        body: minimalPdf,
+      });
+      return;
+    }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140"><rect width="240" height="140" fill="#0f172a"/><rect x="16" y="14" width="208" height="112" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-opacity="0.5"/><text x="120" y="54" fill="#f8fafc" font-family="monospace" font-size="13" text-anchor="middle">CHEMIST WAREHOUSE</text><text x="120" y="78" fill="#94a3b8" font-family="monospace" font-size="11" text-anchor="middle">2x Items   NZ$74.98</text><text x="120" y="102" fill="#fbbf24" font-family="monospace" font-size="10" text-anchor="middle">STORED WEBP RECEIPT</text></svg>`;
     await route.fulfill({
       status: 200,

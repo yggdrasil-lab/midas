@@ -535,19 +535,21 @@ test.describe('Midas App Shell & Navigation', () => {
     await page.getByTestId('receipts-hub-btn').click();
 
     await expect(page.getByRole('heading', { name: /Receipts & Product Inventory Hub/i })).toBeVisible();
-    await expect(page.getByTestId('receipt-filter-all')).toContainText('3');
+    await expect(page.getByTestId('receipt-filter-all')).toContainText('4');
     await expect(page.getByTestId('receipt-filter-pending')).toContainText('2');
     await expect(page.getByTestId('receipt-filter-needs_review')).toContainText('1');
-    await expect(page.getByTestId('receipt-filter-matched')).toContainText('1');
+    await expect(page.getByTestId('receipt-filter-matched')).toContainText('2');
 
     await page.getByTestId('receipts-hub-needs-review-badge').click();
     await expect(page.getByTestId('receipt-row-3')).toBeVisible();
     await expect(page.getByTestId('receipt-row-1')).toHaveCount(0);
     await expect(page.getByTestId('receipt-row-2')).toHaveCount(0);
+    await expect(page.getByTestId('receipt-row-4')).toHaveCount(0);
 
     await page.getByTestId('receipt-row-3').click();
     await expect(page.getByTestId('receipt-candidates-panel-3')).toBeVisible();
     await expect(page.getByTestId('receipt-candidate-3-201')).toContainText('$195.40 NZD');
+    await expect(page.getByTestId('receipt-candidate-3-201')).not.toContainText('+$195.40 NZD');
     await expect(page.getByTestId('receipt-candidate-3-201')).toContainText('Orig. AUD 179.74');
     await expect(page.getByTestId('receipt-candidate-3-202')).toContainText('Est. AUD 180.25');
 
@@ -555,10 +557,141 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(page.getByTestId('receipts-hub-status-banner')).toContainText('Linked "Sydney Roasters Online"');
     await expect(page.getByTestId('receipt-filter-pending')).toContainText('1');
     await expect(page.getByTestId('receipt-filter-needs_review')).toContainText('0');
-    await expect(page.getByTestId('receipt-filter-matched')).toContainText('2');
+    await expect(page.getByTestId('receipt-filter-matched')).toContainText('3');
 
     await page.getByRole('button', { name: 'Done' }).click();
     await expect(page.getByTestId('receipts-needs-review-badge')).toHaveCount(0);
     await expect(page.getByTestId('receipts-pending-badge')).toContainText('1 Pending');
+  });
+
+  test('formats positive inflow candidates with + prefix and falls back cleanly for zero-tax payslips', async ({ page }) => {
+    const unlinkedPayslip = {
+      id: 5,
+      document_type: 'payslip',
+      merchant: 'Acme Corp',
+      receipt_date: '2026-11-20',
+      total_amount: 4250.5,
+      tax_amount: null,
+      currency: 'NZD',
+      status: 'needs_review',
+      transaction_id: null,
+      order_number: '2026-11-01 to 2026-11-30',
+      has_image: true,
+      is_processed: true,
+      image_mime_type: 'application/pdf',
+      image_filename: null,
+      created_at: '2026-11-20T08:00:00Z',
+      updated_at: '2026-11-20T08:00:00Z',
+      items: [],
+    };
+
+    await page.route(/\/api\/receipts(\?.*)?$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([unlinkedPayslip]),
+      });
+    });
+
+    await page.route(/\/api\/receipts\/5$/, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(unlinkedPayslip),
+      });
+    });
+
+    await page.route(/\/api\/receipts\/5\/candidates(\?.*)?$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            transaction_id: 301,
+            transaction_date: '2026-11-20',
+            merchant: 'Acme Corp Salary',
+            raw_description: 'DC ACME CORP PAYROLL',
+            amount: 4250.5,
+            currency: 'NZD',
+            account_id: 1,
+            account_name: 'ASB Everyday Checking',
+            confidence: 0.96,
+            match_reason: 'Exact inflow amount match',
+          },
+          {
+            transaction_id: 302,
+            transaction_date: '2026-11-20',
+            merchant: 'Acme Corp Bonus',
+            raw_description: 'FX CREDIT ACME CORP AUD',
+            amount: 500.0,
+            currency: 'AUD',
+            account_id: 2,
+            account_name: 'Wise AUD',
+            confidence: 0.72,
+            match_reason: 'Foreign inflow candidate',
+          },
+        ]),
+      });
+    });
+
+    await page.route(/\/api\/transactions(\/.*|\?.*)?$/, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 301,
+            transaction_date: '2026-11-20',
+            account_id: 1,
+            account_name: 'ASB Everyday Checking',
+            amount: 4250.5,
+            currency: 'NZD',
+            merchant: 'Acme Corp Salary',
+            category: 'Income',
+            has_receipt: true,
+            receipt_id: 5,
+            receipt_document_type: 'payslip',
+          },
+        ]),
+      });
+    });
+
+    const toolsTab = page
+      .locator('header nav button:has-text("Tools"), nav button:has-text("Tools")')
+      .locator('visible=true')
+      .first();
+    await toolsTab.click();
+    await page.getByTestId('receipts-hub-btn').click();
+
+    await expect(page.getByTestId('receipt-row-5')).toContainText('Payslip');
+    await page.getByTestId('receipt-row-5').click();
+    await expect(page.getByTestId('receipt-candidates-panel-5')).toBeVisible();
+    await expect(page.getByTestId('receipt-candidate-5-301')).toContainText('+$4,250.50 NZD');
+    await expect(page.getByTestId('receipt-candidate-5-302')).toContainText('+AUD 500.00');
+    await expect(page.getByTestId('receipt-pdf-card')).toContainText('Payslip PDF');
+    await page.getByRole('button', { name: 'Done' }).click();
+
+    const accountsTab = page
+      .locator('header nav button:has-text("Accounts"), nav button:has-text("Accounts")')
+      .locator('visible=true')
+      .first();
+    await accountsTab.click();
+    await page.getByTestId('account-card-1').click();
+    await page.getByTestId('open-receipt-301').click();
+
+    const receiptModal = page.getByTestId('receipt-detail-modal');
+    await expect(receiptModal).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Payslip: Acme Corp' })).toBeVisible();
+    await expect(receiptModal.getByTestId('receipt-detail-summary-subtext')).toHaveText('Payslip PDF');
+    await expect(receiptModal).not.toContainText('0 items');
+    await expect(receiptModal.getByTestId('receipt-pdf-card')).toContainText('Payslip PDF');
   });
 });
