@@ -6,9 +6,34 @@ import {
 } from './helpers/layout-assertions';
 
 const VIEWPORTS = [
-  { name: 'ios', options: devices['iPhone 14'] },
-  { name: 'android', options: devices['Pixel 7'] },
-  { name: 'desktop', options: { viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false } },
+  {
+    name: 'ios',
+    options: {
+      viewport: devices['iPhone 14'].viewport,
+      userAgent: devices['iPhone 14'].userAgent,
+      deviceScaleFactor: devices['iPhone 14'].deviceScaleFactor,
+      isMobile: devices['iPhone 14'].isMobile,
+      hasTouch: devices['iPhone 14'].hasTouch,
+    },
+  },
+  {
+    name: 'android',
+    options: {
+      viewport: devices['Pixel 7'].viewport,
+      userAgent: devices['Pixel 7'].userAgent,
+      deviceScaleFactor: devices['Pixel 7'].deviceScaleFactor,
+      isMobile: devices['Pixel 7'].isMobile,
+      hasTouch: devices['Pixel 7'].hasTouch,
+    },
+  },
+  {
+    name: 'desktop',
+    options: {
+      viewport: { width: 1280, height: 800 },
+      isMobile: false,
+      hasTouch: false,
+    },
+  },
 ];
 
 interface SyntheticTx {
@@ -115,23 +140,8 @@ function createSyntheticTransactions(): SyntheticTx[] {
       counterpart_account_type: 'private_note',
     },
     {
-      id: 702,
-      transaction_date: '2026-11-18',
-      account_id: 6,
-      account_name: 'DBS Synthetic Savings',
-      amount: -10000.0,
-      currency: 'SGD',
-      merchant: 'Alex Note Principal',
-      raw_description: 'FAST DEBIT ALEX VENTURES',
-      category: 'Finance',
-      linked_transaction_id: null,
-      counterpart_account_id: 7,
-      counterpart_account_name: 'Alex Business Note',
-      counterpart_account_type: 'private_note',
-    },
-    {
       id: 703,
-      transaction_date: '2026-11-16',
+      transaction_date: '2026-11-18',
       account_id: 6,
       account_name: 'DBS Synthetic Savings',
       amount: -300.0,
@@ -143,6 +153,21 @@ function createSyntheticTransactions(): SyntheticTx[] {
       counterpart_account_id: 5,
       counterpart_account_name: 'Manulife',
       counterpart_account_type: 'brokerage',
+    },
+    {
+      id: 702,
+      transaction_date: '2026-11-16',
+      account_id: 6,
+      account_name: 'DBS Synthetic Savings',
+      amount: -10000.0,
+      currency: 'SGD',
+      merchant: 'Alex Note Principal',
+      raw_description: 'FAST DEBIT ALEX VENTURES',
+      category: 'Finance',
+      linked_transaction_id: null,
+      counterpart_account_id: 7,
+      counterpart_account_name: 'Alex Business Note',
+      counterpart_account_type: 'private_note',
     },
     {
       id: 704,
@@ -295,6 +320,10 @@ for (const { name, options } of VIEWPORTS) {
       await expect(earnedChip).toContainText('50.2% recovered');
       await expect(earnedChip).toContainText('59 payouts');
       await assertAccountCardHasNoOverflow(noteCard, 'account-earned-chip-7');
+      await page.waitForTimeout(250);
+      await page.screenshot({
+        path: `screenshots/${name}/22-private-note-account-card.png`,
+      });
 
       // 3. Open Alex Business Note AccountInspectionModal -> Total Earned tile + counterpart rows
       await noteCard.click();
@@ -320,6 +349,11 @@ for (const { name, options } of VIEWPORTS) {
       await expect(payoutPill).toContainText('DBS Synthetic Savings');
       await expect(page.getByTestId('counterpart-role-701')).toHaveText('Payout');
       await assertCounterpartRowHasNoOverlap(page, 701);
+      await earnedTile.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(250);
+      await page.screenshot({
+        path: `screenshots/${name}/23-private-note-inspection-modal.png`,
+      });
 
       const principalPill = page.getByTestId('counterpart-flow-702');
       await principalPill.scrollIntoViewIfNeeded();
@@ -350,6 +384,11 @@ for (const { name, options } of VIEWPORTS) {
 
       const counterpartSelect = page.getByTestId('modal-select-counterpart-704');
       await expect(counterpartSelect).toBeVisible();
+      await counterpartSelect.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(250);
+      await page.screenshot({
+        path: `screenshots/${name}/24-counterpart-principal-and-picker.png`,
+      });
       const optionLabels = await counterpartSelect.locator('option').allTextContents();
       expect(optionLabels).toContain('None');
       expect(optionLabels.some((lbl) => lbl.includes('Alex Business Note'))).toBe(true);

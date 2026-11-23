@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
 import {
   fetchAccounts,
@@ -45,15 +45,17 @@ function useAccountPortfolioData(initialAccountId: number | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialMatch, setInitialMatch] = useState<Account | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const reload = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(null);
     try {
       const [accs, loans] = await Promise.all([fetchAccounts(), fetchLoans().catch(() => null)]);
       setAccounts(accs);
       setLoansSummary(loans);
       setSnapshotsByAccount(await fetchSnapshotMap(accs));
+      hasLoadedRef.current = true;
       if (initialAccountId !== null) {
         const found = accs.find((a) => a.id === initialAccountId);
         if (found) setInitialMatch(found);

@@ -1,4 +1,6 @@
 import { formatCurrency, FormatCurrencyOptions } from '@yggdrasil-lab/ui';
+import { formatAccountTypeLabel } from '../constants/categories';
+import { Account } from '../types';
 
 /**
  * Formats an amount as localized currency while guarding against Intl RangeError
@@ -95,4 +97,21 @@ export function formatNzdEquivalent(amount: number): string {
     maximumFractionDigits: 2,
   });
   return `NZD ${formatted}`;
+}
+
+/**
+ * Formats an account's subtitle ("Institution • Type • X.X% p.a.") across
+ * Account cards and inspection modals.
+ */
+export function formatAccountSubtitle(account: Account): string {
+  const typeLabel = formatAccountTypeLabel(account.account_type);
+  const showReturn =
+    account.expected_annual_return > 0 &&
+    (account.tier === 'growth' || account.account_type === 'private_note');
+  const returnHint = showReturn
+    ? ` • ${(account.expected_annual_return * 100).toFixed(1)}% p.a.`
+    : '';
+  return account.institution
+    ? `${account.institution} • ${typeLabel}${returnHint}`
+    : `${typeLabel}${returnHint}`;
 }

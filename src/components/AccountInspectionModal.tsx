@@ -9,12 +9,12 @@ import {
   SummaryMetricGrid,
   SummaryMetricItem,
 } from '@yggdrasil-lab/ui';
-import { formatAccountTypeLabel, isTransferCategory } from '../constants/categories';
+import { isTransferCategory } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import { fetchAccounts, fetchAccountTransactions, fetchLoans } from '../services/api';
 import { Account, LoanItem, PeriodType, Transaction } from '../types';
-import { formatMoney, formatNzdEquivalent, formatSignedTransactionAmount } from '../utils/format';
+import { formatAccountSubtitle, formatMoney, formatNzdEquivalent, formatSignedTransactionAmount } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RulesManagerModal } from './RulesManagerModal';
@@ -137,18 +137,6 @@ function buildAccountSummaryItems(params: {
   ];
 }
 
-function buildModalSubtitle(account: Account | null): string {
-  if (!account) return 'Aggregated view across all connected institutions';
-  const typeLabel = formatAccountTypeLabel(account.account_type);
-  const showReturn =
-    account.expected_annual_return > 0 &&
-    (account.tier === 'growth' || account.account_type === 'private_note');
-  const returnHint = showReturn ? ` • ${(account.expected_annual_return * 100).toFixed(1)}% p.a.` : '';
-  return account.institution
-    ? `${account.institution} • ${typeLabel}${returnHint}`
-    : `${typeLabel}${returnHint}`;
-}
-
 interface AccountModalHeaderProps {
   account: Account | null;
   period: PeriodType;
@@ -164,6 +152,9 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
   account, period, startDate, endDate, onPeriodChange, onStartDateChange, onEndDateChange, onRecordSnapshotClick,
 }) => {
   const tierInfo = account ? TIER_BADGE_MAP[account.tier] : null;
+  const subtitleText = account
+    ? formatAccountSubtitle(account)
+    : 'Aggregated view across all connected institutions';
   return (
     <div className="p-3 rounded-xl bg-card/60 border border-border flex flex-col gap-3">
       <div className="flex items-center space-x-2.5">
@@ -177,7 +168,7 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
             </span>
             {tierInfo && <StatusBadge label={tierInfo.label} variant={tierInfo.variant} icon={tierInfo.icon} />}
           </div>
-          <p className="text-xs text-slate-400">{buildModalSubtitle(account)}</p>
+          <p className="text-xs text-slate-400">{subtitleText}</p>
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
@@ -278,12 +269,14 @@ function useAccountModalData(opts: {
     onError: (msg) => setError(msg || null),
   });
 
+  const accountId = account?.id;
+
   const loadTransactions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetchAccountTransactions({
-        accountId: account ? account.id : undefined,
+        accountId,
         period,
         startDate: period === 'custom' ? startDate : undefined,
         endDate: period === 'custom' ? endDate : undefined,
@@ -296,15 +289,20 @@ function useAccountModalData(opts: {
     } finally {
       setLoading(false);
     }
-  }, [account, period, startDate, endDate]);
+  }, [accountId, period, startDate, endDate]);
 
   useEffect(() => {
     if (!isOpen) return;
     mutation.setSuccessNote(null);
     void loadTransactions();
     fetchLoans().then((r) => setLoans(r.loans || [])).catch(() => setLoans([]));
-    if (!accountsProp) fetchAccounts().then(setFetchedAccounts).catch(() => setFetchedAccounts([]));
-  }, [isOpen, account?.id, period, startDate, endDate, accountsProp, loadTransactions]);
+  }, [isOpen, accountId, period, startDate, endDate, loadTransactions]);
+
+  useEffect(() => {
+    if (isOpen && !accountsProp) {
+      fetchAccounts().then(setFetchedAccounts).catch(() => setFetchedAccounts([]));
+    }
+  }, [isOpen, accountsProp]);
 
   const accounts = accountsProp ?? fetchedAccounts;
   return { transactions, loans, accounts, loading, error, setError, mutation, mutationSucceededRef, loadTransactions };

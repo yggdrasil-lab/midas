@@ -1,9 +1,9 @@
 import React from 'react';
 import { Lock, ShieldCheck, TrendingUp } from 'lucide-react';
 import { StatusBadge } from '@yggdrasil-lab/ui';
-import { ACCOUNT_TIER_META, formatAccountTypeLabel } from '../constants/categories';
+import { ACCOUNT_TIER_META } from '../constants/categories';
 import { Account, AssetSnapshot } from '../types';
-import { formatMoney, formatSignedTransactionAmount } from '../utils/format';
+import { formatAccountSubtitle, formatMoney, formatSignedTransactionAmount } from '../utils/format';
 
 interface AccountTierSectionProps {
   tier: Account['tier'];
@@ -27,19 +27,6 @@ const TIER_ICONS: Record<Account['tier'], { section: React.ReactNode; badge: Rea
     badge: <Lock className="w-3 h-3 mr-1" />,
   },
 };
-
-function buildAccountSubtitle(acc: Account, tier: Account['tier']): string {
-  const typeLabel = formatAccountTypeLabel(acc.account_type);
-  const showReturnHint =
-    acc.expected_annual_return > 0 &&
-    (tier === 'growth' || acc.account_type === 'private_note');
-  const returnHint = showReturnHint
-    ? ` • ${(acc.expected_annual_return * 100).toFixed(1)}% p.a.`
-    : '';
-  return acc.institution
-    ? `${acc.institution} • ${typeLabel}${returnHint}`
-    : `${typeLabel}${returnHint}`;
-}
 
 interface AccountEarnedChipProps {
   account: Account;
@@ -123,7 +110,7 @@ const AccountTierCard: React.FC<AccountTierCardProps> = ({
         <span className="text-xs font-normal text-slate-400 ml-1">{account.currency || 'NZD'}</span>
       </div>
       <div className="flex items-center justify-between gap-1.5 text-[11px] text-slate-400 mt-1">
-        <span className="truncate min-w-0">{buildAccountSubtitle(account, tier)}</span>
+        <span className="truncate min-w-0">{formatAccountSubtitle(account)}</span>
         <span className={`font-mono font-medium shrink-0 ${trendColor}`}>{subvalue}</span>
       </div>
       {showEarned && <AccountEarnedChip account={account} nativeBalance={balance} />}
