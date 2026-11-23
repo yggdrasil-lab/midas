@@ -1,5 +1,5 @@
 import { SegmentedControlOption } from '@yggdrasil-lab/ui';
-import { Account, PeriodType, RecurrenceType, Transaction } from '../types';
+import { Account, AccountType, PeriodType, RecurrenceType, Transaction } from '../types';
 
 /** Recurrence frequency options for amortized weekly budget and runway burn. */
 export const RECURRENCE_OPTIONS: ReadonlyArray<{
@@ -138,14 +138,37 @@ export const COMMON_CURRENCIES = [
 ] as const;
 
 /** Account type selector options for statement ingestion and account creation. */
-export const ACCOUNT_TYPE_OPTIONS: Array<{ value: Account['account_type']; label: string }> = [
+export const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string }> = [
   { value: 'checking', label: 'Checking (Everyday)' },
   { value: 'savings', label: 'Savings (Interest / Cash Floor)' },
   { value: 'brokerage', label: 'Brokerage (Equities / Growth)' },
   { value: 'kiwisaver', label: 'KiwiSaver (Pension / Locked)' },
+  { value: 'private_note', label: 'Private Note' },
   { value: 'crypto', label: 'Crypto' },
   { value: 'credit_card', label: 'Credit Card' },
 ];
+
+const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  checking: 'Checking',
+  savings: 'Savings',
+  brokerage: 'Brokerage',
+  kiwisaver: 'KiwiSaver',
+  private_note: 'Private Note',
+  crypto: 'Crypto',
+  credit_card: 'Credit Card',
+};
+
+/** Formats an account_type enum (including snake_case values) for display. */
+export function formatAccountTypeLabel(accountType?: string | null): string {
+  const normalized = (accountType || '').trim().toLowerCase();
+  if (!normalized) return 'Account';
+  if (ACCOUNT_TYPE_LABELS[normalized]) return ACCOUNT_TYPE_LABELS[normalized];
+  return normalized
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
 /** Metadata describing the three financial freedom tiers. */
 export const ACCOUNT_TIER_META: Record<
@@ -181,7 +204,7 @@ export const ACCOUNT_TIER_META: Record<
   locked: {
     shortLabel: 'Locked',
     sectionTitle: 'Tier 3: Locked Reserve (Preserved Capital)',
-    sectionDescription: 'KiwiSaver and restricted retirement funds preserved until maturity',
+    sectionDescription: 'KiwiSaver, private notes, and restricted capital preserved until maturity',
     cardVariant: 'amber',
     badgeVariant: 'warning',
     totalTextColor: 'text-amber-300',

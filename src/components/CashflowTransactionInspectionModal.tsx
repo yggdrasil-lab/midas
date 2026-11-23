@@ -457,7 +457,7 @@ const CashflowInspectionBody: React.FC<CashflowInspectionBodyProps> = ({
   const { categoryNames } = useCategories();
   const { state, actions } = useCashflowInspection({ initialFlow, period, startDate, endDate, includeSubclasses });
   const { mutation, listProps } = useCashflowListBindings({
-    categoryNames, loans: state.loans, reload: actions.reload, onDataChanged,
+    categoryNames, loans: state.loans, accounts: state.accounts, reload: actions.reload, onDataChanged,
     patchTransactionLocal: actions.patchTransactionLocal, setError: actions.setError,
   });
   const view = useCashflowViewProjection({ ...state, period, breakdown });

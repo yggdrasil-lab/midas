@@ -11,7 +11,7 @@ import {
   Split,
 } from 'lucide-react';
 import { TagPillList } from '@yggdrasil-lab/ui';
-import { LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
+import { Account, LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
 import { isTransferCategory, RECURRENCE_OPTIONS } from '../constants/categories';
 import {
   formatMoney,
@@ -347,6 +347,7 @@ interface TransactionTransferPillsProps {
   amt: number;
   txCurrency: string;
   hasLinkedTransfer: boolean;
+  accounts?: Account[];
 }
 
 const LinkedTransferFlowPill: React.FC<{ tx: Transaction; isDebit: boolean; txCurrency: string }> = ({
@@ -375,24 +376,68 @@ const LinkedTransferFlowPill: React.FC<{ tx: Transaction; isDebit: boolean; txCu
 };
 
 const TransactionTransferPills: React.FC<TransactionTransferPillsProps> = ({
-  tx, amt, txCurrency, hasLinkedTransfer,
+  tx, amt, txCurrency, hasLinkedTransfer, accounts,
 }) => {
   if (hasLinkedTransfer) return <LinkedTransferFlowPill tx={tx} isDebit={amt < 0} txCurrency={txCurrency} />;
   if (!tx.counterpart_account_name) return null;
   const isInflow = amt > 0;
   const boxCls = isInflow ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200' : 'bg-amber-500/10 border-amber-500/25 text-amber-200';
   const iconCls = isInflow ? 'text-emerald-400' : 'text-amber-400';
+  const badgeCls = isInflow ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-200' : 'bg-amber-500/20 border-amber-500/30 text-amber-200';
   const from = isInflow ? tx.counterpart_account_name : tx.account_name || 'Account';
   const to = isInflow ? tx.account_name || 'Account' : tx.counterpart_account_name;
+  const counterpartType = tx.counterpart_account_type || accounts?.find((a) => a.id === tx.counterpart_account_id)?.account_type;
+  const accountType = accounts?.find((a) => a.id === tx.account_id)?.account_type;
+  const roleLabel = isInflow ? 'Payout' : (counterpartType === 'private_note' || accountType === 'private_note') ? 'Principal' : 'Contribution';
   return (
     <div className={`inline-flex items-center gap-1.5 flex-wrap px-2 py-1 rounded-lg border text-[11px] ${boxCls}`} data-testid={`counterpart-flow-${tx.id}`}>
       <Landmark className={`w-3 h-3 shrink-0 ${iconCls}`} />
-      <span className="font-semibold truncate max-w-[140px]" title={from}>{from}</span>
+      <span className="font-semibold truncate max-w-[160px]" title={from}>{from}</span>
       <ArrowRight className={`w-3 h-3 shrink-0 ${iconCls}`} />
-      <span className="font-semibold truncate max-w-[140px]" title={to}>{to}</span>
+      <span className="font-semibold truncate max-w-[160px]" title={to}>{to}</span>
+      <span data-testid={`counterpart-role-${tx.id}`} className={`text-[10px] px-1 py-0.2 rounded border font-medium whitespace-nowrap ${badgeCls}`}>{roleLabel}</span>
     </div>
   );
 };
+
+interface CounterpartAccountEditorProps {
+  tx: Transaction;
+  selectableAccounts: Account[];
+  updating: boolean;
+  onSelect: (txId: number, counterpartId: number | null) => void;
+  onClose: () => void;
+}
+
+const CounterpartAccountEditor: React.FC<CounterpartAccountEditorProps> = ({
+  tx, selectableAccounts, updating, onSelect, onClose,
+}) => (
+  <div data-testid={`counterpart-editor-${tx.id}`} className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border/40">
+    <label htmlFor={`counterpart-select-${tx.id}`} className="text-[11px] text-slate-400 shrink-0">Counterpart Account</label>
+    <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+      <select
+        id={`counterpart-select-${tx.id}`}
+        data-testid={`modal-select-counterpart-${tx.id}`}
+        aria-label={`Counterpart account for ${tx.merchant}`}
+        value={tx.counterpart_account_id != null ? String(tx.counterpart_account_id) : ''}
+        disabled={updating}
+        onChange={(e) => {
+          const nextId = e.target.value ? Number(e.target.value) : null;
+          if (nextId !== (tx.counterpart_account_id ?? null)) onSelect(tx.id, nextId);
+          onClose();
+        }}
+        className="text-base sm:text-xs px-2 py-1 max-w-[210px] w-full sm:w-auto bg-background border border-border hover:border-emerald-500/50 rounded-lg text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors disabled:opacity-50"
+      >
+        <option value="">None</option>
+        {selectableAccounts.map((acc) => (
+          <option key={acc.id} value={String(acc.id)}>{acc.name} ({acc.currency || 'NZD'})</option>
+        ))}
+      </select>
+      <button type="button" onClick={onClose} className="text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-border text-slate-300 shrink-0">
+        Close
+      </button>
+    </div>
+  </div>
+);
 
 interface LoanPartialAmountEditorProps {
   tx: Transaction;
@@ -488,19 +533,26 @@ interface TransactionCategoryAndActionsProps {
   isSplit: boolean;
   hasLinkedTransfer: boolean;
   isAmortized: boolean;
+  showCounterpartToggle: boolean;
+  isEditingCounterpart: boolean;
   ruleBtnTestId?: string;
   selectTestId?: string;
   onCategoryChange: (txId: number, category: string) => void;
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   onOpenSplit?: (tx: Transaction) => void;
+  onToggleCounterpart: () => void;
   onCreateRule: (tx: Transaction) => void;
 }
 
 const TransactionCategoryAndActions: React.FC<TransactionCategoryAndActionsProps> = ({
-  tx, categories, updating, isSplit, hasLinkedTransfer, isAmortized, ruleBtnTestId, selectTestId,
-  onCategoryChange, onRecurrenceChange, onOpenSplit, onCreateRule,
+  tx, categories, updating, isSplit, hasLinkedTransfer, isAmortized,
+  showCounterpartToggle, isEditingCounterpart, ruleBtnTestId, selectTestId,
+  onCategoryChange, onRecurrenceChange, onOpenSplit, onToggleCounterpart, onCreateRule,
 }) => {
   const categoryOptions = buildCategoryOptions(categories, tx.category);
+  const counterpartBtnCls = tx.counterpart_account_id != null || isEditingCounterpart
+    ? 'text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25'
+    : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10';
   return (
     <>
       {onRecurrenceChange && (
@@ -528,6 +580,11 @@ const TransactionCategoryAndActions: React.FC<TransactionCategoryAndActionsProps
               <Split className="w-3.5 h-3.5" />
             </button>
           )}
+          {showCounterpartToggle && (
+            <button type="button" onClick={onToggleCounterpart} data-testid={`counterpart-tx-btn-${tx.id}`} aria-label={`Counterpart account for ${tx.merchant}`} aria-expanded={isEditingCounterpart} title={tx.counterpart_account_name ? `Edit counterpart account (${tx.counterpart_account_name})` : 'Assign counterpart account'} className={`p-1 rounded transition-colors ${counterpartBtnCls}`}>
+              <Landmark className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button type="button" onClick={() => onCreateRule(tx)} data-testid={ruleBtnTestId} aria-label={`Create rule for ${tx.merchant}`} title="Create categorization rule from this transaction" className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
             <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
@@ -546,6 +603,8 @@ interface TransactionRowProps {
   onRecurrenceChange?: (txId: number, recurrence: RecurrenceType | null) => void;
   loans?: LoanItem[];
   onLoanChange?: (txId: number, loanId: number | null, loanPaymentAmount?: number | null) => void;
+  accounts?: Account[];
+  onCounterpartChange?: (txId: number, counterpartAccountId: number | null) => void;
   onCreateRule: (tx: Transaction) => void;
   onOpenReceipt?: (receiptId: number, documentType?: ReceiptDocumentType | null) => void;
   onOpenSplit?: (tx: Transaction) => void;
@@ -568,18 +627,28 @@ const TransactionRowAmount: React.FC<{ tx: Transaction; amt: number; txCurrency:
   return <span data-testid={`tx-amount-${tx.id}`} className={`text-xs font-semibold font-mono whitespace-nowrap ${colorCls}`}>{formatSignedTransactionAmount(amt, txCurrency)}</span>;
 };
 
+function getSelectableCounterparts(tx: Transaction, accounts?: Account[]): Account[] {
+  if (!accounts || accounts.length === 0) return [];
+  return accounts.filter(
+    (acc) => acc.id !== tx.account_id && (acc.is_active || acc.id === tx.counterpart_account_id)
+  );
+}
+
 /**
  * Shared transaction row displaying date, account/receipt/transfer badges,
  * formatted amount, inline category selector, and rule builder trigger.
  */
 export const TransactionRow: React.FC<TransactionRowProps> = ({
   transaction: tx, categories, updating, onCategoryChange, onTagsChange, onRecurrenceChange,
-  loans, onLoanChange, onCreateRule, onOpenReceipt, onOpenSplit,
+  loans, onLoanChange, accounts, onCounterpartChange, onCreateRule, onOpenReceipt, onOpenSplit,
   showAccountBadge = true, fallbackCurrency, rowTestId, selectTestId, ruleBtnTestId,
 }) => {
+  const [editingCounterpart, setEditingCounterpart] = useState(false);
   const m = deriveRowMeta(tx, loans, fallbackCurrency);
   const parentAmt = resolveParentTransactionAmount(tx, isCryptoCurrency(m.txCurrency) ? 8 : 2);
   const resolvedLoanType = tx.loan_type || loans?.find((l) => l.id === tx.loan_id)?.loan_type || 'borrowed';
+  const selectableCounterparts = getSelectableCounterparts(tx, accounts);
+  const showCounterpartToggle = Boolean(!m.hasLinkedTransfer && !m.isAmortized && onCounterpartChange && selectableCounterparts.length > 0);
   const tags = tx.tags || [];
   const stackControls = m.showLoanSelector || m.isSplit;
   const containerCls = m.isAmortized ? 'bg-sky-950/15 hover:bg-sky-950/25 border-sky-500/30'
@@ -587,26 +656,31 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
       : m.hasLinkedTransfer ? 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/30' : 'bg-card/60 hover:bg-card/80 border-border';
 
   return (
-    <div data-testid={rowTestId} className={`p-3 rounded-xl flex flex-col ${stackControls ? 'gap-2.5' : 'sm:flex-row sm:items-center justify-between gap-3'} transition-colors border ${containerCls}`}>
-      <div className="space-y-1 min-w-0 flex-1">
-        <TransactionStatusBadges tx={tx} showAccountBadge={showAccountBadge} isAmortized={m.isAmortized} isExcluded={m.isExcluded} isSplit={m.isSplit} hasLinkedTransfer={m.hasLinkedTransfer} isTransfer={m.isTransfer} txCurrency={m.txCurrency} onOpenReceipt={onOpenReceipt} onOpenSplit={onOpenSplit} />
-        <TransactionMerchantHeader tx={tx} txCurrency={m.txCurrency} isAmortized={m.isAmortized} onOpenReceipt={onOpenReceipt} />
-        {m.isSplit && <TransactionSplitSummary txId={tx.id} txCurrency={m.txCurrency} effectiveSplits={m.effectiveSplits} />}
-        <TransactionTransferPills tx={tx} amt={m.amt} txCurrency={m.txCurrency} hasLinkedTransfer={m.hasLinkedTransfer} />
-        {m.splitLoanEntries.length > 0 ? m.splitLoanEntries.map((entry, idx) => (
-          <LoanFlowPill key={entry.key} testId={idx === 0 ? `loan-flow-${tx.id}` : `loan-flow-${tx.id}-${idx}`} accountName={tx.account_name} loanName={entry.loanName} loanType={entry.loanType} paymentAmount={entry.paymentAmount} flowSignAmt={entry.flowSignAmt} parentAmt={parentAmt} txCurrency={m.txCurrency} />
-        )) : (!m.isSplit && Boolean(tx.loan_name)) && (
-          <LoanFlowPill testId={`loan-flow-${tx.id}`} accountName={tx.account_name} loanName={tx.loan_name!} loanType={resolvedLoanType} paymentAmount={tx.loan_payment_amount} flowSignAmt={m.amt} parentAmt={parentAmt} txCurrency={m.txCurrency} />
-        )}
-        <TagPillList tags={tags} disabled={updating} variant="amber" placeholder="badminton" addButtonTestId={`add-tag-btn-${tx.id}`} inputTestId={`tag-input-${tx.id}`} onAddTag={onTagsChange ? (tag) => onTagsChange(tx.id, [...tags, tag]) : undefined} onRemoveTag={onTagsChange ? (target) => onTagsChange(tx.id, tags.filter((t) => t !== target)) : undefined} className="pt-0.5" />
-      </div>
-      <div className={stackControls ? 'flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border/40' : 'flex items-center justify-between sm:justify-end space-x-3 shrink-0'}>
-        <TransactionRowAmount tx={tx} amt={m.amt} txCurrency={m.txCurrency} isAmortized={m.isAmortized} isTransfer={m.isTransfer} isDebit={m.isDebit} />
-        <div className="flex items-center flex-wrap justify-end gap-1.5">
-          {m.showLoanSelector && onLoanChange && <TransactionLoanSelector tx={tx} amt={m.amt} loans={loans!} updating={updating} onLoanChange={onLoanChange} />}
-          <TransactionCategoryAndActions tx={tx} categories={categories} updating={updating} isSplit={m.isSplit} hasLinkedTransfer={m.hasLinkedTransfer} isAmortized={m.isAmortized} ruleBtnTestId={ruleBtnTestId} selectTestId={selectTestId} onCategoryChange={onCategoryChange} onRecurrenceChange={onRecurrenceChange} onOpenSplit={onOpenSplit} onCreateRule={onCreateRule} />
+    <div data-testid={rowTestId} className={`p-3 rounded-xl flex flex-col gap-2 transition-colors border ${containerCls}`}>
+      <div className={`flex flex-col ${stackControls ? 'gap-2.5' : 'sm:flex-row sm:items-center justify-between gap-3'}`}>
+        <div className="space-y-1 min-w-0 flex-1">
+          <TransactionStatusBadges tx={tx} showAccountBadge={showAccountBadge} isAmortized={m.isAmortized} isExcluded={m.isExcluded} isSplit={m.isSplit} hasLinkedTransfer={m.hasLinkedTransfer} isTransfer={m.isTransfer} txCurrency={m.txCurrency} onOpenReceipt={onOpenReceipt} onOpenSplit={onOpenSplit} />
+          <TransactionMerchantHeader tx={tx} txCurrency={m.txCurrency} isAmortized={m.isAmortized} onOpenReceipt={onOpenReceipt} />
+          {m.isSplit && <TransactionSplitSummary txId={tx.id} txCurrency={m.txCurrency} effectiveSplits={m.effectiveSplits} />}
+          <TransactionTransferPills tx={tx} amt={m.amt} txCurrency={m.txCurrency} hasLinkedTransfer={m.hasLinkedTransfer} accounts={accounts} />
+          {m.splitLoanEntries.length > 0 ? m.splitLoanEntries.map((entry, idx) => (
+            <LoanFlowPill key={entry.key} testId={idx === 0 ? `loan-flow-${tx.id}` : `loan-flow-${tx.id}-${idx}`} accountName={tx.account_name} loanName={entry.loanName} loanType={entry.loanType} paymentAmount={entry.paymentAmount} flowSignAmt={entry.flowSignAmt} parentAmt={parentAmt} txCurrency={m.txCurrency} />
+          )) : (!m.isSplit && Boolean(tx.loan_name)) && (
+            <LoanFlowPill testId={`loan-flow-${tx.id}`} accountName={tx.account_name} loanName={tx.loan_name!} loanType={resolvedLoanType} paymentAmount={tx.loan_payment_amount} flowSignAmt={m.amt} parentAmt={parentAmt} txCurrency={m.txCurrency} />
+          )}
+          <TagPillList tags={tags} disabled={updating} variant="amber" placeholder="badminton" addButtonTestId={`add-tag-btn-${tx.id}`} inputTestId={`tag-input-${tx.id}`} onAddTag={onTagsChange ? (tag) => onTagsChange(tx.id, [...tags, tag]) : undefined} onRemoveTag={onTagsChange ? (target) => onTagsChange(tx.id, tags.filter((t) => t !== target)) : undefined} className="pt-0.5" />
+        </div>
+        <div className={stackControls ? 'flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border/40' : 'flex items-center justify-between sm:justify-end space-x-3 shrink-0'}>
+          <TransactionRowAmount tx={tx} amt={m.amt} txCurrency={m.txCurrency} isAmortized={m.isAmortized} isTransfer={m.isTransfer} isDebit={m.isDebit} />
+          <div className="flex items-center flex-wrap justify-end gap-1.5">
+            {m.showLoanSelector && onLoanChange && <TransactionLoanSelector tx={tx} amt={m.amt} loans={loans!} updating={updating} onLoanChange={onLoanChange} />}
+            <TransactionCategoryAndActions tx={tx} categories={categories} updating={updating} isSplit={m.isSplit} hasLinkedTransfer={m.hasLinkedTransfer} isAmortized={m.isAmortized} showCounterpartToggle={showCounterpartToggle} isEditingCounterpart={editingCounterpart} ruleBtnTestId={ruleBtnTestId} selectTestId={selectTestId} onCategoryChange={onCategoryChange} onRecurrenceChange={onRecurrenceChange} onOpenSplit={onOpenSplit} onToggleCounterpart={() => setEditingCounterpart((prev) => !prev)} onCreateRule={onCreateRule} />
+          </div>
         </div>
       </div>
+      {editingCounterpart && showCounterpartToggle && (
+        <CounterpartAccountEditor tx={tx} selectableAccounts={selectableCounterparts} updating={updating} onSelect={onCounterpartChange!} onClose={() => setEditingCounterpart(false)} />
+      )}
     </div>
   );
 };

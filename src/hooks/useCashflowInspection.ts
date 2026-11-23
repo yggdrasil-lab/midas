@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchFlowTransactions, fetchLoans } from '../services/api';
+import { fetchAccounts, fetchFlowTransactions, fetchLoans } from '../services/api';
 import {
+  Account,
   CashflowDirection,
   CashflowTransactionsPage,
   LoanItem,
@@ -103,6 +104,7 @@ function useCashflowSelectionState(initialFlow: CashflowDirection) {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [loans, setLoans] = useState<LoanItem[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const prevInitialFlowRef = useRef(initialFlow);
 
   const resetForFlow = useCallback((flow: CashflowDirection) => {
@@ -119,6 +121,7 @@ function useCashflowSelectionState(initialFlow: CashflowDirection) {
 
   useEffect(() => {
     fetchLoans().then((res) => setLoans(res.loans || [])).catch(() => setLoans([]));
+    fetchAccounts().then(setAccounts).catch(() => setAccounts([]));
   }, []);
 
   const switchFlow = useCallback((nextFlow: CashflowDirection) => {
@@ -130,7 +133,7 @@ function useCashflowSelectionState(initialFlow: CashflowDirection) {
     setSelectedCategory((prev) => (prev.toLowerCase() === category.toLowerCase() ? 'ALL' : category));
   }, []);
 
-  return { activeFlow, selectedCategory, searchQuery, setSearchQuery, loans, switchFlow, selectCategory };
+  return { activeFlow, selectedCategory, searchQuery, setSearchQuery, loans, accounts, switchFlow, selectCategory };
 }
 
 /**
@@ -165,7 +168,7 @@ export function useCashflowInspection({
     state: {
       activeFlow: sel.activeFlow, selectedCategory: sel.selectedCategory, searchQuery: sel.searchQuery,
       transactions: page.transactions, totalCount: page.totalCount, loadedRegularCount,
-      inflowCategories: page.inflowCategories, loans: sel.loans,
+      inflowCategories: page.inflowCategories, loans: sel.loans, accounts: sel.accounts,
       loading: page.loading, loadingMore: page.loadingMore, error: page.error,
     },
     actions: {

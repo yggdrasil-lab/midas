@@ -1,4 +1,6 @@
 import { formatCurrency, FormatCurrencyOptions } from '@yggdrasil-lab/ui';
+import { formatAccountTypeLabel } from '../constants/categories';
+import { Account } from '../types';
 
 /**
  * Formats an amount as localized currency while guarding against Intl RangeError
@@ -83,4 +85,44 @@ export function getTransactionNzdAmount(tx: {
     return absAmount * rate;
   }
   return absAmount;
+}
+
+/**
+ * Formats an NZD Reporting Currency equivalent label (e.g. "NZD $6,820.40").
+ */
+export function formatNzdEquivalent(amount: number): string {
+  const formatted = formatMoney(Number(amount) || 0, {
+    currency: '$',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `NZD ${formatted}`;
+}
+
+/**
+ * Formats an account's subtitle ("Institution • Type • X.X% p.a.") across
+ * Account cards and inspection modals.
+ */
+export function formatAccountSubtitle(account: Account): string {
+  const typeLabel = formatAccountTypeLabel(account.account_type);
+  const showReturn =
+    account.expected_annual_return > 0 &&
+    (account.tier === 'growth' || account.account_type === 'private_note');
+  const returnHint = showReturn
+    ? ` • ${(account.expected_annual_return * 100).toFixed(1)}% p.a.`
+    : '';
+  return account.institution
+    ? `${account.institution} • ${typeLabel}${returnHint}`
+    : `${typeLabel}${returnHint}`;
+}
+
+/**
+ * Formats cumulative earnings as a 1dp percentage of principal with
+ * IEEE-754 half-up tie-breaking (e.g. 5015 / 10000 -> "50.2").
+ */
+export function formatPrincipalRecoveredPct(earned: number, principal: number): string | null {
+  if (!Number.isFinite(earned) || !Number.isFinite(principal) || principal <= 0) {
+    return null;
+  }
+  return (Math.round(((earned * 1000) / principal) + 1e-9) / 10).toFixed(1);
 }

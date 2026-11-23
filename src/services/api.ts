@@ -504,12 +504,21 @@ export async function updateTransactionRecurrence(
   return res.json();
 }
 
+export interface TransactionUpdatePayload {
+  category?: string;
+  tags?: string[];
+  recurrence?: RecurrenceType | null;
+  loan_id?: number | null;
+  loan_payment_amount?: number | null;
+  counterpart_account_id?: number | null;
+}
+
 export async function updateTransactionLoan(
   transactionId: number,
   loanId: number | null,
   loanPaymentAmount?: number | null
 ): Promise<Transaction> {
-  const payload: { loan_id: number | null; loan_payment_amount?: number | null } = {
+  const payload: TransactionUpdatePayload = {
     loan_id: loanId,
   };
   if (loanPaymentAmount !== undefined) {
@@ -524,6 +533,26 @@ export async function updateTransactionLoan(
   });
   if (!res.ok) {
     throw new Error(await readApiError(res, 'Failed to update transaction loan'));
+  }
+  return res.json();
+}
+
+export async function updateTransactionCounterpart(
+  transactionId: number,
+  counterpartAccountId: number | null
+): Promise<Transaction> {
+  const payload: TransactionUpdatePayload = {
+    counterpart_account_id: counterpartAccountId,
+  };
+  const res = await authFetch(`${API_BASE}/transactions/${transactionId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res, 'Failed to update counterpart account'));
   }
   return res.json();
 }

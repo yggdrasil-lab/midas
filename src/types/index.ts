@@ -1,12 +1,26 @@
+export type AccountType =
+  | 'checking'
+  | 'savings'
+  | 'brokerage'
+  | 'kiwisaver'
+  | 'crypto'
+  | 'credit_card'
+  | 'private_note';
+
 export interface Account {
   id: number;
   name: string;
-  account_type: 'checking' | 'savings' | 'brokerage' | 'kiwisaver' | 'crypto' | 'credit_card';
+  account_type: AccountType;
   tier: 'cash' | 'growth' | 'locked';
   institution: string;
   currency: string;
   expected_annual_return: number;
   is_active: boolean;
+  payout_total_native?: number;
+  payout_total_nzd?: number;
+  payout_count?: number;
+  first_payout_date?: string | null;
+  last_payout_date?: string | null;
 }
 
 export interface AssetSnapshot {
@@ -178,7 +192,7 @@ export interface StatementParseResult {
 export interface InstitutionInfo {
   name: string;
   default_tier: 'cash' | 'growth' | 'locked';
-  default_type: 'checking' | 'savings' | 'brokerage' | 'kiwisaver' | 'crypto' | 'credit_card';
+  default_type: AccountType;
   currency: string;
 }
 
@@ -238,6 +252,7 @@ export interface Transaction {
   linked_currency?: string | null;
   counterpart_account_id?: number | null;
   counterpart_account_name?: string | null;
+  counterpart_account_type?: AccountType | string | null;
   loan_id?: number | null;
   loan_name?: string | null;
   loan_type?: LoanType | null;
