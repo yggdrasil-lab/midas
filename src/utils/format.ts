@@ -115,3 +115,14 @@ export function formatAccountSubtitle(account: Account): string {
     ? `${account.institution} • ${typeLabel}${returnHint}`
     : `${typeLabel}${returnHint}`;
 }
+
+/**
+ * Formats cumulative earnings as a 1dp percentage of principal with
+ * IEEE-754 half-up tie-breaking (e.g. 5015 / 10000 -> "50.2").
+ */
+export function formatPrincipalRecoveredPct(earned: number, principal: number): string | null {
+  if (!Number.isFinite(earned) || !Number.isFinite(principal) || principal <= 0) {
+    return null;
+  }
+  return (Math.round(((earned * 1000) / principal) + 1e-9) / 10).toFixed(1);
+}

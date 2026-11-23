@@ -3,7 +3,12 @@ import { Lock, ShieldCheck, TrendingUp } from 'lucide-react';
 import { StatusBadge } from '@yggdrasil-lab/ui';
 import { ACCOUNT_TIER_META } from '../constants/categories';
 import { Account, AssetSnapshot } from '../types';
-import { formatAccountSubtitle, formatMoney, formatSignedTransactionAmount } from '../utils/format';
+import {
+  formatAccountSubtitle,
+  formatMoney,
+  formatPrincipalRecoveredPct,
+  formatSignedTransactionAmount,
+} from '../utils/format';
 
 interface AccountTierSectionProps {
   tier: Account['tier'];
@@ -37,7 +42,7 @@ const AccountEarnedChip: React.FC<AccountEarnedChipProps> = ({ account, nativeBa
   const payoutCount = account.payout_count ?? 0;
   const payoutNative = Number(account.payout_total_native ?? 0);
   const earnedText = formatSignedTransactionAmount(payoutNative, account.currency || 'NZD');
-  const recoveredPct = nativeBalance > 0 ? (payoutNative / nativeBalance) * 100 : null;
+  const recoveredPct = formatPrincipalRecoveredPct(payoutNative, nativeBalance);
   const payoutLabel = `${payoutCount} ${payoutCount === 1 ? 'payout' : 'payouts'}`;
 
   return (
@@ -50,7 +55,7 @@ const AccountEarnedChip: React.FC<AccountEarnedChipProps> = ({ account, nativeBa
         <span className="font-mono font-semibold whitespace-nowrap">{earnedText}</span>
       </span>
       <span className="text-[10px] text-emerald-300/85 font-mono whitespace-nowrap">
-        {recoveredPct !== null ? `${recoveredPct.toFixed(1)}% recovered • ` : ''}
+        {recoveredPct !== null ? `${recoveredPct}% recovered • ` : ''}
         {payoutLabel}
       </span>
     </div>

@@ -14,7 +14,13 @@ import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import { fetchAccounts, fetchAccountTransactions, fetchLoans } from '../services/api';
 import { Account, LoanItem, PeriodType, Transaction } from '../types';
-import { formatAccountSubtitle, formatMoney, formatNzdEquivalent, formatSignedTransactionAmount } from '../utils/format';
+import {
+  formatAccountSubtitle,
+  formatMoney,
+  formatNzdEquivalent,
+  formatPrincipalRecoveredPct,
+  formatSignedTransactionAmount,
+} from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RulesManagerModal } from './RulesManagerModal';
@@ -209,7 +215,7 @@ const AccountTotalEarnedTile: React.FC<{ account: Account; nativeBalance?: numbe
   const currency = account.currency || 'NZD';
   const isForeign = currency.toUpperCase() !== 'NZD';
   const principalPct =
-    nativeBalance !== undefined && nativeBalance > 0 ? (payoutNative / nativeBalance) * 100 : null;
+    nativeBalance !== undefined ? formatPrincipalRecoveredPct(payoutNative, nativeBalance) : null;
   const payoutLabel = `${payoutCount} ${payoutCount === 1 ? 'payout' : 'payouts'}`;
 
   return (
@@ -232,7 +238,7 @@ const AccountTotalEarnedTile: React.FC<{ account: Account; nativeBalance?: numbe
       </div>
       <div className="flex items-center gap-2 flex-wrap text-[11px] font-mono text-emerald-200/80">
         {principalPct !== null && (
-          <span className="whitespace-nowrap">{`${principalPct.toFixed(1)}% of principal`}</span>
+          <span className="whitespace-nowrap">{`${principalPct}% of principal`}</span>
         )}
         {principalPct !== null && <span className="text-emerald-500/50">•</span>}
         <span className="whitespace-nowrap">{payoutLabel}</span>
