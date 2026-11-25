@@ -104,6 +104,118 @@ function patchTransaction(
   );
 }
 
+function queryTransactions(
+  client: HttpClient,
+  params: TransactionQueryParams,
+  fallbackError: string
+): Promise<Transaction[]> {
+  const query = buildTransactionsQuery(params);
+  return client.requestJson<Transaction[]>(`/transactions?${query.toString()}`, {
+    fallbackError,
+  });
+}
+
+async function fetchFlowTransactionsRequest(
+  client: HttpClient,
+  params: FetchFlowTransactionsParams
+): Promise<CashflowTransactionsPage> {
+  const query = buildTransactionsQuery({ ...params, limit: params.limit ?? 200 });
+  const { data, response } = await client.requestJsonWithResponse<Transaction[]>(
+    `/transactions?${query.toString()}`,
+    { fallbackError: `Failed to fetch ${params.flow} transactions` }
+  );
+  return {
+    transactions: data,
+    totalCount: resolveTotalCount(response, data),
+  };
+}
+
+function createTransactionQueryOps(client: HttpClient) {
+  return {
+    fetchAccountTransactions: (params?: {
+      accountId?: number;
+      period?: PeriodType;
+      startDate?: string;
+      endDate?: string;
+      category?: string;
+      tag?: string;
+      limit?: number;
+    }) =>
+      queryTransactions(
+        client,
+        { ...params, limit: params?.limit ?? 500 },
+        'Failed to fetch account transactions'
+      ),
+    fetchCategoryTransactions: (
+      category: string,
+      period?: PeriodType,
+      startDate?: string,
+      endDate?: string,
+      includeSubclasses = false,
+      includeAmortized = false
+    ) =>
+      queryTransactions(
+        client,
+        {
+          category: category || undefined,
+          period,
+          startDate,
+          endDate,
+          includeSubclasses,
+          includeAmortized,
+          limit: 200,
+        },
+        'Failed to fetch transactions'
+      ),
+    fetchFlowTransactions: (params: FetchFlowTransactionsParams) =>
+      fetchFlowTransactionsRequest(client, params),
+    fetchTagTransactions: (
+      tag: string,
+      period: PeriodType = 'all',
+      startDate?: string,
+      endDate?: string,
+      category?: string
+    ) =>
+      queryTransactions(
+        client,
+        { tag: tag || undefined, category: category || undefined, period, startDate, endDate, limit: 500 },
+        'Failed to fetch tagged transactions'
+      ),
+  };
+}
+
+function createTransactionMutationOps(client: HttpClient) {
+  return {
+    updateTransactionCategory: (id: number, category: string) =>
+      patchTransaction(client, id, { category }, 'Failed to update transaction category'),
+    updateTransactionTags: (id: number, tags: string[]) =>
+      patchTransaction(client, id, { tags }, 'Failed to update transaction tags'),
+    updateTransactionRecurrence: (id: number, recurrence: RecurrenceType | null) =>
+      patchTransaction(client, id, { recurrence }, 'Failed to update transaction recurrence'),
+    updateTransactionLoan: (
+      transactionId: number,
+      loanId: number | null,
+      loanPaymentAmount?: number | null
+    ) => {
+      const payload: TransactionUpdatePayload = { loan_id: loanId };
+      if (loanPaymentAmount !== undefined) payload.loan_payment_amount = loanPaymentAmount;
+      return patchTransaction(client, transactionId, payload, 'Failed to update transaction loan');
+    },
+    updateTransactionCounterpart: (transactionId: number, counterpartAccountId: number | null) =>
+      patchTransaction(
+        client,
+        transactionId,
+        { counterpart_account_id: counterpartAccountId },
+        'Failed to update counterpart account'
+      ),
+    updateTransactionSplits: (transactionId: number, splits: TransactionSplitInput[]) =>
+      client.requestJson<Transaction>(
+        `/transactions/${transactionId}/splits`,
+        jsonRequestInit('PUT', { splits }, 'Failed to update transaction splits')
+      ),
+  };
+}
+
 function uploadStatementRequest(
   client: HttpClient,
   file: File,
@@ -135,35 +247,7 @@ function uploadStatementRequest(
   );
 }
 
-async function fetchFlowTransactionsRequest(
-  client: HttpClient,
-  params: FetchFlowTransactionsParams
-): Promise<CashflowTransactionsPage> {
-  const query = buildTransactionsQuery({ ...params, limit: params.limit ?? 200 });
-  const { data, response } = await client.requestJsonWithResponse<Transaction[]>(
-    `/transactions?${query.toString()}`,
-    { fallbackError: `Failed to fetch ${params.flow} transactions` }
-  );
-  return {
-    transactions: data,
-    totalCount: resolveTotalCount(response, data),
-  };
-}
-
-function updateTransactionLoanRequest(
-  client: HttpClient,
-  transactionId: number,
-  loanId: number | null,
-  loanPaymentAmount?: number | null
-): Promise<Transaction> {
-  const payload: TransactionUpdatePayload = { loan_id: loanId };
-  if (loanPaymentAmount !== undefined) {
-    payload.loan_payment_amount = loanPaymentAmount;
-  }
-  return patchTransaction(client, transactionId, payload, 'Failed to update transaction loan');
-}
-
-export function createTransactionsTransport(client: HttpClient) {
+function createTransactionIngestionOps(client: HttpClient) {
   return {
     quickLogExpense: (payload: {
       amount: number;
@@ -198,89 +282,18 @@ export function createTransactionsTransport(client: HttpClient) {
         accountName,
         currency
       ),
-    fetchAccountTransactions: (params?: {
-      accountId?: number;
-      period?: PeriodType;
-      startDate?: string;
-      endDate?: string;
-      category?: string;
-      tag?: string;
-      limit?: number;
-    }) => {
-      const query = buildTransactionsQuery({ ...params, limit: params?.limit ?? 500 });
-      return client.requestJson<Transaction[]>(`/transactions?${query.toString()}`, {
-        fallbackError: 'Failed to fetch account transactions',
-      });
-    },
-    fetchCategoryTransactions: (
-      category: string,
-      period?: PeriodType,
-      startDate?: string,
-      endDate?: string,
-      includeSubclasses = false,
-      includeAmortized = false
-    ) => {
-      const query = buildTransactionsQuery({
-        category: category || undefined,
-        period,
-        startDate,
-        endDate,
-        includeSubclasses,
-        includeAmortized,
-        limit: 200,
-      });
-      return client.requestJson<Transaction[]>(`/transactions?${query.toString()}`, {
-        fallbackError: 'Failed to fetch transactions',
-      });
-    },
-    fetchFlowTransactions: (params: FetchFlowTransactionsParams) =>
-      fetchFlowTransactionsRequest(client, params),
-    fetchTagTransactions: (
-      tag: string,
-      period: PeriodType = 'all',
-      startDate?: string,
-      endDate?: string,
-      category?: string
-    ) => {
-      const query = buildTransactionsQuery({
-        tag: tag || undefined,
-        category: category || undefined,
-        period,
-        startDate,
-        endDate,
-        limit: 500,
-      });
-      return client.requestJson<Transaction[]>(`/transactions?${query.toString()}`, {
-        fallbackError: 'Failed to fetch tagged transactions',
-      });
-    },
-    updateTransactionCategory: (id: number, category: string) =>
-      patchTransaction(client, id, { category }, 'Failed to update transaction category'),
-    updateTransactionTags: (id: number, tags: string[]) =>
-      patchTransaction(client, id, { tags }, 'Failed to update transaction tags'),
-    updateTransactionRecurrence: (id: number, recurrence: RecurrenceType | null) =>
-      patchTransaction(client, id, { recurrence }, 'Failed to update transaction recurrence'),
-    updateTransactionLoan: (
-      transactionId: number,
-      loanId: number | null,
-      loanPaymentAmount?: number | null
-    ) => updateTransactionLoanRequest(client, transactionId, loanId, loanPaymentAmount),
-    updateTransactionCounterpart: (transactionId: number, counterpartAccountId: number | null) =>
-      patchTransaction(
-        client,
-        transactionId,
-        { counterpart_account_id: counterpartAccountId },
-        'Failed to update counterpart account'
-      ),
-    updateTransactionSplits: (transactionId: number, splits: TransactionSplitInput[]) =>
-      client.requestJson<Transaction>(
-        `/transactions/${transactionId}/splits`,
-        jsonRequestInit('PUT', { splits }, 'Failed to update transaction splits')
-      ),
     triggerReconcileTransfers: () =>
       client.requestJson<{ status: string; matched_transfers: number }>(
         '/transactions/reconcile-transfers',
         { method: 'POST', fallbackError: 'Failed to reconcile transfers' }
       ),
+  };
+}
+
+export function createTransactionsTransport(client: HttpClient) {
+  return {
+    ...createTransactionQueryOps(client),
+    ...createTransactionMutationOps(client),
+    ...createTransactionIngestionOps(client),
   };
 }

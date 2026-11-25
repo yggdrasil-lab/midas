@@ -94,14 +94,8 @@ function createRunwayAnalytics(client: HttpClient) {
   };
 }
 
-function createBudgetAnalytics(client: HttpClient) {
+function createBudgetRuleOps(client: HttpClient) {
   return {
-    fetchSpendingBreakdown: (
-      period: PeriodType = 'month',
-      startDate?: string,
-      endDate?: string,
-      groupBy: 'leaf' | 'base' = 'leaf'
-    ) => fetchSpendingBreakdownRequest(client, period, startDate, endDate, groupBy),
     fetchBudgetRules: () =>
       client.requestJson<BudgetRule[]>('/budgets', {
         fallbackError: 'Failed to fetch budget rules',
@@ -131,11 +125,6 @@ function createBudgetAnalytics(client: HttpClient) {
         method: 'POST',
         fallbackError: 'Failed to initialize default budgets',
       }),
-    fetchAverageBurn: (lookbackWeeks = 12) =>
-      client.requestJson<AverageBurnReportResponse>(
-        `/budgets/average-burn?lookback_weeks=${lookbackWeeks}`,
-        { fallbackError: 'Failed to fetch average weekly burn' }
-      ),
     syncBudgetsFromBurn: (lookbackWeeks = 12) =>
       client.requestJson<BudgetRule[]>(
         `/budgets/sync-from-burn?lookback_weeks=${lookbackWeeks}`,
@@ -143,6 +132,22 @@ function createBudgetAnalytics(client: HttpClient) {
           method: 'POST',
           fallbackError: 'Failed to calculate budgets from average burn',
         }
+      ),
+  };
+}
+
+function createBreakdownAnalytics(client: HttpClient) {
+  return {
+    fetchSpendingBreakdown: (
+      period: PeriodType = 'month',
+      startDate?: string,
+      endDate?: string,
+      groupBy: 'leaf' | 'base' = 'leaf'
+    ) => fetchSpendingBreakdownRequest(client, period, startDate, endDate, groupBy),
+    fetchAverageBurn: (lookbackWeeks = 12) =>
+      client.requestJson<AverageBurnReportResponse>(
+        `/budgets/average-burn?lookback_weeks=${lookbackWeeks}`,
+        { fallbackError: 'Failed to fetch average weekly burn' }
       ),
     fetchTagSpendingSummary: (
       period: PeriodType = 'all',
@@ -155,6 +160,7 @@ function createBudgetAnalytics(client: HttpClient) {
 export function createAnalyticsTransport(client: HttpClient) {
   return {
     ...createRunwayAnalytics(client),
-    ...createBudgetAnalytics(client),
+    ...createBudgetRuleOps(client),
+    ...createBreakdownAnalytics(client),
   };
 }
