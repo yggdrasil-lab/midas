@@ -87,7 +87,7 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = (props) =
       footer={
         <div className="flex items-center justify-end space-x-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="record-snapshot-form" variant="amber" size="sm" loading={f.saving}>
+          <Button type="submit" form="record-snapshot-form" variant="brand" size="sm" loading={f.saving}>
             Confirm & Save Valuation
           </Button>
         </div>
@@ -102,7 +102,7 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = (props) =
               f.setAccountId(nextId);
               f.setBalance(String(getAccountLatestBalance(nextId) || ''));
             }}
-            variant="amber"
+            variant="brand"
           >
             {accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
@@ -113,7 +113,7 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = (props) =
         </FormField>
 
         <FormField label="Snapshot Date">
-          <TextInput type="date" value={f.snapshotDate} onChange={(e) => f.setSnapshotDate(e.target.value)} variant="amber" />
+          <TextInput type="date" value={f.snapshotDate} onChange={(e) => f.setSnapshotDate(e.target.value)} variant="brand" />
         </FormField>
 
         <FormField label={`Closing Balance (${f.selectedAccount?.currency || 'NZD'})`} required>
@@ -123,7 +123,7 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = (props) =
             value={f.balance}
             onChange={(e) => f.setBalance(e.target.value)}
             placeholder="0.00"
-            variant="amber"
+            variant="brand"
             className="font-mono"
             required
           />
@@ -135,7 +135,7 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = (props) =
             value={f.notes}
             onChange={(e) => f.setNotes(e.target.value)}
             placeholder="e.g. Monthly statement reconciliation"
-            variant="amber"
+            variant="brand"
           />
         </FormField>
       </form>

@@ -228,7 +228,7 @@ export const AccountView: React.FC<AccountViewProps> = ({
         onInspectAllAccounts={() => sel.handleInspectAccount(null)}
       />
       {data.loading ? (
-        <LoadingState label="Loading accounts and valuation checkpoints..." variant="amber" />
+        <LoadingState label="Loading accounts and valuation checkpoints..." variant="brand" />
       ) : data.accounts.length === 0 ? (
         <EmptyState title="No accounts configured yet" description="Ingest bank statements or seed test data to populate your freedom tier portfolio." variant="dashed" />
       ) : (

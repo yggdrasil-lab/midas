@@ -18,5 +18,6 @@ export type PeriodFilterBarProps = Omit<SharedPeriodFilterBarProps<PeriodType>, 
  */
 export const PeriodFilterBar: React.FC<PeriodFilterBarProps> = ({
   options = PERIOD_OPTIONS,
+  variant = 'brand',
   ...rest
-}) => <SharedPeriodFilterBar<PeriodType> options={options} {...rest} />;
+}) => <SharedPeriodFilterBar<PeriodType> options={options} variant={variant} {...rest} />;

@@ -137,7 +137,7 @@ export const ReceiptDetailModal: React.FC<ReceiptDetailModalProps> = ({
       <div className="space-y-4" data-testid="receipt-detail-modal">
         {state.error && <AlertBanner variant="error">{state.error}</AlertBanner>}
         {state.loading ? (
-          <LoadingState label={resolveLoadingLabel(effectiveDocType)} variant="amber" />
+          <LoadingState label={resolveLoadingLabel(effectiveDocType)} variant="brand" />
         ) : state.receipt ? (
           <ReceiptDetailBody
             receipt={state.receipt}

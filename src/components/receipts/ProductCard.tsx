@@ -160,7 +160,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       onSave={(note) => onSaveNote(p.id, note)}
       emptyText='No notes added yet. Click "Add Note" to keep observations about this product.'
       placeholder="Write impressions, skin reactions, usage instructions, or reasons for buying..."
-      variant="amber"
+      variant="brand"
       rows={2}
     />
 

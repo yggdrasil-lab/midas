@@ -50,11 +50,7 @@ const MOBILE_NAV_TABS = [
   { id: 'tools', label: 'Tools', icon: <Wrench className="w-4 h-4" /> },
 ];
 
-/**
- * Root Midas application shell orchestrating runway telemetry, unified responsive
- * tab views, PWA update prompts, and global action modals.
- */
-export const App: React.FC = () => {
+function useMidasAppState() {
   const { refreshCategories } = useCategories();
   const [data, setData] = useState<RunwayData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,28 +63,6 @@ export const App: React.FC = () => {
   const [budgetRefreshKey, setBudgetRefreshKey] = useState(0);
   const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
   const [needsReviewReceiptsCount, setNeedsReviewReceiptsCount] = useState(0);
-  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
-
-  const {
-    needRefresh: [swNeedRefresh, setSwNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisteredSW(_swUrl, registration) {
-      if (registration) {
-        setSwRegistration(registration);
-      }
-    },
-    onRegisterError(err) {
-      console.error('Service worker registration error:', err);
-    },
-  });
-
-  const { needRefresh, applyUpdate, dismissUpdate } = usePwaUpdate({
-    externalNeedRefresh: swNeedRefresh,
-    onExternalNeedRefreshChange: setSwNeedRefresh,
-    updateServiceWorker,
-    registration: swRegistration,
-  });
 
   const loadData = async () => {
     setLoading(true);
@@ -102,12 +76,8 @@ export const App: React.FC = () => {
         }),
       ]);
       setData(res);
-      setNeedsReviewReceiptsCount(
-        receiptRows.filter((r) => r.status === 'needs_review').length
-      );
-      setPendingReceiptsCount(
-        receiptRows.filter((r) => isReceiptPending(r)).length
-      );
+      setNeedsReviewReceiptsCount(receiptRows.filter((r) => r.status === 'needs_review').length);
+      setPendingReceiptsCount(receiptRows.filter((r) => isReceiptPending(r)).length);
       setSessionExpired(false);
       setBudgetRefreshKey((prev) => prev + 1);
       void refreshCategories();
@@ -124,201 +94,201 @@ export const App: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    void loadData();
+  }, []);
+
   const handleRefresh = async () => {
     setLoading(true);
     await clearBrowserCaches();
     await loadData();
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const renderTabContent = (runway: RunwayData) => {
-    switch (activeTab) {
-      case 'overview':
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start max-w-lg lg:max-w-7xl mx-auto pb-24 lg:pb-0">
-            <div className="lg:col-span-5 space-y-4 lg:space-y-6">
-              <RunwayClock data={runway} />
-              <WeeklyBurnTracker
-                data={runway}
-                onQuickLogClick={() => setIsQuickLogOpen(true)}
-                onBudgetChanged={loadData}
-              />
-            </div>
-            <div className="lg:col-span-7 space-y-4 lg:space-y-6">
-              <div className="hidden lg:block">
-                <CategorySpendingBreakdown onRefreshRunway={loadData} />
-              </div>
-              <div className="lg:hidden">
-                <CategorySpendingBreakdown
-                  compact
-                  onRefreshRunway={loadData}
-                  onViewAllBudgetsClick={() => setActiveTab('budgets')}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      case 'accounts':
-        return (
-          <div className="max-w-lg lg:max-w-7xl mx-auto pb-24 lg:pb-0">
-            <AccountView onRefreshRunway={loadData} />
-          </div>
-        );
-      case 'budgets':
-        return (
-          <div className="max-w-lg lg:max-w-3xl mx-auto space-y-4 lg:space-y-6 pb-24 lg:pb-0">
-            <WeeklyBurnTracker
-              data={runway}
-              onQuickLogClick={() => setIsQuickLogOpen(true)}
-              onBudgetChanged={loadData}
-            />
-            <CategorySpendingBreakdown onRefreshRunway={loadData} />
-            <TagSpendingBreakdown
-              onRefreshRunway={loadData}
-              refreshKey={budgetRefreshKey}
-            />
-          </div>
-        );
-      case 'tools':
-        return (
-          <div className="max-w-lg lg:max-w-3xl mx-auto pb-24 lg:pb-0">
-            <ToolsHubView
-              baselineBurn={runway.breakdown.weekly_burn_rate}
-              pendingReceiptsCount={pendingReceiptsCount}
-              needsReviewReceiptsCount={needsReviewReceiptsCount}
-              onRefreshRunway={loadData}
-              onOpenReceiptsClick={() => setIsReceiptsModalOpen(true)}
-              onOpenDataClick={() => setIsDataModalOpen(true)}
-            />
-          </div>
-        );
-    }
+  return {
+    data, loading, sessionExpired, error, activeTab, setActiveTab,
+    isQuickLogOpen, setIsQuickLogOpen, isDataModalOpen, setIsDataModalOpen,
+    isReceiptsModalOpen, setIsReceiptsModalOpen, budgetRefreshKey,
+    pendingReceiptsCount, needsReviewReceiptsCount, loadData, handleRefresh,
   };
+}
+
+const MidasTabContent: React.FC<{
+  activeTab: MidasTab;
+  runway: RunwayData;
+  budgetRefreshKey: number;
+  pendingReceiptsCount: number;
+  needsReviewReceiptsCount: number;
+  onRefresh: () => void;
+  onSelectTab: (tab: MidasTab) => void;
+  onOpenQuickLog: () => void;
+  onOpenReceipts: () => void;
+  onOpenData: () => void;
+}> = ({
+  activeTab, runway, budgetRefreshKey, pendingReceiptsCount, needsReviewReceiptsCount,
+  onRefresh, onSelectTab, onOpenQuickLog, onOpenReceipts, onOpenData,
+}) => {
+  switch (activeTab) {
+    case 'overview':
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start max-w-lg lg:max-w-7xl mx-auto pb-24 lg:pb-0">
+          <div className="lg:col-span-5 space-y-4 lg:space-y-6">
+            <RunwayClock data={runway} />
+            <WeeklyBurnTracker data={runway} onQuickLogClick={onOpenQuickLog} onBudgetChanged={onRefresh} />
+          </div>
+          <div className="lg:col-span-7 space-y-4 lg:space-y-6">
+            <div className="hidden lg:block">
+              <CategorySpendingBreakdown onRefreshRunway={onRefresh} />
+            </div>
+            <div className="lg:hidden">
+              <CategorySpendingBreakdown compact onRefreshRunway={onRefresh} onViewAllBudgetsClick={() => onSelectTab('budgets')} />
+            </div>
+          </div>
+        </div>
+      );
+    case 'accounts':
+      return (
+        <div className="max-w-lg lg:max-w-7xl mx-auto pb-24 lg:pb-0">
+          <AccountView onRefreshRunway={onRefresh} />
+        </div>
+      );
+    case 'budgets':
+      return (
+        <div className="max-w-lg lg:max-w-3xl mx-auto space-y-4 lg:space-y-6 pb-24 lg:pb-0">
+          <WeeklyBurnTracker data={runway} onQuickLogClick={onOpenQuickLog} onBudgetChanged={onRefresh} />
+          <CategorySpendingBreakdown onRefreshRunway={onRefresh} />
+          <TagSpendingBreakdown onRefreshRunway={onRefresh} refreshKey={budgetRefreshKey} />
+        </div>
+      );
+    case 'tools':
+      return (
+        <div className="max-w-lg lg:max-w-3xl mx-auto pb-24 lg:pb-0">
+          <ToolsHubView
+            baselineBurn={runway.breakdown.weekly_burn_rate}
+            pendingReceiptsCount={pendingReceiptsCount}
+            needsReviewReceiptsCount={needsReviewReceiptsCount}
+            onRefreshRunway={onRefresh}
+            onOpenReceiptsClick={onOpenReceipts}
+            onOpenDataClick={onOpenData}
+          />
+        </div>
+      );
+  }
+};
+
+const MidasStatusBanners: React.FC<{
+  sessionExpired: boolean;
+  needRefresh: boolean;
+  error: string | null;
+  loading: boolean;
+  hasData: boolean;
+  onApplyUpdate: () => void;
+  onDismissUpdate: () => void;
+  onRefresh: () => void;
+}> = ({ sessionExpired, needRefresh, error, loading, hasData, onApplyUpdate, onDismissUpdate, onRefresh }) => (
+  <>
+    {sessionExpired && <div className="mb-6"><SessionExpiredBanner /></div>}
+    {needRefresh && <PwaUpdateBanner onReload={onApplyUpdate} onDismiss={onDismissUpdate} className="mb-6" />}
+    {Boolean(error) && !sessionExpired && (
+      <AlertBanner
+        variant="error"
+        title="Failed to load financial metrics"
+        className="mb-6 p-4 shadow-lg"
+        action={<Button variant="rose" size="sm" onClick={onRefresh} className="shrink-0">Retry</Button>}
+      >
+        {error}
+      </AlertBanner>
+    )}
+    {loading && !hasData && <LoadingState label="Loading runway metrics..." variant="brand" className="py-24" />}
+  </>
+);
+
+function useMidasSwUpdate() {
+  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const { needRefresh: [swNeedRefresh, setSwNeedRefresh], updateServiceWorker } = useRegisterSW({
+    onRegisteredSW(_swUrl, registration) { if (registration) setSwRegistration(registration); },
+    onRegisterError(err) { console.error('Service worker registration error:', err); },
+  });
+  return usePwaUpdate({
+    externalNeedRefresh: swNeedRefresh,
+    onExternalNeedRefreshChange: setSwNeedRefresh,
+    updateServiceWorker,
+    registration: swRegistration,
+  });
+}
+
+/**
+ * Root Midas application shell orchestrating runway telemetry, unified responsive
+ * tab views, PWA update prompts, and global action modals.
+ */
+export const App: React.FC = () => {
+  const s = useMidasAppState();
+  const { needRefresh, applyUpdate, dismissUpdate } = useMidasSwUpdate();
 
   return (
     <AppShell
       header={
         <AppHeader
           className="!bg-card !border-border/80 shadow-md"
-          variant="amber"
-          brandIcon={
-            <img
-              src="/favicon.svg"
-              alt="Midas"
-              className="w-full h-full object-contain rounded-xl"
-            />
-          }
-          brandColor="overflow-hidden p-0 border border-amber-500/30"
+          variant="brand"
+          brandIcon={<img src="/favicon.svg" alt="Midas" className="w-full h-full object-contain rounded-xl" />}
+          brandColor="overflow-hidden p-0 border border-accent/30"
           title="MIDAS"
           subtitle="Freedom Clock"
           tabs={DESKTOP_TABS}
-          activeTab={activeTab}
-          onChangeTab={(tabId) => setActiveTab(tabId as MidasTab)}
-          onRefresh={handleRefresh}
-          isRefreshing={loading}
+          activeTab={s.activeTab}
+          onChangeTab={(tabId) => s.setActiveTab(tabId as MidasTab)}
+          onRefresh={() => void s.handleRefresh()}
+          isRefreshing={s.loading}
           actions={
-            <Button
-              variant="amber"
-              size="sm"
-              icon={<PlusCircle className="w-3.5 h-3.5" />}
-              onClick={() => setIsQuickLogOpen(true)}
-              className="hidden sm:inline-flex"
-            >
+            <Button variant="brand" size="sm" icon={<PlusCircle className="w-3.5 h-3.5" />} onClick={() => s.setIsQuickLogOpen(true)} className="hidden sm:inline-flex">
               Log Expense
             </Button>
           }
         />
       }
       bottomNav={
-        <BottomNav
-          variant="amber"
-          hideOnDesktop
-          tabs={MOBILE_NAV_TABS}
-          activeTab={activeTab}
-          onChangeTab={(tabId) => setActiveTab(tabId as MidasTab)}
-          className="!bg-card/95 !border-border"
-        />
+        <BottomNav variant="brand" hideOnDesktop tabs={MOBILE_NAV_TABS} activeTab={s.activeTab} onChangeTab={(tabId) => s.setActiveTab(tabId as MidasTab)} className="!bg-card/95 !border-border" />
       }
     >
-      {sessionExpired && (
-        <div className="mb-6">
-          <SessionExpiredBanner />
-        </div>
-      )}
-
-      {needRefresh && (
-        <PwaUpdateBanner
-          onReload={() => void applyUpdate()}
-          onDismiss={dismissUpdate}
-          className="mb-6"
-        />
-      )}
-
-      {error && !sessionExpired && (
-        <AlertBanner
-          variant="error"
-          title="Failed to load financial metrics"
-          className="mb-6 p-4 shadow-lg"
-          action={
-            <Button variant="rose" size="sm" onClick={handleRefresh} className="shrink-0">
-              Retry
-            </Button>
-          }
-        >
-          {error}
-        </AlertBanner>
-      )}
-
-      {loading && !data && (
-        <LoadingState label="Loading runway metrics..." variant="amber" className="py-24" />
-      )}
-
-      {data && (
+      <MidasStatusBanners
+        sessionExpired={s.sessionExpired}
+        needRefresh={needRefresh}
+        error={s.error}
+        loading={s.loading}
+        hasData={Boolean(s.data)}
+        onApplyUpdate={() => void applyUpdate()}
+        onDismissUpdate={dismissUpdate}
+        onRefresh={() => void s.handleRefresh()}
+      />
+      {s.data && (
         <>
-          {data.breakdown.total_liquid_balance === 0 && (
+          {s.data.breakdown.total_liquid_balance === 0 && (
             <AlertBanner
               variant="warning"
               title="Clean Ledger Ready"
               className="mb-6 p-4 rounded-2xl shadow"
-              action={
-                <Button
-                  variant="amber"
-                  size="sm"
-                  onClick={() => setActiveTab('tools')}
-                  className="shrink-0"
-                >
-                  Open Statement Hub
-                </Button>
-              }
+              action={<Button variant="brand" size="sm" onClick={() => s.setActiveTab('tools')} className="shrink-0">Open Statement Hub</Button>}
             >
               Your ledger has zero balances. Upload a bank statement in the Tools tab to get started.
             </AlertBanner>
           )}
-          {renderTabContent(data)}
+          <MidasTabContent
+            activeTab={s.activeTab}
+            runway={s.data}
+            budgetRefreshKey={s.budgetRefreshKey}
+            pendingReceiptsCount={s.pendingReceiptsCount}
+            needsReviewReceiptsCount={s.needsReviewReceiptsCount}
+            onRefresh={() => void s.loadData()}
+            onSelectTab={s.setActiveTab}
+            onOpenQuickLog={() => s.setIsQuickLogOpen(true)}
+            onOpenReceipts={() => s.setIsReceiptsModalOpen(true)}
+            onOpenData={() => s.setIsDataModalOpen(true)}
+          />
         </>
       )}
-
-      <QuickLogModal
-        isOpen={isQuickLogOpen}
-        onClose={() => setIsQuickLogOpen(false)}
-        onSuccess={loadData}
-        categories={data?.categories}
-      />
-
-      <DataManagementModal
-        isOpen={isDataModalOpen}
-        onClose={() => setIsDataModalOpen(false)}
-        onSuccess={loadData}
-      />
-
-      <ReceiptsHubModal
-        isOpen={isReceiptsModalOpen}
-        onClose={() => setIsReceiptsModalOpen(false)}
-        onReceiptLinked={loadData}
-      />
+      <QuickLogModal isOpen={s.isQuickLogOpen} onClose={() => s.setIsQuickLogOpen(false)} onSuccess={() => void s.loadData()} categories={s.data?.categories} />
+      <DataManagementModal isOpen={s.isDataModalOpen} onClose={() => s.setIsDataModalOpen(false)} onSuccess={() => void s.loadData()} />
+      <ReceiptsHubModal isOpen={s.isReceiptsModalOpen} onClose={() => s.setIsReceiptsModalOpen(false)} onReceiptLinked={() => void s.loadData()} />
     </AppShell>
   );
 };

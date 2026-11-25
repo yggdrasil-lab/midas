@@ -110,7 +110,7 @@ export const TransactionList: React.FC<TransactionListProps> = (props) => {
     [transactions]
   );
 
-  if (loading) return <LoadingState label={loadingLabel} variant="amber" />;
+  if (loading) return <LoadingState label={loadingLabel} variant="brand" />;
   if (displayTransactions.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} variant="dashed" />;
   }

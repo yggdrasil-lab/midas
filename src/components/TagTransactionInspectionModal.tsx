@@ -252,7 +252,7 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
           <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>
         )}
         {data.transactions.length > 0 && (
-          <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant, category, or account..." variant="amber" />
+          <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant, category, or account..." variant="brand" />
         )}
         <TransactionList
           transactions={filteredTransactions} categories={categoryNames} loading={data.loading} loadingLabel={`Loading #${tagName} transactions...`}

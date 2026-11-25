@@ -92,10 +92,10 @@ export const ReceiptsFeedTab: React.FC<ReceiptsFeedTabProps> = ({
         acceptedFormats="image/*,application/pdf"
         title={uploading ? 'Parsing receipt with Hydrogen Vision...' : 'Drop receipt photo or PDF here, or browse'}
         description="Extracts merchant, items, volume, and matches credit card statements"
-        variant="amber"
+        variant="brand"
         className="p-4"
       >
-        {uploading && <LoadingState label="Parsing receipt with Hydrogen Vision..." variant="amber" />}
+        {uploading && <LoadingState label="Parsing receipt with Hydrogen Vision..." variant="brand" />}
       </FileDropzone>
 
       {receipts.length > 0 && (
@@ -152,7 +152,7 @@ function ReceiptStatusFilterBar({
       options={options}
       selectedId={statusFilter}
       onSelect={(id) => onChangeStatusFilter(id as ReceiptFeedFilter)}
-      variant="amber"
+      variant="brand"
       size="xs"
     />
   );
@@ -188,7 +188,7 @@ function ReceiptFeedList({
   onUpdateReceiptItem,
 }: ReceiptFeedListProps) {
   if (loading && !receipts.length) {
-    return <LoadingState label="Loading receipts..." variant="amber" />;
+    return <LoadingState label="Loading receipts..." variant="brand" />;
   }
   if (receipts.length === 0) {
     return (

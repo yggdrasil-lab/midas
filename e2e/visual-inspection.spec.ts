@@ -78,6 +78,18 @@ for (const { name: platform, options } of PLATFORMS) {
       // 1. Dashboard Overview
       await expect(page.locator('header h1')).toBeVisible();
       await expect(page.locator('text=Financial Freedom Clock >> visible=true')).toBeVisible();
+      const themeTokens = await page.evaluate(() => {
+        const root = document.documentElement;
+        const styles = getComputedStyle(root);
+        return {
+          theme: root.dataset.theme,
+          accent: styles.getPropertyValue('--ui-accent').trim(),
+          radiusCard: styles.getPropertyValue('--ui-radius-card').trim(),
+        };
+      });
+      expect(themeTokens.theme).toBe('midas');
+      expect(themeTokens.accent).toBe('212 160 56');
+      expect(themeTokens.radiusCard).toBe('10px');
       await page.waitForTimeout(400);
       await page.screenshot({
         path: `screenshots/${platform}/01-dashboard-overview.png`,

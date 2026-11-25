@@ -239,7 +239,7 @@ interface BreakdownCategoryListProps {
 const BreakdownCategoryList: React.FC<BreakdownCategoryListProps> = ({
   compact, loading, data, groupBy, onGroupByChange, onInspectCategory, onEditBudget, onViewAllBudgetsClick,
 }) => {
-  if (loading && !data) return <LoadingState label="Loading spending breakdown..." variant="amber" />;
+  if (loading && !data) return <LoadingState label="Loading spending breakdown..." variant="brand" />;
   if (!data || data.categories.length === 0) {
     return <EmptyState title="No transactions found for this period." description="Ingest bank statements or log expenses to see your auto-categorized spending awareness breakdown." variant="dashed" />;
   }
@@ -250,7 +250,7 @@ const BreakdownCategoryList: React.FC<BreakdownCategoryListProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <span className="truncate">{compact ? 'Top categories (tap to inspect)' : 'Click any category to inspect'}</span>
           {!compact && (
-            <SegmentedControl<'leaf' | 'base'> options={[{ id: 'leaf', label: 'Granular' }, { id: 'base', label: 'Base Classes' }]} value={groupBy} onChange={onGroupByChange} variant="amber" size="sm" idPrefix="category-hierarchy-mode" />
+            <SegmentedControl<'leaf' | 'base'> options={[{ id: 'leaf', label: 'Granular' }, { id: 'base', label: 'Base Classes' }]} value={groupBy} onChange={onGroupByChange} variant="brand" size="sm" idPrefix="category-hierarchy-mode" />
           )}
         </div>
         <span className="shrink-0 text-right">Target / Spend</span>
@@ -336,7 +336,7 @@ export const CategorySpendingBreakdown: React.FC<CategorySpendingBreakdownProps>
         title="Category Spending & Budgets"
         subtitle={compact ? 'Top categories this month & budget guardrails' : 'Track where your money goes and set overspending guardrails'}
         icon={<PieChart className="w-4 h-4" />}
-        variant="amber"
+        variant="brand"
         actions={<BreakdownHeaderActions compact={compact} period={s.period} startDate={s.startDate} endDate={s.endDate} onPeriodChange={s.setPeriod} onStartDateChange={s.setStartDate} onEndDateChange={s.setEndDate} onViewAllBudgetsClick={onViewAllBudgetsClick} onManageLimitsClick={() => { setSelectedCategory(undefined); setIsConfigModalOpen(true); }} />}
       />
       {Boolean(s.error) && <AlertBanner variant="error">{s.error}</AlertBanner>}

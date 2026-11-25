@@ -180,7 +180,7 @@ const StatementTargetAccountSelect: React.FC<{
     <SelectInput
       value={selectedAccountId !== undefined ? String(selectedAccountId) : ''}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
-      variant="amber"
+      variant="brand"
       containerClassName="w-auto"
       className="min-h-[38px] py-1.5 text-xs text-slate-300"
       aria-label="Target statement account"
@@ -227,7 +227,7 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
           acceptedFormats=".pdf,.csv"
           title="Drop your PDF/CSV statement here, or browse"
           description="Extracts official closing balances and deduplicated transactions with automatic institution detection"
-          variant="amber"
+          variant="brand"
         >
           {s.file && (
             <div className="flex flex-wrap items-center justify-center gap-2">
