@@ -3,10 +3,35 @@ name: Deploy Midas
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Zero Em/En Dashes
+        run: |
+          python3 -c "import subprocess, sys; bad = [f for f in subprocess.check_output(['git', 'ls-files'], text=True).splitlines() if f.endswith(('.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.md', '.yml', '.yaml', '.json')) and any(c in open(f, encoding='utf-8', errors='ignore').read() for c in ('\u2014', '\u2013'))]; print('\n'.join(bad)) if bad else None; sys.exit(1 if bad else 0)"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install & Build
+        run: npm ci && npm run build
+
   deploy:
+    needs: verify
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, gaia]
 
     steps:

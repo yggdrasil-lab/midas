@@ -5,6 +5,8 @@ import {
   Button,
   CollapsibleSection,
   EmptyState,
+  FilterChipBar,
+  LoadMoreFooter,
   LoadingState,
   Modal,
   SearchInput,
@@ -129,27 +131,25 @@ const CashflowCategoryChips: React.FC<CashflowCategoryChipsProps> = ({
   categories, selectedCategory, onSelect,
 }) => {
   if (categories.length === 0) return null;
-  const chipClass = (active: boolean) =>
-    `text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${
-      active
-        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold'
-        : 'bg-card/50 text-slate-300 border-border hover:border-amber-500/30'
-    }`;
+  const options = [
+    { id: 'ALL', label: 'All', testId: 'cashflow-chip-all' },
+    ...categories.map((cat) => ({
+      id: cat,
+      label: cat,
+      testId: `cashflow-chip-${toCategorySlug(cat)}`,
+    })),
+  ];
 
   return (
-    <div className="flex flex-wrap gap-1.5" data-testid="cashflow-category-chips">
-      <button type="button" onClick={() => onSelect('ALL')} aria-pressed={selectedCategory === 'ALL'} data-testid="cashflow-chip-all" className={chipClass(selectedCategory === 'ALL')}>
-        All
-      </button>
-      {categories.map((cat) => {
-        const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
-        return (
-          <button type="button" key={cat} onClick={() => onSelect(cat)} aria-pressed={isSelected} data-testid={`cashflow-chip-${toCategorySlug(cat)}`} className={chipClass(isSelected)}>
-            {cat}
-          </button>
-        );
-      })}
-    </div>
+    <FilterChipBar
+      data-testid="cashflow-category-chips"
+      options={options}
+      selectedId={selectedCategory}
+      onSelect={onSelect}
+      toggleDeselectId="ALL"
+      variant="amber"
+      size="sm"
+    />
   );
 };
 
@@ -395,14 +395,15 @@ const CashflowFooterBar: React.FC<CashflowFooterBarProps> = ({
   isRulesModalOpen, closeRulesModal, rulePrefill, onRulesApplied,
 }) => (
   <>
-    {loadedRegularCount < totalCount && (
-      <Button variant="secondary" size="sm" fullWidth loading={loadingMore} loadingText="Loading more..." onClick={onLoadMore} data-testid="cashflow-load-more-btn">
-        Load more (Showing {loadedRegularCount} of {totalCount})
-      </Button>
-    )}
-    <div className="pt-2 flex justify-end">
-      <Button variant="outline" size="sm" onClick={onClose}>Done</Button>
-    </div>
+    <LoadMoreFooter
+      loadedCount={loadedRegularCount}
+      totalCount={totalCount}
+      loading={loadingMore}
+      onLoadMore={onLoadMore}
+      loadMoreTestId="cashflow-load-more-btn"
+      doneLabel="Done"
+      onDone={onClose}
+    />
     <RulesManagerModal isOpen={isRulesModalOpen} onClose={closeRulesModal} prefillRule={rulePrefill} onRulesApplied={onRulesApplied} />
   </>
 );

@@ -1,6 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
-import { AlertBanner, Button, EmptyState, FileDropzone, LoadingState, StatusBadge } from '@yggdrasil-lab/ui';
+import { RefreshCw, Trash2 } from 'lucide-react';
+import {
+  AlertBanner,
+  Button,
+  CollapsibleSection,
+  EmptyState,
+  FileDropzone,
+  FilterChipBar,
+  type FilterChipOption,
+  KeyValueList,
+  LoadingState,
+  StatusBadge,
+} from '@yggdrasil-lab/ui';
 import { Receipt } from '../../types';
 import {
   computeReceiptFeedCounts,
@@ -122,38 +133,28 @@ function ReceiptStatusFilterBar({
   statusFilter: ReceiptFeedFilter;
   onChangeStatusFilter: (filter: ReceiptFeedFilter) => void;
 }) {
-  const options: Array<{ id: ReceiptFeedFilter; label: string; count: number; highlightAmber?: boolean }> = [
-    { id: 'all', label: 'All', count: counts.all },
-    { id: 'pending', label: 'Pending', count: counts.pending },
-    { id: 'needs_review', label: 'Needs Review', count: counts.needs_review, highlightAmber: counts.needs_review > 0 },
-    { id: 'matched', label: 'Matched', count: counts.matched },
+  const options: FilterChipOption[] = [
+    { id: 'all', label: 'All', count: counts.all, testId: 'receipt-filter-all' },
+    { id: 'pending', label: 'Pending', count: counts.pending, testId: 'receipt-filter-pending' },
+    {
+      id: 'needs_review',
+      label: 'Needs Review',
+      count: counts.needs_review,
+      highlight: counts.needs_review > 0,
+      testId: 'receipt-filter-needs_review',
+    },
+    { id: 'matched', label: 'Matched', count: counts.matched, testId: 'receipt-filter-matched' },
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5" data-testid="receipt-status-filters">
-      {options.map((opt) => {
-        const isSelected = statusFilter === opt.id;
-        const tone = isSelected
-          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold'
-          : opt.highlightAmber
-            ? 'bg-amber-500/10 text-amber-200 border-amber-500/25 hover:border-amber-500/40'
-            : 'bg-card/40 text-slate-400 hover:text-slate-200 border-border/60';
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            data-testid={`receipt-filter-${opt.id}`}
-            onClick={() => onChangeStatusFilter(opt.id)}
-            className={`px-2.5 py-1 text-[11px] rounded-lg border transition-colors inline-flex items-center gap-1.5 ${tone}`}
-          >
-            <span>{opt.label}</span>
-            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-background/60 text-slate-300">
-              {opt.count}
-            </span>
-          </button>
-        );
-      })}
-    </div>
+    <FilterChipBar
+      data-testid="receipt-status-filters"
+      options={options}
+      selectedId={statusFilter}
+      onSelect={(id) => onChangeStatusFilter(id as ReceiptFeedFilter)}
+      variant="amber"
+      size="xs"
+    />
   );
 }
 
@@ -263,69 +264,52 @@ function ReceiptFeedRow({
       ? 'bg-amber-500/[0.04] hover:bg-amber-500/[0.07] border-amber-500/35'
       : 'bg-card/60 hover:bg-card/80 border-border';
 
-  return (
-    <div className={`p-3 rounded-xl border transition-all ${borderClass}`}>
-      <ReceiptFeedRowHeader
-        receipt={r}
-        isPayslip={isPayslip}
-        isExpanded={isExpanded}
-        deletingId={deletingId}
-        onToggleExpand={onToggleExpand}
-        onDeleteReceipt={onDeleteReceipt}
-      />
-      {isExpanded && (
-        <ReceiptFeedRowDetails
-          receipt={r}
-          isPayslip={isPayslip}
-          reprocessingId={reprocessingId}
-          updatingItemId={updatingItemId}
-          onReprocessReceipt={onReprocessReceipt}
-          onReceiptLinked={onReceiptLinked}
-          onUpdateReceiptItem={onUpdateReceiptItem}
-        />
-      )}
+  const deleteBtn = (
+    <button
+      type="button"
+      onClick={() => void onDeleteReceipt(r.id)}
+      disabled={deletingId === r.id}
+      data-testid={`delete-receipt-${r.id}`}
+      aria-label={`Delete ${isPayslip ? 'payslip' : 'receipt'} ${r.merchant}`}
+      title={isPayslip ? 'Delete payslip' : 'Delete receipt'}
+      className="p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+    >
+      <Trash2 className="w-3.5 h-3.5" />
+    </button>
+  );
+
+  const rowTitle = (
+    <div className="flex items-center justify-between gap-2 whitespace-normal">
+      <ReceiptFeedRowMeta receipt={r} isPayslip={isPayslip} />
+      <span className="text-xs font-bold font-mono text-slate-100 whitespace-nowrap shrink-0">
+        {formatReceiptAmount(Number(r.total_amount), r.currency)}
+      </span>
     </div>
   );
-}
 
-function ReceiptFeedRowHeader({
-  receipt: r,
-  isPayslip,
-  isExpanded,
-  deletingId,
-  onToggleExpand,
-  onDeleteReceipt,
-}: {
-  receipt: Receipt;
-  isPayslip: boolean;
-  isExpanded: boolean;
-  deletingId: number | null;
-  onToggleExpand: (id: number) => void;
-  onDeleteReceipt: (id: number) => Promise<void>;
-}) {
   return (
-    <div
-      className="flex items-center justify-between gap-2 cursor-pointer"
-      onClick={() => onToggleExpand(r.id)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onToggleExpand(r.id);
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      data-testid={`receipt-row-${r.id}`}
+    <CollapsibleSection
+      variant="card"
+      open={isExpanded}
+      onOpenChange={() => onToggleExpand(r.id)}
+      toggleTestId={`receipt-row-${r.id}`}
+      title={rowTitle}
+      expandLabel="▼"
+      collapseLabel="▲"
+      headerActions={deleteBtn}
+      className={`!p-3 !rounded-xl transition-all ${borderClass}`}
+      contentClassName="space-y-3 animate-in fade-in"
     >
-      <ReceiptFeedRowMeta receipt={r} isPayslip={isPayslip} />
-      <ReceiptFeedRowActions
+      <ReceiptFeedRowDetails
         receipt={r}
         isPayslip={isPayslip}
-        isExpanded={isExpanded}
-        deletingId={deletingId}
-        onDeleteReceipt={onDeleteReceipt}
+        reprocessingId={reprocessingId}
+        updatingItemId={updatingItemId}
+        onReprocessReceipt={onReprocessReceipt}
+        onReceiptLinked={onReceiptLinked}
+        onUpdateReceiptItem={onUpdateReceiptItem}
       />
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -351,43 +335,6 @@ function ReceiptFeedRowMeta({ receipt: r, isPayslip }: { receipt: Receipt; isPay
   );
 }
 
-function ReceiptFeedRowActions({
-  receipt: r,
-  isPayslip,
-  isExpanded,
-  deletingId,
-  onDeleteReceipt,
-}: {
-  receipt: Receipt;
-  isPayslip: boolean;
-  isExpanded: boolean;
-  deletingId: number | null;
-  onDeleteReceipt: (id: number) => Promise<void>;
-}) {
-  return (
-    <div className="flex items-center space-x-2 shrink-0">
-      <span className="text-xs font-bold font-mono text-slate-100 whitespace-nowrap">
-        {formatReceiptAmount(Number(r.total_amount), r.currency)}
-      </span>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          void onDeleteReceipt(r.id);
-        }}
-        disabled={deletingId === r.id}
-        data-testid={`delete-receipt-${r.id}`}
-        aria-label={`Delete ${isPayslip ? 'payslip' : 'receipt'} ${r.merchant}`}
-        title={isPayslip ? 'Delete payslip' : 'Delete receipt'}
-        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-      {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-    </div>
-  );
-}
-
 function ReceiptFeedMetadataRow({
   testId,
   label,
@@ -398,12 +345,8 @@ function ReceiptFeedMetadataRow({
   value: string;
 }) {
   return (
-    <div
-      data-testid={testId}
-      className="flex items-center justify-between gap-2 text-[11px] text-slate-400 bg-background/40 px-2.5 py-1.5 rounded-lg border border-border/50"
-    >
-      <span className="uppercase tracking-wider text-[10px] font-medium">{label}</span>
-      <span className="font-mono text-slate-200 truncate">{value}</span>
+    <div data-testid={testId}>
+      <KeyValueList items={[{ id: testId, label, value, mono: true }]} />
     </div>
   );
 }
@@ -457,7 +400,7 @@ function ReceiptFeedRowDetails({
   const orderNumber = r.order_number;
   const showPaye = isPayslip && r.tax_amount != null && Number(r.tax_amount) > 0;
   return (
-    <div className="mt-3 pt-3 border-t border-border/60 space-y-3 animate-in fade-in">
+    <div className="space-y-3">
       {Boolean(orderNumber) && orderNumber && (
         <ReceiptFeedMetadataRow
           testId={`receipt-order-${r.id}`}

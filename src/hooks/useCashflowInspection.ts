@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useOffsetPagination } from '@yggdrasil-lab/ui';
 import { fetchAccounts, fetchFlowTransactions, fetchLoans } from '../services/api';
 import {
   Account,
   CashflowDirection,
-  CashflowTransactionsPage,
   LoanItem,
   PeriodType,
   Transaction,
@@ -18,17 +18,22 @@ interface UseCashflowInspectionOptions {
   includeSubclasses: boolean;
 }
 
+interface CashflowPageQuery {
+  flow: CashflowDirection;
+  category: string;
+}
+
 const CASHFLOW_PAGE_LIMIT = 200;
 
-function mergeLoadedCashflowPage(
+function mergeLoadedCashflowItems(
   prev: Transaction[],
-  page: CashflowTransactionsPage,
+  next: Transaction[],
   isLoadMore: boolean
 ): Transaction[] {
-  if (!isLoadMore) return page.transactions;
+  if (!isLoadMore) return next;
   return [
     ...prev.filter((t) => Boolean(t.is_amortized_commitment)),
-    ...mergeCashflowRegularRows(prev, page.transactions),
+    ...mergeCashflowRegularRows(prev, next),
   ];
 }
 
@@ -52,51 +57,6 @@ function buildFlowRequestParams(opts: {
     limit: CASHFLOW_PAGE_LIMIT,
     offset: opts.offset,
   };
-}
-
-interface CashflowPageFetcherParams {
-  period: PeriodType;
-  startDate?: string;
-  endDate?: string;
-  includeSubclasses: boolean;
-}
-
-function useCashflowPageFetcher(params: CashflowPageFetcherParams) {
-  const { period, startDate, endDate, includeSubclasses } = params;
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [inflowCategories, setInflowCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const requestSeqRef = useRef(0);
-
-  useEffect(() => { setInflowCategories([]); }, [period, startDate, endDate, includeSubclasses]);
-
-  const fetchPage = useCallback(async (flow: CashflowDirection, category: string, offset: number) => {
-    const seq = ++requestSeqRef.current;
-    const isLoadMore = offset > 0;
-    if (isLoadMore) setLoadingMore(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      const req = buildFlowRequestParams({ flow, category, offset, period, startDate, endDate, includeSubclasses });
-      const page = await fetchFlowTransactions(req);
-      if (seq !== requestSeqRef.current) return;
-      setTotalCount(page.totalCount);
-      setTransactions((prev) => mergeLoadedCashflowPage(prev, page, isLoadMore));
-      if (!isLoadMore && flow === 'inflow' && category === 'ALL') setInflowCategories(deriveInflowCategoryChips(page.transactions));
-    } catch (err) {
-      if (seq === requestSeqRef.current) {
-        if (!isLoadMore) { setTransactions([]); setTotalCount(0); }
-        setError(err instanceof Error ? err.message : `Failed to load ${flow} transactions`);
-      }
-    } finally {
-      if (seq === requestSeqRef.current) { setLoading(false); setLoadingMore(false); }
-    }
-  }, [period, startDate, endDate, includeSubclasses]);
-
-  return { transactions, setTransactions, totalCount, inflowCategories, loading, loadingMore, error, setError, fetchPage };
 }
 
 function useCashflowSelectionState(initialFlow: CashflowDirection) {
@@ -136,43 +96,57 @@ function useCashflowSelectionState(initialFlow: CashflowDirection) {
   return { activeFlow, selectedCategory, searchQuery, setSearchQuery, loans, accounts, switchFlow, selectCategory };
 }
 
-/**
- * Manages server-side cashflow fetching, flow switching, category chip filtering,
- * offset pagination, and local optimistic row patching for CashflowTransactionInspectionModal.
- */
 export function useCashflowInspection({
   initialFlow, period, startDate, endDate, includeSubclasses,
 }: UseCashflowInspectionOptions) {
   const sel = useCashflowSelectionState(initialFlow);
-  const page = useCashflowPageFetcher({ period, startDate, endDate, includeSubclasses });
+  const [inflowCategories, setInflowCategories] = useState<string[]>([]);
+
+  useEffect(() => { setInflowCategories([]); }, [period, startDate, endDate, includeSubclasses]);
+
+  const pagination = useOffsetPagination<Transaction, CashflowPageQuery>({
+    initialLoading: true,
+    fetcher: async (query, offset) => {
+      const req = buildFlowRequestParams({ ...query, offset, period, startDate, endDate, includeSubclasses });
+      const page = await fetchFlowTransactions(req);
+      return { items: page.transactions, totalCount: page.totalCount };
+    },
+    mergeItems: mergeLoadedCashflowItems,
+    onPageLoaded: (res, query, offset) => {
+      if (offset === 0 && query.flow === 'inflow' && query.category === 'ALL') {
+        setInflowCategories(deriveInflowCategoryChips(res.items));
+      }
+    },
+    formatError: (err, query) =>
+      err instanceof Error ? err.message : `Failed to load ${query.flow} transactions`,
+  });
 
   useEffect(() => {
-    void page.fetchPage(sel.activeFlow, sel.selectedCategory, 0);
-  }, [sel.activeFlow, sel.selectedCategory, page.fetchPage]);
+    void pagination.fetchPage({ flow: sel.activeFlow, category: sel.selectedCategory }, 0);
+  }, [sel.activeFlow, sel.selectedCategory, period, startDate, endDate, includeSubclasses, pagination.fetchPage]);
 
-  const loadedRegularCount = page.transactions.filter((t) => !t.is_amortized_commitment).length;
+  const loadedRegularCount = pagination.items.filter((t) => !t.is_amortized_commitment).length;
   const loadMore = useCallback(() => {
-    if (page.loading || page.loadingMore || loadedRegularCount >= page.totalCount) return;
-    void page.fetchPage(sel.activeFlow, sel.selectedCategory, loadedRegularCount);
-  }, [page.loading, page.loadingMore, loadedRegularCount, page.totalCount, page.fetchPage, sel.activeFlow, sel.selectedCategory]);
+    void pagination.loadMore({ flow: sel.activeFlow, category: sel.selectedCategory }, loadedRegularCount);
+  }, [pagination.loadMore, sel.activeFlow, sel.selectedCategory, loadedRegularCount]);
 
   const reload = useCallback(() => {
-    void page.fetchPage(sel.activeFlow, sel.selectedCategory, 0);
-  }, [page.fetchPage, sel.activeFlow, sel.selectedCategory]);
+    void pagination.fetchPage({ flow: sel.activeFlow, category: sel.selectedCategory }, 0);
+  }, [pagination.fetchPage, sel.activeFlow, sel.selectedCategory]);
 
   const patchTransactionLocal = useCallback((txId: number, patch: Partial<Transaction>) => {
-    page.setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, ...patch } : t)));
-  }, [page.setTransactions]);
+    pagination.patchItem((t) => t.id === txId, patch);
+  }, [pagination.patchItem]);
 
   return {
     state: {
       activeFlow: sel.activeFlow, selectedCategory: sel.selectedCategory, searchQuery: sel.searchQuery,
-      transactions: page.transactions, totalCount: page.totalCount, loadedRegularCount,
-      inflowCategories: page.inflowCategories, loans: sel.loans, accounts: sel.accounts,
-      loading: page.loading, loadingMore: page.loadingMore, error: page.error,
+      transactions: pagination.items, totalCount: pagination.totalCount, loadedRegularCount,
+      inflowCategories, loans: sel.loans, accounts: sel.accounts,
+      loading: pagination.loading, loadingMore: pagination.loadingMore, error: pagination.error,
     },
     actions: {
-      setSearchQuery: sel.setSearchQuery, setError: page.setError, switchFlow: sel.switchFlow,
+      setSearchQuery: sel.setSearchQuery, setError: pagination.setError, switchFlow: sel.switchFlow,
       selectCategory: sel.selectCategory, loadMore, reload, patchTransactionLocal,
     },
   };

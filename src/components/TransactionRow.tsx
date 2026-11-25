@@ -10,7 +10,7 @@ import {
   SlidersHorizontal,
   Split,
 } from 'lucide-react';
-import { TagPillList } from '@yggdrasil-lab/ui';
+import { StatusBadge, TagPillList } from '@yggdrasil-lab/ui';
 import { Account, LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
 import { isTransferCategory, RECURRENCE_OPTIONS } from '../constants/categories';
 import {
@@ -172,9 +172,6 @@ const LoanFlowPill: React.FC<LoanFlowPillProps> = ({
     ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-200'
     : isDisbursement ? 'bg-amber-500/10 border-amber-500/25 text-amber-200' : 'bg-rose-500/10 border-rose-500/25 text-rose-200';
   const iconCls = isRepayment ? 'text-emerald-400' : isDisbursement ? 'text-amber-400' : 'text-rose-400';
-  const badgeCls = isRepayment
-    ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-200'
-    : isDisbursement ? 'bg-amber-500/20 border-amber-500/30 text-amber-200' : 'bg-rose-500/20 border-rose-500/30 text-rose-200';
   const amtCls = isRepayment ? 'text-emerald-300/90' : isDisbursement ? 'text-amber-300/90' : 'text-rose-300/90';
   const fromLabel = isRepayment ? loanName : accountName || 'Account';
   const toLabel = isRepayment ? accountName || 'Account' : loanName;
@@ -185,9 +182,13 @@ const LoanFlowPill: React.FC<LoanFlowPillProps> = ({
       <span className="font-semibold truncate max-w-[160px]" title={fromLabel}>{fromLabel}</span>
       <ArrowRight className={`w-3 h-3 shrink-0 ${iconCls}`} />
       <span className="font-semibold truncate max-w-[160px]" title={toLabel}>{toLabel}</span>
-      <span className={`text-[10px] px-1 py-0.2 rounded border font-medium whitespace-nowrap ${badgeCls}`}>
-        {isRepayment ? 'Repayment' : isDisbursement ? 'Lent' : 'Loan'}
-      </span>
+      <StatusBadge
+        variant={isRepayment ? 'success' : isDisbursement ? 'warning' : 'error'}
+        size="xs"
+        showDot={false}
+        label={isRepayment ? 'Repayment' : isDisbursement ? 'Lent' : 'Loan'}
+        className="whitespace-nowrap"
+      />
       {paymentAmount != null && <LoanFlowAmountText paymentAmount={paymentAmount} parentAmt={parentAmt} txCurrency={txCurrency} colorClass={amtCls} />}
     </div>
   );
@@ -214,22 +215,56 @@ const TransactionSplitAndTransferBadges: React.FC<TransactionSplitAndTransferBad
   return (
     <>
       {isSplit && (onOpenSplit ? (
-        <button type="button" onClick={() => onOpenSplit(tx)} data-testid={`open-split-badge-${tx.id}`} className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 border border-violet-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer whitespace-nowrap" title="Inspect or edit manual transaction splits">
-          <Split className="w-2.5 h-2.5" /><span>Split ({splitCount})</span>
+        <button
+          type="button"
+          onClick={() => onOpenSplit(tx)}
+          data-testid={`open-split-badge-${tx.id}`}
+          className="inline-flex bg-transparent border-none p-0 cursor-pointer"
+          title="Inspect or edit manual transaction splits"
+        >
+          <StatusBadge
+            variant="purple"
+            size="xs"
+            showDot={false}
+            icon={<Split className="w-2.5 h-2.5" />}
+            label={`Split (${splitCount})`}
+            className="hover:bg-violet-500/25 transition-colors whitespace-nowrap"
+          />
         </button>
       ) : (
-        <span data-testid={`open-split-badge-${tx.id}`} className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30 font-medium flex items-center space-x-1 whitespace-nowrap">
-          <Split className="w-2.5 h-2.5" /><span>Split ({splitCount})</span>
+        <span data-testid={`open-split-badge-${tx.id}`}>
+          <StatusBadge
+            variant="purple"
+            size="xs"
+            showDot={false}
+            icon={<Split className="w-2.5 h-2.5" />}
+            label={`Split (${splitCount})`}
+            className="whitespace-nowrap"
+          />
         </span>
       ))}
       {(hasLinkedTransfer || isTransfer) && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-medium flex items-center space-x-1" title={transferTitle}>
-          <ArrowRightLeft className="w-2.5 h-2.5" /><span>{transferText}</span>
+        <span title={transferTitle}>
+          <StatusBadge
+            variant="info"
+            size="xs"
+            showDot={false}
+            icon={<ArrowRightLeft className="w-2.5 h-2.5" />}
+            label={transferText}
+          />
         </span>
       )}
       {tx.fee_amount != null && Number(tx.fee_amount) > 0 && (
-        <span data-testid={`tx-fee-${tx.id}`} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-medium" title={`Transfer Fee: ${formatTransactionFee(Number(tx.fee_amount), txCurrency, true)}`}>
-          Fee: {formatTransactionFee(Number(tx.fee_amount), txCurrency)}
+        <span
+          data-testid={`tx-fee-${tx.id}`}
+          title={`Transfer Fee: ${formatTransactionFee(Number(tx.fee_amount), txCurrency, true)}`}
+        >
+          <StatusBadge
+            variant="idle"
+            size="xs"
+            showDot={false}
+            label={`Fee: ${formatTransactionFee(Number(tx.fee_amount), txCurrency)}`}
+          />
         </span>
       )}
     </>
@@ -702,14 +737,34 @@ function TransactionReceiptBadge({
 
   if (receiptId && onOpenReceipt) {
     return (
-      <button type="button" onClick={() => onOpenReceipt(receiptId, documentType)} data-testid={`open-receipt-${txId}`} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-medium flex items-center space-x-1 transition-colors cursor-pointer whitespace-nowrap" title={title}>
-        <ReceiptIcon className="w-2.5 h-2.5" /><span>{label}</span>
+      <button
+        type="button"
+        onClick={() => onOpenReceipt(receiptId, documentType)}
+        data-testid={`open-receipt-${txId}`}
+        className="inline-flex bg-transparent border-none p-0 cursor-pointer"
+        title={title}
+      >
+        <StatusBadge
+          variant="success"
+          size="xs"
+          showDot={false}
+          icon={<ReceiptIcon className="w-2.5 h-2.5" />}
+          label={label}
+          className="hover:bg-emerald-500/25 transition-colors whitespace-nowrap"
+        />
       </button>
     );
   }
   return (
-    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-medium flex items-center space-x-1 whitespace-nowrap" title={title}>
-      <ReceiptIcon className="w-2.5 h-2.5" /><span>{label}</span>
+    <span title={title}>
+      <StatusBadge
+        variant="success"
+        size="xs"
+        showDot={false}
+        icon={<ReceiptIcon className="w-2.5 h-2.5" />}
+        label={label}
+        className="whitespace-nowrap"
+      />
     </span>
   );
 }
