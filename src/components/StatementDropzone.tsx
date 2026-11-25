@@ -51,6 +51,33 @@ function resolveParsedAccountMetadata(
   };
 }
 
+type StatementActionSetters = {
+  setInstitution: (v: string) => void;
+  setTier: (v: Account['tier']) => void;
+  setAccountType: (v: string) => void;
+  setAccountName: (v: string) => void;
+  setCurrency: (v: string) => void;
+  setLoading: (v: boolean) => void;
+  setError: (v: string | null) => void;
+  setParseResult: (v: StatementParseResult | null) => void;
+  setClosingBalanceInput: (v: string) => void;
+  setCommitted: (v: boolean) => void;
+  setFile: (v: File | null) => void;
+};
+
+async function runStatementParse(file: File, institutionsList: InstitutionInfo[], setters: StatementActionSetters) {
+  setters.setLoading(true); setters.setCommitted(false); setters.setError(null);
+  try {
+    const res = await uploadStatement(file, 'auto', false);
+    const meta = resolveParsedAccountMetadata(res, institutionsList);
+    setters.setParseResult(res); setters.setInstitution(meta.detected); setters.setTier(meta.tier);
+    setters.setAccountType(meta.accountType); setters.setCurrency(meta.currency);
+    setters.setClosingBalanceInput(meta.closingBalanceInput); setters.setAccountName(meta.accountName);
+  } catch (err) {
+    setters.setError(err instanceof Error ? err.message : 'Statement parsing failed');
+  } finally { setters.setLoading(false); }
+}
+
 function useStatementDropzoneActions(opts: {
   file: File | null;
   institution: string;
@@ -63,89 +90,43 @@ function useStatementDropzoneActions(opts: {
   institutionsList: InstitutionInfo[];
   parseResult: StatementParseResult | null;
   onSuccess: () => void;
-  setters: {
-    setInstitution: (v: string) => void;
-    setTier: (v: Account['tier']) => void;
-    setAccountType: (v: string) => void;
-    setAccountName: (v: string) => void;
-    setCurrency: (v: string) => void;
-    setLoading: (v: boolean) => void;
-    setError: (v: string | null) => void;
-    setParseResult: (v: StatementParseResult | null) => void;
-    setClosingBalanceInput: (v: string) => void;
-    setCommitted: (v: boolean) => void;
-    setFile: (v: File | null) => void;
-  };
+  setters: StatementActionSetters;
 }) {
   const { setters } = opts;
-
   const handleInstitutionChange = (val: string) => {
     setters.setInstitution(val);
     const match = opts.institutionsList.find((i) => i.name.toLowerCase() === val.toLowerCase());
     if (match) {
-      setters.setTier(match.default_tier);
-      setters.setAccountType(match.default_type);
+      setters.setTier(match.default_tier); setters.setAccountType(match.default_type);
       if (match.currency) setters.setCurrency(match.currency);
-    }
-  };
-
-  const handleParse = async () => {
-    if (!opts.file) return;
-    setters.setLoading(true);
-    setters.setCommitted(false);
-    setters.setError(null);
-    try {
-      const res = await uploadStatement(opts.file, 'auto', false);
-      const meta = resolveParsedAccountMetadata(res, opts.institutionsList);
-      setters.setParseResult(res);
-      setters.setInstitution(meta.detected);
-      setters.setTier(meta.tier);
-      setters.setAccountType(meta.accountType);
-      setters.setCurrency(meta.currency);
-      setters.setClosingBalanceInput(meta.closingBalanceInput);
-      setters.setAccountName(meta.accountName);
-    } catch (err) {
-      console.error(err);
-      setters.setError(err instanceof Error ? err.message : 'Statement parsing failed');
-    } finally {
-      setters.setLoading(false);
     }
   };
 
   const handleConfirmAndSync = async () => {
     if (!opts.file) return;
-    setters.setLoading(true);
-    setters.setError(null);
+    setters.setLoading(true); setters.setError(null);
     try {
-      const balanceToCommit =
-        opts.closingBalanceInput.trim() !== '' ? parseFloat(opts.closingBalanceInput) : undefined;
+      const balanceToCommit = opts.closingBalanceInput.trim() !== '' ? parseFloat(opts.closingBalanceInput) : undefined;
       const targetInst = opts.institution.trim() || opts.parseResult?.institution || 'Unknown';
-      await uploadStatement(
-        opts.file, targetInst, true, opts.selectedAccountId, balanceToCommit,
-        opts.tier, opts.accountType, opts.accountName.trim() || undefined, opts.currency.trim() || undefined
-      );
-      setters.setCommitted(true);
-      opts.onSuccess();
+      await uploadStatement(opts.file, targetInst, true, opts.selectedAccountId, balanceToCommit, opts.tier, opts.accountType, opts.accountName.trim() || undefined, opts.currency.trim() || undefined);
+      setters.setCommitted(true); opts.onSuccess();
     } catch (err) {
-      console.error(err);
       setters.setError(err instanceof Error ? err.message : 'Failed to commit statement to ledger');
-    } finally {
-      setters.setLoading(false);
-    }
+    } finally { setters.setLoading(false); }
   };
 
   const handleReset = () => {
-    setters.setFile(null);
-    setters.setParseResult(null);
-    setters.setInstitution('');
-    setters.setAccountName('');
-    setters.setCurrency('NZD');
-    setters.setClosingBalanceInput('');
-    setters.setCommitted(false);
-    setters.setError(null);
+    setters.setFile(null); setters.setParseResult(null); setters.setInstitution('');
+    setters.setAccountName(''); setters.setCurrency('NZD'); setters.setClosingBalanceInput('');
+    setters.setCommitted(false); setters.setError(null);
   };
 
-  return { handleInstitutionChange, handleParse, handleConfirmAndSync, handleReset };
+  return {
+    handleInstitutionChange,
+    handleParse: () => (opts.file ? runStatementParse(opts.file, opts.institutionsList, setters) : Promise.resolve()),
+    handleConfirmAndSync,
+    handleReset,
+  };
 }
 
 function useStatementDropzoneState(onSuccess: () => void) {

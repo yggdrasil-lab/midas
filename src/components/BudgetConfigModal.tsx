@@ -415,6 +415,15 @@ function useBudgetMutations(
   };
 }
 
+function toggleRulePeriodCall(rule: BudgetRule) {
+  const nextPeriod: BudgetPeriod = rule.budget_period === 'annual' ? 'monthly' : 'annual';
+  const annualVal = rule.annual_limit ?? Math.round(rule.weekly_limit * 52 * 100) / 100;
+  return {
+    exec: () => upsertBudgetRule(rule.category, rule.weekly_limit, rule.monthly_limit, annualVal, nextPeriod).then(() => undefined),
+    msg: nextPeriod === 'annual' ? `${rule.category} spread over 52-week annual budget!` : `${rule.category} switched to ${nextPeriod} budget!`,
+  };
+}
+
 function useBudgetConfigState(isOpen: boolean, initialCategory: string | undefined, onSuccess: () => void) {
   const [rules, setRules] = useState<BudgetRule[]>([]);
   const [avgBurnReport, setAvgBurnReport] = useState<AverageBurnReportResponse | null>(null);
@@ -436,35 +445,25 @@ function useBudgetConfigState(isOpen: boolean, initialCategory: string | undefin
   };
 
   const loadRules = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const [res, burnReport] = await Promise.all([fetchBudgetRules(), fetchAverageBurn(12).catch(() => null)]);
-      setRules(res);
-      setAvgBurnReport(burnReport);
+      setRules(res); setAvgBurnReport(burnReport);
       if (initialCategory) {
         const found = res.find((r) => r.category.toLowerCase() === initialCategory.toLowerCase());
-        if (found) syncFromRule(found);
-        else setCategory(initialCategory);
+        if (found) syncFromRule(found); else setCategory(initialCategory);
       }
     } catch (err) {
-      console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load budgets');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    if (isOpen) void loadRules();
-  }, [isOpen, initialCategory]);
+  useEffect(() => { if (isOpen) void loadRules(); }, [isOpen, initialCategory]);
 
   const runMutation = useBudgetMutations(loadRules, onSuccess, setLoading, setError, setSuccessMsg);
   const applyRate = (source: 'weekly' | 'monthly' | 'annual', val: string) => {
     const next = convertRateFields(source, val);
-    setWeeklyLimit(next.weekly);
-    setMonthlyLimit(next.monthly);
-    setAnnualLimit(next.annual);
+    setWeeklyLimit(next.weekly); setMonthlyLimit(next.monthly); setAnnualLimit(next.annual);
   };
 
   const handleSave = async (e?: React.FormEvent) => {
@@ -487,13 +486,8 @@ function useBudgetConfigState(isOpen: boolean, initialCategory: string | undefin
     handleAnnualChange: (val: string) => applyRate('annual', val),
     handleSave,
     handleToggleRulePeriod: (rule: BudgetRule) => {
-      const nextPeriod: BudgetPeriod = rule.budget_period === 'annual' ? 'monthly' : 'annual';
-      const annualVal = rule.annual_limit ?? Math.round(rule.weekly_limit * 52 * 100) / 100;
-      return runMutation(
-        () => upsertBudgetRule(rule.category, rule.weekly_limit, rule.monthly_limit, annualVal, nextPeriod).then(() => undefined),
-        'Failed to update budget period',
-        nextPeriod === 'annual' ? `${rule.category} spread over 52-week annual budget!` : `${rule.category} switched to ${nextPeriod} budget!`
-      );
+      const { exec, msg } = toggleRulePeriodCall(rule);
+      return runMutation(exec, 'Failed to update budget period', msg);
     },
     handleDelete: (id: number) => runMutation(() => deleteBudgetRule(id).then(() => undefined), 'Failed to delete budget target'),
     handleSyncFromBurn: () => runMutation(() => syncBudgetsFromBurn(12).then(() => undefined), 'Failed to calculate budgets from average burn', 'Calculated category budgets from 12-week average burn!'),

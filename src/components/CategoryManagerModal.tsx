@@ -338,6 +338,51 @@ function filterCategoryTree(activeItems: CategoryItem[], searchQuery: string) {
   return { filteredGroups, systemCats };
 }
 
+function useCategoryDeleteMutations(opts: {
+  reassignTarget: string;
+  activeItems: CategoryItem[];
+  syncAll: () => Promise<void>;
+  setters: {
+    setError: (v: string | null) => void;
+    setStatusMsg: (v: string | null) => void;
+    setConfirmDeleteId: (v: number | null) => void;
+    setReassignTarget: (v: string) => void;
+    setDeletingId: (v: number | null) => void;
+  };
+}) {
+  const { setters } = opts;
+
+  const startDeleteFlow = (cat: CategoryItem) => {
+    const fallback =
+      cat.parent_name && opts.activeItems.some((c) => c.name === cat.parent_name && c.id !== cat.id)
+        ? cat.parent_name
+        : opts.activeItems.find((c) => c.name === 'General' && c.id !== cat.id)?.name ||
+          opts.activeItems.find((c) => c.id !== cat.id)?.name || 'General';
+    setters.setReassignTarget(fallback);
+    setters.setConfirmDeleteId(cat.id);
+    setters.setError(null);
+    setters.setStatusMsg(null);
+  };
+
+  const handleConfirmDelete = async (cat: CategoryItem) => {
+    setters.setDeletingId(cat.id);
+    setters.setError(null);
+    setters.setStatusMsg(null);
+    try {
+      const res = await deleteCategory(cat.id, opts.reassignTarget);
+      setters.setConfirmDeleteId(null);
+      setters.setStatusMsg(`Deleted "${res.deleted_name}" (reassigned ${res.transactions_reassigned} txns and ${res.rules_reassigned} rules to "${res.reassigned_to}")`);
+      await opts.syncAll();
+    } catch (err) {
+      setters.setError(err instanceof Error ? err.message : 'Failed to delete category');
+    } finally {
+      setters.setDeletingId(null);
+    }
+  };
+
+  return { startDeleteFlow, handleConfirmDelete };
+}
+
 function useCategoryMutations(opts: {
   editingCategory: CategoryItem | null;
   draftName: string;
@@ -366,79 +411,36 @@ function useCategoryMutations(opts: {
     if (!cleaned) return setters.setError('Category name is required.');
     const parentId = opts.draftParentId ? Number(opts.draftParentId) : null;
     const amortizePeriod: AmortizePeriod = opts.draftAmortize === 'annual' ? 'annual' : null;
-    setters.setSaving(true);
-    setters.setError(null);
-    setters.setStatusMsg(null);
+    setters.setSaving(true); setters.setError(null); setters.setStatusMsg(null);
     try {
       if (opts.editingCategory) {
-        await updateCategory(opts.editingCategory.id, {
-          name: cleaned,
-          parent_id: opts.editingCategory.child_count > 0 ? opts.editingCategory.parent_id : parentId,
-          amortize_period: amortizePeriod,
-        });
+        await updateCategory(opts.editingCategory.id, { name: cleaned, parent_id: opts.editingCategory.child_count > 0 ? opts.editingCategory.parent_id : parentId, amortize_period: amortizePeriod });
         setters.setStatusMsg(`Updated category "${cleaned}"`);
       } else {
         await createCategory({ name: cleaned, parent_id: parentId, amortize_period: amortizePeriod });
         setters.setStatusMsg(`Created category "${cleaned}"`);
       }
-      setters.setIsFormOpen(false);
-      setters.setEditingCategory(null);
+      setters.setIsFormOpen(false); setters.setEditingCategory(null);
       await opts.syncAll();
     } catch (err) {
-      console.error(err);
       setters.setError(err instanceof Error ? err.message : 'Failed to save category');
-    } finally {
-      setters.setSaving(false);
-    }
+    } finally { setters.setSaving(false); }
   };
 
   const handleToggleAmortize = async (cat: CategoryItem) => {
     const nextAmortize: AmortizePeriod = cat.amortize_period === 'annual' ? null : 'annual';
-    setters.setTogglingId(cat.id);
-    setters.setError(null);
-    setters.setStatusMsg(null);
+    setters.setTogglingId(cat.id); setters.setError(null); setters.setStatusMsg(null);
     try {
       await updateCategory(cat.id, { amortize_period: nextAmortize });
       setters.setStatusMsg(nextAmortize === 'annual' ? `Enabled 52w annual spread for "${cat.name}"` : `Disabled 52w annual spread for "${cat.name}"`);
       await opts.syncAll();
     } catch (err) {
-      console.error(err);
       setters.setError(err instanceof Error ? err.message : 'Failed to update 52w spread setting');
-    } finally {
-      setters.setTogglingId(null);
-    }
+    } finally { setters.setTogglingId(null); }
   };
 
-  const startDeleteFlow = (cat: CategoryItem) => {
-    const fallback =
-      cat.parent_name && opts.activeItems.some((c) => c.name === cat.parent_name && c.id !== cat.id)
-        ? cat.parent_name
-        : opts.activeItems.find((c) => c.name === 'General' && c.id !== cat.id)?.name ||
-          opts.activeItems.find((c) => c.id !== cat.id)?.name || 'General';
-    setters.setReassignTarget(fallback);
-    setters.setConfirmDeleteId(cat.id);
-    setters.setError(null);
-    setters.setStatusMsg(null);
-  };
-
-  const handleConfirmDelete = async (cat: CategoryItem) => {
-    setters.setDeletingId(cat.id);
-    setters.setError(null);
-    setters.setStatusMsg(null);
-    try {
-      const res = await deleteCategory(cat.id, opts.reassignTarget);
-      setters.setConfirmDeleteId(null);
-      setters.setStatusMsg(`Deleted "${res.deleted_name}" (reassigned ${res.transactions_reassigned} txns and ${res.rules_reassigned} rules to "${res.reassigned_to}")`);
-      await opts.syncAll();
-    } catch (err) {
-      console.error(err);
-      setters.setError(err instanceof Error ? err.message : 'Failed to delete category');
-    } finally {
-      setters.setDeletingId(null);
-    }
-  };
-
-  return { handleSaveCategory, handleToggleAmortize, startDeleteFlow, handleConfirmDelete };
+  const deleteMutations = useCategoryDeleteMutations({ reassignTarget: opts.reassignTarget, activeItems: opts.activeItems, syncAll: opts.syncAll, setters });
+  return { handleSaveCategory, handleToggleAmortize, ...deleteMutations };
 }
 
 function useCategoryManagerState(isOpen: boolean, onCategoriesChanged?: () => void) {

@@ -338,10 +338,6 @@ export const MOCK_PRODUCTS_DATA = {
 };
 
 export async function setupMockApi(page: Page) {
-  await page.route('**/api/client-errors**', async (route) => {
-    await route.fulfill({ status: 204 });
-  });
-
   // 1. Mock Runway Simulate Endpoint
   await page.route('**/api/runway/simulate**', async (route) => {
     await route.fulfill({

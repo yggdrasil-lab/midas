@@ -24,6 +24,70 @@ interface ReceiptsHubModalProps {
 
 type ReceiptsTab = 'receipts' | 'products';
 
+function useReceiptFeedMutations(opts: {
+  expandedReceiptId: number | null;
+  loadData: () => Promise<void>;
+  onReceiptLinked?: () => void;
+  setters: {
+    setExpandedReceiptId: (id: number | null) => void;
+    setUploading: (v: boolean) => void;
+    setDeletingId: (v: number | null) => void;
+    setReprocessingId: (v: number | null) => void;
+    setReconciling: (v: boolean) => void;
+    setError: (v: string | null) => void;
+    setStatusMsg: (v: string | null) => void;
+  };
+}) {
+  const { setters } = opts;
+
+  const handleUploadFile = async (file: File) => {
+    setters.setUploading(true); setters.setError(null); setters.setStatusMsg(null);
+    try {
+      const res = await uploadReceipt(file);
+      setters.setStatusMsg(
+        res.is_processed === false
+          ? `Saved original receipt "${res.merchant}" for later processing or manual linking.`
+          : `Uploaded receipt from ${res.merchant} (${formatReceiptAmount(res.total_amount, res.currency)}). Status: ${res.status}.`
+      );
+      await opts.loadData(); opts.onReceiptLinked?.();
+    } catch (err) { setters.setError(err instanceof Error ? err.message : 'Failed to parse receipt'); }
+    finally { setters.setUploading(false); }
+  };
+
+  const handleDeleteReceipt = async (id: number) => {
+    setters.setDeletingId(id); setters.setError(null); setters.setStatusMsg(null);
+    try {
+      await deleteReceipt(id);
+      if (opts.expandedReceiptId === id) setters.setExpandedReceiptId(null);
+      setters.setStatusMsg('Receipt deleted.');
+      await opts.loadData(); opts.onReceiptLinked?.();
+    } catch (err) { setters.setError(err instanceof Error ? err.message : 'Failed to delete receipt'); }
+    finally { setters.setDeletingId(null); }
+  };
+
+  const handleReprocessReceipt = async (id: number) => {
+    setters.setReprocessingId(id); setters.setError(null); setters.setStatusMsg(null);
+    try {
+      const res = await reprocessReceipt(id);
+      setters.setStatusMsg(`Processed receipt from ${res.merchant} (${formatReceiptAmount(res.total_amount, res.currency)}).`);
+      await opts.loadData(); opts.onReceiptLinked?.();
+    } catch (err) { setters.setError(err instanceof Error ? err.message : 'Failed to reprocess receipt'); }
+    finally { setters.setReprocessingId(null); }
+  };
+
+  const handleReconcile = async () => {
+    setters.setReconciling(true); setters.setError(null); setters.setStatusMsg(null);
+    try {
+      const res = await reconcileReceipts();
+      setters.setStatusMsg(`Reconciliation complete: matched ${res.matched_count} receipts with transactions.`);
+      await opts.loadData(); opts.onReceiptLinked?.();
+    } catch (err) { setters.setError(err instanceof Error ? err.message : 'Reconciliation failed'); }
+    finally { setters.setReconciling(false); }
+  };
+
+  return { handleUploadFile, handleDeleteReceipt, handleReprocessReceipt, handleReconcile };
+}
+
 function useReceiptActions(opts: {
   expandedReceiptId: number | null;
   loadData: () => Promise<void>;
@@ -41,47 +105,7 @@ function useReceiptActions(opts: {
   };
 }) {
   const { setters } = opts;
-
-  const handleUploadFile = async (file: File) => {
-    setters.setUploading(true); setters.setError(null); setters.setStatusMsg(null);
-    try {
-      const res = await uploadReceipt(file);
-      setters.setStatusMsg(
-        res.is_processed === false
-          ? `Saved original receipt "${res.merchant}" for later processing or manual linking.`
-          : `Uploaded receipt from ${res.merchant} (${formatReceiptAmount(res.total_amount, res.currency)}). Status: ${res.status}.`
-      );
-      await opts.loadData();
-      opts.onReceiptLinked?.();
-    } catch (err) {
-      setters.setError(err instanceof Error ? err.message : 'Failed to parse receipt');
-    } finally { setters.setUploading(false); }
-  };
-
-  const handleDeleteReceipt = async (id: number) => {
-    setters.setDeletingId(id); setters.setError(null); setters.setStatusMsg(null);
-    try {
-      await deleteReceipt(id);
-      if (opts.expandedReceiptId === id) setters.setExpandedReceiptId(null);
-      setters.setStatusMsg('Receipt deleted.');
-      await opts.loadData();
-      opts.onReceiptLinked?.();
-    } catch (err) {
-      setters.setError(err instanceof Error ? err.message : 'Failed to delete receipt');
-    } finally { setters.setDeletingId(null); }
-  };
-
-  const handleReprocessReceipt = async (id: number) => {
-    setters.setReprocessingId(id); setters.setError(null); setters.setStatusMsg(null);
-    try {
-      const res = await reprocessReceipt(id);
-      setters.setStatusMsg(`Processed receipt from ${res.merchant} (${formatReceiptAmount(res.total_amount, res.currency)}).`);
-      await opts.loadData();
-      opts.onReceiptLinked?.();
-    } catch (err) {
-      setters.setError(err instanceof Error ? err.message : 'Failed to reprocess receipt');
-    } finally { setters.setReprocessingId(null); }
-  };
+  const feedMutations = useReceiptFeedMutations({ expandedReceiptId: opts.expandedReceiptId, loadData: opts.loadData, onReceiptLinked: opts.onReceiptLinked, setters });
 
   const handleUpdateReceiptItem = async (receiptId: number, itemId: number, patch: { category?: string; tags?: string[] }) => {
     setters.setUpdatingItemId(itemId); setters.setError(null);
@@ -89,31 +113,17 @@ function useReceiptActions(opts: {
       const updated = await updateReceiptItem(receiptId, itemId, patch);
       setters.setReceipts((prev) => prev.map((r) => (r.id === receiptId ? { ...r, items: r.items.map((it) => (it.id === itemId ? updated : it)) } : r)));
       opts.onReceiptLinked?.();
-    } catch (err) {
-      setters.setError(err instanceof Error ? err.message : 'Failed to update receipt item');
-    } finally { setters.setUpdatingItemId(null); }
+    } catch (err) { setters.setError(err instanceof Error ? err.message : 'Failed to update receipt item'); }
+    finally { setters.setUpdatingItemId(null); }
   };
 
   const handleCandidateLinked = async (updated: Receipt) => {
     setters.setReceipts((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
     setters.setStatusMsg(`Linked "${updated.merchant}" to transaction #${updated.transaction_id}.`);
-    await opts.loadData();
-    opts.onReceiptLinked?.();
+    await opts.loadData(); opts.onReceiptLinked?.();
   };
 
-  const handleReconcile = async () => {
-    setters.setReconciling(true); setters.setError(null); setters.setStatusMsg(null);
-    try {
-      const res = await reconcileReceipts();
-      setters.setStatusMsg(`Reconciliation complete: matched ${res.matched_count} receipts with transactions.`);
-      await opts.loadData();
-      opts.onReceiptLinked?.();
-    } catch (err) {
-      setters.setError(err instanceof Error ? err.message : 'Reconciliation failed');
-    } finally { setters.setReconciling(false); }
-  };
-
-  return { handleUploadFile, handleDeleteReceipt, handleReprocessReceipt, handleUpdateReceiptItem, handleCandidateLinked, handleReconcile };
+  return { ...feedMutations, handleUpdateReceiptItem, handleCandidateLinked };
 }
 
 function useProductActions(opts: {
