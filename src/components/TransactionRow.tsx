@@ -11,121 +11,26 @@ import {
   Split,
 } from 'lucide-react';
 import { StatusBadge, TagPillList } from '@yggdrasil-lab/ui';
+import { RECURRENCE_OPTIONS } from '../constants/categories';
+import {
+  buildAmortizedOriginSummary,
+  buildCategoryOptions,
+  deriveRowMeta,
+  EffectiveTransactionSplit,
+  formatFxRateLabel,
+  formatRecurrenceLabel,
+  getFilteredLoans,
+  getSelectableCounterparts,
+  RowMeta,
+} from '../ledger';
 import { Account, LoanItem, ReceiptDocumentType, RecurrenceType, Transaction } from '../types';
-import { isTransferCategory, RECURRENCE_OPTIONS } from '../constants/categories';
 import {
   formatMoney,
   formatSignedTransactionAmount,
   formatTransactionFee,
-  getTransactionNzdAmount,
   isCryptoCurrency,
 } from '../utils/format';
 import { isPayslipDocument } from '../utils/receipts';
-import {
-  areLegacyPositiveOutflowSplits,
-  hasValidSplitLines,
-  resolveParentTransactionAmount,
-} from '../utils/splits';
-
-const RECURRENCE_UNIT_LABELS: Record<string, string> = {
-  annual: 'yr',
-  quarterly: 'qtr',
-  monthly: 'mo',
-  fortnightly: '2w',
-  weekly: 'wk',
-};
-
-/**
- * Ensures the transaction's assigned category remains selectable even when absent
- * from the active spending categories list (e.g. non-expense inflow categories).
- */
-export function buildCategoryOptions(
-  categories: readonly string[],
-  currentCategory: string
-): readonly string[] {
-  const trimmed = (currentCategory || '').trim();
-  if (!trimmed || categories.includes(trimmed)) {
-    return categories;
-  }
-  return [trimmed, ...categories];
-}
-
-function formatRecurrenceLabel(recurrence?: string | null): string {
-  const normalized = (recurrence || '').trim().toLowerCase();
-  if (!normalized) return 'Recurring';
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
-
-function buildAmortizedOriginSummary(
-  tx: Transaction,
-  txCurrency: string,
-  amt: number
-): string {
-  const originUnit = RECURRENCE_UNIT_LABELS[(tx.recurrence || '').trim().toLowerCase()] || 'cycle';
-  if (txCurrency.toUpperCase() !== 'NZD') {
-    const nzd = formatMoney(getTransactionNzdAmount(tx), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return `From ${txCurrency.toUpperCase()} ${Math.abs(amt).toFixed(2)} (${nzd} NZD/${originUnit})`;
-  }
-  const nzd = formatMoney(Math.abs(amt), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `From ${nzd} NZD/${originUnit}`;
-}
-
-function formatFxRateLabel(exchangeRate: number): string {
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: exchangeRate >= 100 ? 2 : 0,
-    maximumFractionDigits: exchangeRate >= 100 ? 2 : 6,
-  }).format(exchangeRate);
-}
-
-function deriveSplitLoanEntries(
-  effectiveSplits: Array<{ id: number; signedAmount: number; loan_id?: number | null; loan_name?: string | null; loan_type?: 'borrowed' | 'lent' | null }>,
-  loans?: LoanItem[]
-) {
-  return effectiveSplits
-    .map((s) => {
-      const matchedLoan = s.loan_id != null ? loans?.find((l) => l.id === s.loan_id) : undefined;
-      const resolvedName = s.loan_name || matchedLoan?.name || null;
-      const resolvedType = s.loan_type || matchedLoan?.loan_type || 'borrowed';
-      if (s.loan_id == null || !resolvedName) return null;
-      return {
-        key: `split-${s.id}`,
-        loanName: resolvedName,
-        loanType: resolvedType,
-        paymentAmount: Math.abs(s.signedAmount),
-        flowSignAmt: s.signedAmount,
-      };
-    })
-    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-}
-
-function deriveRowMeta(tx: Transaction, loans?: LoanItem[], fallbackCurrency?: string) {
-  const amt = Number(tx.amount);
-  const txCurrency = tx.currency || fallbackCurrency || 'NZD';
-  const isAmortized = Boolean(tx.is_amortized_commitment && tx.amortized_period_amount_nzd != null);
-  const hasLinkedTransfer = tx.linked_transaction_id != null;
-  const isSplit = hasValidSplitLines(tx);
-  const legacyPositive = areLegacyPositiveOutflowSplits(tx);
-  const effectiveSplits = isSplit
-    ? (tx.splits || []).map((s) => ({ ...s, signedAmount: legacyPositive ? -Math.abs(Number(s.amount)) : Number(s.amount) }))
-    : [];
-  const isDebtCategory = (tx.category || '').trim().toLowerCase() === 'debt & loans';
-  const showLoanSelector = Boolean(
-    !isSplit && loans && loans.length > 0 && !hasLinkedTransfer && (isDebtCategory || tx.loan_id != null)
-  );
-  return {
-    amt,
-    isDebit: amt < 0,
-    txCurrency,
-    isTransfer: isTransferCategory(tx.category, tx),
-    isAmortized,
-    isExcluded: Boolean(tx.excluded_from_period_budget && !isAmortized),
-    hasLinkedTransfer,
-    isSplit,
-    effectiveSplits,
-    showLoanSelector,
-    splitLoanEntries: isSplit ? deriveSplitLoanEntries(effectiveSplits, loans) : [],
-  };
-}
 
 interface LoanFlowPillProps {
   testId: string;
@@ -194,6 +99,45 @@ const LoanFlowPill: React.FC<LoanFlowPillProps> = ({
   );
 };
 
+const SplitCountBadge: React.FC<{
+  tx: Transaction;
+  splitCount: number;
+  onOpenSplit?: (tx: Transaction) => void;
+}> = ({ tx, splitCount, onOpenSplit }) => {
+  if (onOpenSplit) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenSplit(tx)}
+        data-testid={`open-split-badge-${tx.id}`}
+        className="inline-flex bg-transparent border-none p-0 cursor-pointer"
+        title="Inspect or edit manual transaction splits"
+      >
+        <StatusBadge
+          variant="purple"
+          size="xs"
+          showDot={false}
+          icon={<Split className="w-2.5 h-2.5" />}
+          label={`Split (${splitCount})`}
+          className="hover:bg-violet-500/25 transition-colors whitespace-nowrap"
+        />
+      </button>
+    );
+  }
+  return (
+    <span data-testid={`open-split-badge-${tx.id}`}>
+      <StatusBadge
+        variant="purple"
+        size="xs"
+        showDot={false}
+        icon={<Split className="w-2.5 h-2.5" />}
+        label={`Split (${splitCount})`}
+        className="whitespace-nowrap"
+      />
+    </span>
+  );
+};
+
 interface TransactionSplitAndTransferBadgesProps {
   tx: Transaction;
   isSplit: boolean;
@@ -214,35 +158,7 @@ const TransactionSplitAndTransferBadges: React.FC<TransactionSplitAndTransferBad
 
   return (
     <>
-      {isSplit && (onOpenSplit ? (
-        <button
-          type="button"
-          onClick={() => onOpenSplit(tx)}
-          data-testid={`open-split-badge-${tx.id}`}
-          className="inline-flex bg-transparent border-none p-0 cursor-pointer"
-          title="Inspect or edit manual transaction splits"
-        >
-          <StatusBadge
-            variant="purple"
-            size="xs"
-            showDot={false}
-            icon={<Split className="w-2.5 h-2.5" />}
-            label={`Split (${splitCount})`}
-            className="hover:bg-violet-500/25 transition-colors whitespace-nowrap"
-          />
-        </button>
-      ) : (
-        <span data-testid={`open-split-badge-${tx.id}`}>
-          <StatusBadge
-            variant="purple"
-            size="xs"
-            showDot={false}
-            icon={<Split className="w-2.5 h-2.5" />}
-            label={`Split (${splitCount})`}
-            className="whitespace-nowrap"
-          />
-        </span>
-      ))}
+      {isSplit && <SplitCountBadge tx={tx} splitCount={splitCount} onOpenSplit={onOpenSplit} />}
       {(hasLinkedTransfer || isTransfer) && (
         <span title={transferTitle}>
           <StatusBadge
@@ -349,7 +265,7 @@ const TransactionMerchantHeader: React.FC<TransactionMerchantHeaderProps> = ({
 interface TransactionSplitSummaryProps {
   txId: number;
   txCurrency: string;
-  effectiveSplits: Array<{ id: number; category: string; signedAmount: number; notes?: string | null }>;
+  effectiveSplits: EffectiveTransactionSplit[];
 }
 
 const TransactionSplitSummary: React.FC<TransactionSplitSummaryProps> = ({
@@ -524,12 +440,14 @@ interface TransactionLoanSelectorProps {
 const TransactionLoanSelector: React.FC<TransactionLoanSelectorProps> = ({ tx, amt, loans, updating, onLoanChange }) => {
   const [editingLoanAmt, setEditingLoanAmt] = useState(false);
   const [loanAmtDraft, setLoanAmtDraft] = useState('');
-  const selectableLoans = loans.filter((loan) => (loan.is_active || loan.id === tx.loan_id) && (amt < 0 || loan.loan_type === 'lent' || loan.id === tx.loan_id));
+  const rowSign: 1 | -1 = amt < 0 ? -1 : 1;
+  const currentLoanId = tx.loan_id != null ? String(tx.loan_id) : '';
+  const selectableLoans = getFilteredLoans(loans, rowSign, currentLoanId);
 
   return (
     <>
       <select
-        value={tx.loan_id != null ? String(tx.loan_id) : ''} disabled={updating}
+        value={currentLoanId} disabled={updating}
         aria-label={`Financing loan for ${tx.merchant}`} data-testid={`modal-select-loan-${tx.id}`} title="Link or unlink financing loan repayment"
         onChange={(e) => {
           const nextId = e.target.value ? Number(e.target.value) : null;
@@ -561,6 +479,45 @@ const TransactionLoanSelector: React.FC<TransactionLoanSelectorProps> = ({ tx, a
   );
 };
 
+interface TransactionActionButtonsProps {
+  tx: Transaction;
+  isSplit: boolean;
+  hasLinkedTransfer: boolean;
+  isAmortized: boolean;
+  showCounterpartToggle: boolean;
+  isEditingCounterpart: boolean;
+  ruleBtnTestId?: string;
+  onOpenSplit?: (tx: Transaction) => void;
+  onToggleCounterpart: () => void;
+  onCreateRule: (tx: Transaction) => void;
+}
+
+const TransactionActionButtons: React.FC<TransactionActionButtonsProps> = ({
+  tx, isSplit, hasLinkedTransfer, isAmortized, showCounterpartToggle, isEditingCounterpart,
+  ruleBtnTestId, onOpenSplit, onToggleCounterpart, onCreateRule,
+}) => {
+  const counterpartBtnCls = tx.counterpart_account_id != null || isEditingCounterpart
+    ? 'text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25'
+    : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10';
+  return (
+    <div className="flex items-center gap-0.5 shrink-0">
+      {Boolean(onOpenSplit && !hasLinkedTransfer && !isAmortized) && (
+        <button type="button" onClick={() => onOpenSplit!(tx)} data-testid={`split-tx-btn-${tx.id}`} aria-label={`Split ${tx.merchant}`} title={isSplit ? 'Edit transaction splits' : 'Split transaction across categories or loans'} className={`p-1 rounded transition-colors ${isSplit ? 'text-violet-300 bg-violet-500/15 hover:bg-violet-500/25' : 'text-slate-400 hover:text-violet-300 hover:bg-violet-500/10'}`}>
+          <Split className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {showCounterpartToggle && (
+        <button type="button" onClick={onToggleCounterpart} data-testid={`counterpart-tx-btn-${tx.id}`} aria-label={`Counterpart account for ${tx.merchant}`} aria-expanded={isEditingCounterpart} title={tx.counterpart_account_name ? `Edit counterpart account (${tx.counterpart_account_name})` : 'Assign counterpart account'} className={`p-1 rounded transition-colors ${counterpartBtnCls}`}>
+          <Landmark className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <button type="button" onClick={() => onCreateRule(tx)} data-testid={ruleBtnTestId} aria-label={`Create rule for ${tx.merchant}`} title="Create categorization rule from this transaction" className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
+        <SlidersHorizontal className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+};
+
 interface TransactionCategoryAndActionsProps {
   tx: Transaction;
   categories: readonly string[];
@@ -585,9 +542,6 @@ const TransactionCategoryAndActions: React.FC<TransactionCategoryAndActionsProps
   onCategoryChange, onRecurrenceChange, onOpenSplit, onToggleCounterpart, onCreateRule,
 }) => {
   const categoryOptions = buildCategoryOptions(categories, tx.category);
-  const counterpartBtnCls = tx.counterpart_account_id != null || isEditingCounterpart
-    ? 'text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25'
-    : 'text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/10';
   return (
     <>
       {onRecurrenceChange && (
@@ -609,21 +563,12 @@ const TransactionCategoryAndActions: React.FC<TransactionCategoryAndActionsProps
       {updating ? (
         <RefreshCw className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
       ) : (
-        <div className="flex items-center gap-0.5 shrink-0">
-          {Boolean(onOpenSplit && !hasLinkedTransfer && !isAmortized) && (
-            <button type="button" onClick={() => onOpenSplit!(tx)} data-testid={`split-tx-btn-${tx.id}`} aria-label={`Split ${tx.merchant}`} title={isSplit ? 'Edit transaction splits' : 'Split transaction across categories or loans'} className={`p-1 rounded transition-colors ${isSplit ? 'text-violet-300 bg-violet-500/15 hover:bg-violet-500/25' : 'text-slate-400 hover:text-violet-300 hover:bg-violet-500/10'}`}>
-              <Split className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {showCounterpartToggle && (
-            <button type="button" onClick={onToggleCounterpart} data-testid={`counterpart-tx-btn-${tx.id}`} aria-label={`Counterpart account for ${tx.merchant}`} aria-expanded={isEditingCounterpart} title={tx.counterpart_account_name ? `Edit counterpart account (${tx.counterpart_account_name})` : 'Assign counterpart account'} className={`p-1 rounded transition-colors ${counterpartBtnCls}`}>
-              <Landmark className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button type="button" onClick={() => onCreateRule(tx)} data-testid={ruleBtnTestId} aria-label={`Create rule for ${tx.merchant}`} title="Create categorization rule from this transaction" className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors">
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <TransactionActionButtons
+          tx={tx} isSplit={isSplit} hasLinkedTransfer={hasLinkedTransfer} isAmortized={isAmortized}
+          showCounterpartToggle={showCounterpartToggle} isEditingCounterpart={isEditingCounterpart}
+          ruleBtnTestId={ruleBtnTestId} onOpenSplit={onOpenSplit} onToggleCounterpart={onToggleCounterpart}
+          onCreateRule={onCreateRule}
+        />
       )}
     </>
   );
@@ -662,11 +607,34 @@ const TransactionRowAmount: React.FC<{ tx: Transaction; amt: number; txCurrency:
   return <span data-testid={`tx-amount-${tx.id}`} className={`text-xs font-semibold font-mono whitespace-nowrap ${colorCls}`}>{formatSignedTransactionAmount(amt, txCurrency)}</span>;
 };
 
-function getSelectableCounterparts(tx: Transaction, accounts?: Account[]): Account[] {
-  if (!accounts || accounts.length === 0) return [];
-  return accounts.filter(
-    (acc) => acc.id !== tx.account_id && (acc.is_active || acc.id === tx.counterpart_account_id)
-  );
+const TransactionLoanFlowList: React.FC<{
+  tx: Transaction;
+  meta: RowMeta;
+  loans?: LoanItem[];
+}> = ({ tx, meta, loans }) => {
+  if (meta.splitLoanEntries.length > 0) {
+    return (
+      <>
+        {meta.splitLoanEntries.map((entry, idx) => (
+          <LoanFlowPill key={entry.key} testId={idx === 0 ? `loan-flow-${tx.id}` : `loan-flow-${tx.id}-${idx}`} accountName={tx.account_name} loanName={entry.loanName} loanType={entry.loanType} paymentAmount={entry.paymentAmount} flowSignAmt={entry.flowSignAmt} parentAmt={meta.parentAmt} txCurrency={meta.txCurrency} />
+        ))}
+      </>
+    );
+  }
+  if (!meta.isSplit && Boolean(tx.loan_name)) {
+    const resolvedLoanType = tx.loan_type || loans?.find((l) => l.id === tx.loan_id)?.loan_type || 'borrowed';
+    return (
+      <LoanFlowPill testId={`loan-flow-${tx.id}`} accountName={tx.account_name} loanName={tx.loan_name!} loanType={resolvedLoanType} paymentAmount={tx.loan_payment_amount} flowSignAmt={meta.amt} parentAmt={meta.parentAmt} txCurrency={meta.txCurrency} />
+    );
+  }
+  return null;
+};
+
+function getRowContainerClass(m: RowMeta): string {
+  if (m.isAmortized) return 'bg-sky-950/15 hover:bg-sky-950/25 border-sky-500/30';
+  if (m.isExcluded) return 'bg-card/30 hover:bg-card/50 border-border/60 opacity-80';
+  if (m.hasLinkedTransfer) return 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/30';
+  return 'bg-card/60 hover:bg-card/80 border-border';
 }
 
 /**
@@ -680,29 +648,20 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({
 }) => {
   const [editingCounterpart, setEditingCounterpart] = useState(false);
   const m = deriveRowMeta(tx, loans, fallbackCurrency);
-  const parentAmt = resolveParentTransactionAmount(tx, isCryptoCurrency(m.txCurrency) ? 8 : 2);
-  const resolvedLoanType = tx.loan_type || loans?.find((l) => l.id === tx.loan_id)?.loan_type || 'borrowed';
   const selectableCounterparts = getSelectableCounterparts(tx, accounts);
   const showCounterpartToggle = Boolean(!m.hasLinkedTransfer && !m.isAmortized && onCounterpartChange && selectableCounterparts.length > 0);
   const tags = tx.tags || [];
   const stackControls = m.showLoanSelector || m.isSplit;
-  const containerCls = m.isAmortized ? 'bg-sky-950/15 hover:bg-sky-950/25 border-sky-500/30'
-    : m.isExcluded ? 'bg-card/30 hover:bg-card/50 border-border/60 opacity-80'
-      : m.hasLinkedTransfer ? 'bg-sky-950/20 hover:bg-sky-950/30 border-sky-500/30' : 'bg-card/60 hover:bg-card/80 border-border';
 
   return (
-    <div data-testid={rowTestId} className={`p-3 rounded-xl flex flex-col gap-2 transition-colors border ${containerCls}`}>
+    <div data-testid={rowTestId} className={`p-3 rounded-xl flex flex-col gap-2 transition-colors border ${getRowContainerClass(m)}`}>
       <div className={`flex flex-col ${stackControls ? 'gap-2.5' : 'sm:flex-row sm:items-center justify-between gap-3'}`}>
         <div className="space-y-1 min-w-0 flex-1">
           <TransactionStatusBadges tx={tx} showAccountBadge={showAccountBadge} isAmortized={m.isAmortized} isExcluded={m.isExcluded} isSplit={m.isSplit} hasLinkedTransfer={m.hasLinkedTransfer} isTransfer={m.isTransfer} txCurrency={m.txCurrency} onOpenReceipt={onOpenReceipt} onOpenSplit={onOpenSplit} />
           <TransactionMerchantHeader tx={tx} txCurrency={m.txCurrency} isAmortized={m.isAmortized} onOpenReceipt={onOpenReceipt} />
           {m.isSplit && <TransactionSplitSummary txId={tx.id} txCurrency={m.txCurrency} effectiveSplits={m.effectiveSplits} />}
           <TransactionTransferPills tx={tx} amt={m.amt} txCurrency={m.txCurrency} hasLinkedTransfer={m.hasLinkedTransfer} accounts={accounts} />
-          {m.splitLoanEntries.length > 0 ? m.splitLoanEntries.map((entry, idx) => (
-            <LoanFlowPill key={entry.key} testId={idx === 0 ? `loan-flow-${tx.id}` : `loan-flow-${tx.id}-${idx}`} accountName={tx.account_name} loanName={entry.loanName} loanType={entry.loanType} paymentAmount={entry.paymentAmount} flowSignAmt={entry.flowSignAmt} parentAmt={parentAmt} txCurrency={m.txCurrency} />
-          )) : (!m.isSplit && Boolean(tx.loan_name)) && (
-            <LoanFlowPill testId={`loan-flow-${tx.id}`} accountName={tx.account_name} loanName={tx.loan_name!} loanType={resolvedLoanType} paymentAmount={tx.loan_payment_amount} flowSignAmt={m.amt} parentAmt={parentAmt} txCurrency={m.txCurrency} />
-          )}
+          <TransactionLoanFlowList tx={tx} meta={m} loans={loans} />
           <TagPillList tags={tags} disabled={updating} variant="amber" placeholder="badminton" addButtonTestId={`add-tag-btn-${tx.id}`} inputTestId={`tag-input-${tx.id}`} onAddTag={onTagsChange ? (tag) => onTagsChange(tx.id, [...tags, tag]) : undefined} onRemoveTag={onTagsChange ? (target) => onTagsChange(tx.id, tags.filter((t) => t !== target)) : undefined} className="pt-0.5" />
         </div>
         <div className={stackControls ? 'flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-border/40' : 'flex items-center justify-between sm:justify-end space-x-3 shrink-0'}>
