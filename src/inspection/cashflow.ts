@@ -1,33 +1,25 @@
+import { isTransferCategory } from '../constants/categories';
 import {
+  Account,
   CashflowDirection,
   CategorySpendingReport,
   PeriodType,
   SpendingBreakdownResponse,
+  TagCategoryBreakdownItem,
+  TagSpendingSummaryItem,
   Transaction,
 } from '../types';
-import { getTransactionNzdAmount } from './format';
-
-export interface CashflowPartition {
-  actualTransactions: Transaction[];
-  amortizedCommitments: Transaction[];
-  excludedTransactions: Transaction[];
-}
-
-export interface CashflowSummaryMetrics {
-  headlineTotal: number;
-  itemCount: number;
-  itemSubvalue?: string;
-  thirdMetricLabel: string;
-  thirdMetricValue: number;
-  thirdMetricSubvalue?: string;
-  actualVolume: number;
-  amortizedVolume: number;
-  excludedVolume: number;
-  annualizedShareTotal: number;
-}
+import { getTransactionNzdAmount } from '../utils/format';
+import {
+  AccountCashflowSummary,
+  CashflowPartition,
+  CashflowSummaryMetrics,
+  ComputeCashflowSummaryParams,
+  TagStatsSummary,
+} from './types';
 
 /**
- * Returns true when the Reporting Window applies recurring commitment amortization
+ * Returns true when the reporting window applies recurring commitment amortization
  * and 52-week annualized smoothing (`week`, `last_week`, `month`, `last_month`).
  */
 export function isBudgetCadencePeriod(period: PeriodType): boolean {
@@ -40,7 +32,7 @@ export function isBudgetCadencePeriod(period: PeriodType): boolean {
 }
 
 /**
- * Returns true when the Reporting Window uses weekly cadence (`week`, `last_week`).
+ * Returns true when the reporting window uses weekly cadence (`week`, `last_week`).
  */
 export function isWeeklyBudgetPeriod(period: PeriodType): boolean {
   return period === 'week' || period === 'last_week';
@@ -89,8 +81,8 @@ export function mergeCashflowRegularRows(
 }
 
 /**
- * Splits projected cashflow rows into actual period flows, amortized recurring
- * commitments, and items excluded from the active period budget.
+ * Partitions inspection transactions into active period flows, amortized recurring
+ * commitments, and rows excluded from the active period budget.
  */
 export function partitionCashflowTransactions(
   transactions: Transaction[]
@@ -110,24 +102,6 @@ export function partitionCashflowTransactions(
   }
 
   return { actualTransactions, amortizedCommitments, excludedTransactions };
-}
-
-/**
- * Case-insensitive substring filter across cashflow transaction fields and tags.
- */
-export function matchesCashflowSearch(tx: Transaction, query: string): boolean {
-  const q = query.trim().toLowerCase().replace(/^#+/, '');
-  if (!q) return true;
-  return (
-    tx.merchant.toLowerCase().includes(q) ||
-    tx.category.toLowerCase().includes(q) ||
-    (tx.account_name || '').toLowerCase().includes(q) ||
-    (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
-    (tx.loan_name || '').toLowerCase().includes(q) ||
-    (tx.raw_description || '').toLowerCase().includes(q) ||
-    (tx.recurrence || '').toLowerCase().includes(q) ||
-    (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
-  );
 }
 
 /**
@@ -170,6 +144,20 @@ export function deriveAnnualizedCategories(
   );
 }
 
+function formatCadenceSubvalue(
+  unit: 'wk' | 'mo',
+  amortizedCount: number,
+  annualizedCount: number,
+  showAnnual: boolean
+): string {
+  if (amortizedCount > 0 && showAnnual) {
+    return `${amortizedCount} fixed + ${annualizedCount} 52w`;
+  }
+  if (amortizedCount > 0) return `${amortizedCount} fixed /${unit}`;
+  if (showAnnual) return `${annualizedCount} 52w /${unit}`;
+  return `/${unit} share`;
+}
+
 function buildThirdSummaryMetric(params: {
   activeFlow: CashflowDirection;
   isCadence: boolean;
@@ -196,18 +184,15 @@ function buildThirdSummaryMetric(params: {
   }
   const unit = params.isWeekly ? 'wk' : 'mo';
   const showAnnual = !params.isFiltered && params.annualizedCount > 0;
-  let subvalue = `/${unit} share`;
-  if (params.amortizedCount > 0 && showAnnual) {
-    subvalue = `${params.amortizedCount} fixed + ${params.annualizedCount} 52w`;
-  } else if (params.amortizedCount > 0) {
-    subvalue = `${params.amortizedCount} fixed /${unit}`;
-  } else if (showAnnual) {
-    subvalue = `${params.annualizedCount} 52w /${unit}`;
-  }
   return {
     thirdMetricLabel: 'Fixed + 52w',
     thirdMetricValue: params.amortizedVolume + params.annualizedShareTotal,
-    thirdMetricSubvalue: subvalue,
+    thirdMetricSubvalue: formatCadenceSubvalue(
+      unit,
+      params.amortizedCount,
+      params.annualizedCount,
+      showAnnual
+    ),
   };
 }
 
@@ -238,16 +223,6 @@ function resolveCashflowHeadlineTotal(params: {
   return params.actualVolume;
 }
 
-export interface ComputeCashflowSummaryParams {
-  activeFlow: CashflowDirection;
-  period: PeriodType;
-  selectedCategory: string;
-  totalCount: number;
-  breakdown: SpendingBreakdownResponse | null;
-  partition: CashflowPartition;
-  annualizedCategories: CategorySpendingReport[];
-}
-
 /**
  * Computes the 3-card summary grid metrics and section subtotals for the
  * cashflow inspection dialog, matching Plutus spending projection semantics.
@@ -261,15 +236,24 @@ export function computeCashflowSummary(
   const isWeekly = isWeeklyBudgetPeriod(period);
   const isFiltered = selectedCategory !== 'ALL';
 
-  const actualVolume = partition.actualTransactions.reduce((sum, tx) => sum + getTransactionNzdAmount(tx), 0);
+  const actualVolume = partition.actualTransactions.reduce(
+    (sum, tx) => sum + getTransactionNzdAmount(tx),
+    0
+  );
   const amortizedVolume = partition.amortizedCommitments.reduce(
     (sum, tx) => sum + Math.abs(Number(tx.amortized_period_amount_nzd ?? 0)),
     0
   );
-  const excludedVolume = partition.excludedTransactions.reduce((sum, tx) => sum + getTransactionNzdAmount(tx), 0);
+  const excludedVolume = partition.excludedTransactions.reduce(
+    (sum, tx) => sum + getTransactionNzdAmount(tx),
+    0
+  );
   const annualizedShareTotal =
     activeFlow === 'outflow' && isCadence && !isFiltered
-      ? annualizedCategories.reduce((sum, c) => sum + getAnnualizedPeriodShare(c.total_spend, isWeekly), 0)
+      ? annualizedCategories.reduce(
+          (sum, c) => sum + getAnnualizedPeriodShare(c.total_spend, isWeekly),
+          0
+        )
       : 0;
   const headlineTotal = resolveCashflowHeadlineTotal({
     activeFlow, selectedCategory, breakdown, actualVolume, amortizedVolume, annualizedShareTotal,
@@ -283,10 +267,77 @@ export function computeCashflowSummary(
     annualizedShareTotal,
   });
   const itemSubvalue =
-    partition.amortizedCommitments.length > 0 ? `+ ${partition.amortizedCommitments.length} fixed` : undefined;
+    partition.amortizedCommitments.length > 0
+      ? `+ ${partition.amortizedCommitments.length} fixed`
+      : undefined;
 
   return {
     headlineTotal, itemCount: totalCount, itemSubvalue, ...third,
     actualVolume, amortizedVolume, excludedVolume, annualizedShareTotal,
   };
+}
+
+/**
+ * Aggregates spend, income, and transfers for an inspected account without
+ * double-counting unlinked counterpart rows owned by another account.
+ */
+export function computeAccountCashflow(
+  collapsed: Transaction[],
+  account: Account | null
+): AccountCashflowSummary {
+  let totalSpend = 0;
+  let totalIncome = 0;
+  let totalTransfers = 0;
+  for (const tx of collapsed) {
+    if (account && tx.account_id !== account.id) continue;
+    if (isTransferCategory(tx.category, tx)) {
+      totalTransfers += Math.abs(tx.amount);
+    } else if (tx.amount < 0) {
+      totalSpend += Math.abs(tx.amount);
+    } else if (tx.amount > 0) {
+      totalIncome += tx.amount;
+    }
+  }
+  return { totalSpend, totalIncome, totalTransfers };
+}
+
+/**
+ * Computes spend totals and per-category breakdown pills for a tag inspection scope.
+ */
+export function computeTagStats(
+  loading: boolean,
+  transactionsCount: number,
+  summary: TagSpendingSummaryItem | null,
+  expenseTransactions: Transaction[]
+): TagStatsSummary {
+  if (loading && transactionsCount === 0 && summary) {
+    return {
+      totalSpend: summary.total_spend,
+      txCount: summary.transaction_count,
+      categories: summary.categories,
+    };
+  }
+  const totalSpend = expenseTransactions.reduce(
+    (sum, tx) => sum + getTransactionNzdAmount(tx),
+    0
+  );
+  const roundedTotal = Math.round(totalSpend * 100) / 100;
+  const byCat = new Map<string, { spend: number; count: number }>();
+
+  for (const tx of expenseTransactions) {
+    const cat = (tx.category || 'General').trim() || 'General';
+    const entry = byCat.get(cat) || { spend: 0, count: 0 };
+    entry.spend += getTransactionNzdAmount(tx);
+    entry.count += 1;
+    byCat.set(cat, entry);
+  }
+  const categories: TagCategoryBreakdownItem[] = Array.from(byCat.entries())
+    .map(([category, data]) => ({
+      category,
+      total_spend: Math.round(data.spend * 100) / 100,
+      transaction_count: data.count,
+      percentage: roundedTotal > 0 ? Math.round((data.spend / roundedTotal) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.total_spend - a.total_spend || a.category.localeCompare(b.category));
+  return { totalSpend: roundedTotal, txCount: expenseTransactions.length, categories };
 }

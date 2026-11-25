@@ -228,95 +228,86 @@ for (const { name: platform, options } of PLATFORMS) {
 
           // Change category selector in modal (then restore to Groceries for category inspection step)
           const catSelect = page.locator('[data-testid="modal-select-category-101"] >> visible=true').first();
-          if (await catSelect.isVisible()) {
-            await catSelect.selectOption('Food');
-            await expect(page.locator('text=Moved transaction to "Food" >> visible=true').first()).toBeVisible();
-            await catSelect.selectOption('Groceries');
-            await expect(page.locator('text=Moved transaction to "Groceries" >> visible=true').first()).toBeVisible();
-          }
+          await expect(catSelect).toBeVisible();
+          await catSelect.selectOption('Food');
+          await expect(page.locator('text=Moved transaction to "Food" >> visible=true').first()).toBeVisible();
+          await catSelect.selectOption('Groceries');
+          await expect(page.locator('text=Moved transaction to "Groceries" >> visible=true').first()).toBeVisible();
 
           // Link debit transaction 140 to borrowed loan and inflow 142/143 to lent loan with partial amount
           const loanSelect = page.locator('[data-testid="modal-select-loan-140"] >> visible=true').first();
-          if (await loanSelect.isVisible()) {
-            await loanSelect.scrollIntoViewIfNeeded();
-            await loanSelect.selectOption('1');
-            const loanFlowPill = page.locator('[data-testid="loan-flow-140"] >> visible=true').first();
-            await expect(loanFlowPill).toBeVisible();
-            await expect(loanFlowPill).toContainText('ASB Everyday Checking');
-            await expect(loanFlowPill).toContainText('Toyota Corolla Cross (TFS)');
+          await expect(loanSelect).toBeVisible();
+          await loanSelect.scrollIntoViewIfNeeded();
+          await loanSelect.selectOption('1');
+          const loanFlowPill = page.locator('[data-testid="loan-flow-140"] >> visible=true').first();
+          await expect(loanFlowPill).toBeVisible();
+          await expect(loanFlowPill).toContainText('ASB Everyday Checking');
+          await expect(loanFlowPill).toContainText('Toyota Corolla Cross (TFS)');
 
-            const splitBtn142 = page.locator('[data-testid="split-tx-btn-142"] >> visible=true').first();
-            if (await splitBtn142.isVisible()) {
-              await splitBtn142.scrollIntoViewIfNeeded();
-              await splitBtn142.click();
-              const splitModal = page.locator('[data-testid="transaction-split-modal"] >> visible=true').first();
-              await expect(splitModal).toBeVisible();
-              await page.locator('[data-testid="split-amount-0"] >> visible=true').first().fill('5000');
-              await expect(page.locator('[data-testid="split-amount-1"] >> visible=true').first()).toHaveValue('20.00');
-              await page.locator('[data-testid="split-category-0"] >> visible=true').first().selectOption('Debt & Loans');
-              await page.locator('[data-testid="split-loan-0"] >> visible=true').first().selectOption('2');
-              await page.locator('[data-testid="split-category-1"] >> visible=true').first().selectOption('Family');
-              await page.locator('[data-testid="split-notes-1"] >> visible=true').first().fill('Food split');
-              await page.locator('[data-testid="save-splits-btn"] >> visible=true').first().click();
-              await expect(splitModal).toBeHidden();
+          const splitBtn142 = page.locator('[data-testid="split-tx-btn-142"] >> visible=true').first();
+          await expect(splitBtn142).toBeVisible();
+          await splitBtn142.scrollIntoViewIfNeeded();
+          await splitBtn142.click();
+          const splitModal142 = page.locator('[data-testid="transaction-split-modal"] >> visible=true').first();
+          await expect(splitModal142).toBeVisible();
+          await page.locator('[data-testid="split-amount-0"] >> visible=true').first().fill('5000');
+          await expect(page.locator('[data-testid="split-amount-1"] >> visible=true').first()).toHaveValue('20.00');
+          await page.locator('[data-testid="split-category-0"] >> visible=true').first().selectOption('Debt & Loans');
+          await page.locator('[data-testid="split-loan-0"] >> visible=true').first().selectOption('2');
+          await page.locator('[data-testid="split-category-1"] >> visible=true').first().selectOption('Family');
+          await page.locator('[data-testid="split-notes-1"] >> visible=true').first().fill('Food split');
+          await page.locator('[data-testid="save-splits-btn"] >> visible=true').first().click();
+          await expect(splitModal142).toBeHidden();
 
-              await expect(page.locator('[data-testid="open-split-badge-142"] >> visible=true').first()).toContainText('Split (2)');
-              await expect(page.locator('[data-testid="split-summary-142"] >> visible=true').first()).toContainText('Debt & Loans');
-              const lentFlowPill = page.locator('[data-testid="loan-flow-142"] >> visible=true').first();
-              await expect(lentFlowPill).toBeVisible();
-              await expect(lentFlowPill).toContainText('$5,000.00 of $5,020.00');
-            }
+          await expect(page.locator('[data-testid="open-split-badge-142"] >> visible=true').first()).toContainText('Split (2)');
+          await expect(page.locator('[data-testid="split-summary-142"] >> visible=true').first()).toContainText('Debt & Loans');
+          const lentFlowPill = page.locator('[data-testid="loan-flow-142"] >> visible=true').first();
+          await expect(lentFlowPill).toBeVisible();
+          await expect(lentFlowPill).toContainText('$5,000.00 of $5,020.00');
 
-            const loanSelect143 = page.locator('[data-testid="modal-select-loan-143"] >> visible=true').first();
-            if (await loanSelect143.isVisible()) {
-              await loanSelect143.selectOption('2');
-            }
+          const loanSelect143 = page.locator('[data-testid="modal-select-loan-143"] >> visible=true').first();
+          await expect(loanSelect143).toBeVisible();
+          await loanSelect143.selectOption('2');
 
-            const splitBtn144 = page.locator('[data-testid="split-tx-btn-144"] >> visible=true').first();
-            if (await splitBtn144.isVisible()) {
-              await splitBtn144.scrollIntoViewIfNeeded();
-              await splitBtn144.click();
-              const splitModal = page.locator('[data-testid="transaction-split-modal"] >> visible=true').first();
-              await expect(splitModal).toBeVisible();
-              await expect(page.locator('[data-testid="split-sign-0"] >> visible=true').first()).toHaveText('+');
-              await page.locator('[data-testid="split-amount-0"] >> visible=true').first().fill('+1000');
-              await expect(page.locator('[data-testid="split-sign-1"] >> visible=true').first()).toHaveText('-');
-              await expect(page.locator('[data-testid="split-amount-1"] >> visible=true').first()).toHaveValue('862.83');
-              await expect(page.locator('[data-testid="split-allocation-pill"] >> visible=true').first()).toContainText('Balanced');
-              await page.locator('[data-testid="split-category-0"] >> visible=true').first().selectOption('Debt & Loans');
-              await page.locator('[data-testid="split-loan-0"] >> visible=true').first().selectOption('2');
-              await page.locator('[data-testid="split-category-1"] >> visible=true').first().selectOption('Travel');
-              await page.locator('[data-testid="split-notes-1"] >> visible=true').first().fill('Christchurch trip');
-              await page.waitForTimeout(250);
-              await page.screenshot({
-                path: `screenshots/${platform}/14c-transaction-split-modal.png`,
-              });
-              await page.locator('[data-testid="save-splits-btn"] >> visible=true').first().click();
-              await expect(splitModal).toBeHidden();
+          const splitBtn144 = page.locator('[data-testid="split-tx-btn-144"] >> visible=true').first();
+          await expect(splitBtn144).toBeVisible();
+          await splitBtn144.scrollIntoViewIfNeeded();
+          await splitBtn144.click();
+          const splitModal144 = page.locator('[data-testid="transaction-split-modal"] >> visible=true').first();
+          await expect(splitModal144).toBeVisible();
+          await expect(page.locator('[data-testid="split-sign-0"] >> visible=true').first()).toHaveText('+');
+          await page.locator('[data-testid="split-amount-0"] >> visible=true').first().fill('+1000');
+          await expect(page.locator('[data-testid="split-sign-1"] >> visible=true').first()).toHaveText('-');
+          await expect(page.locator('[data-testid="split-amount-1"] >> visible=true').first()).toHaveValue('862.83');
+          await expect(page.locator('[data-testid="split-allocation-pill"] >> visible=true').first()).toContainText('Balanced');
+          await page.locator('[data-testid="split-category-0"] >> visible=true').first().selectOption('Debt & Loans');
+          await page.locator('[data-testid="split-loan-0"] >> visible=true').first().selectOption('2');
+          await page.locator('[data-testid="split-category-1"] >> visible=true').first().selectOption('Travel');
+          await page.locator('[data-testid="split-notes-1"] >> visible=true').first().fill('Christchurch trip');
+          await page.waitForTimeout(250);
+          await page.screenshot({
+            path: `screenshots/${platform}/14c-transaction-split-modal.png`,
+          });
+          await page.locator('[data-testid="save-splits-btn"] >> visible=true').first().click();
+          await expect(splitModal144).toBeHidden();
 
-              await expect(page.locator('[data-testid="open-split-badge-144"] >> visible=true').first()).toContainText('Split (2)');
-              const splitSummary144 = page.locator('[data-testid="split-summary-144"] >> visible=true').first();
-              await expect(splitSummary144).toContainText('+$1,000.00');
-              await expect(splitSummary144).toContainText('-$862.83');
-              const lentFlowPill144 = page.locator('[data-testid="loan-flow-144"] >> visible=true').first();
-              await expect(lentFlowPill144).toBeVisible();
-              await expect(lentFlowPill144).toContainText('$1,000.00 (from +$137.17 net)');
-              await lentFlowPill144.scrollIntoViewIfNeeded();
-            }
+          await expect(page.locator('[data-testid="open-split-badge-144"] >> visible=true').first()).toContainText('Split (2)');
+          const splitSummary144 = page.locator('[data-testid="split-summary-144"] >> visible=true').first();
+          await expect(splitSummary144).toContainText('+$1,000.00');
+          await expect(splitSummary144).toContainText('-$862.83');
+          const lentFlowPill144 = page.locator('[data-testid="loan-flow-144"] >> visible=true').first();
+          await expect(lentFlowPill144).toBeVisible();
+          await expect(lentFlowPill144).toContainText('$1,000.00 (from +$137.17 net)');
+          await lentFlowPill144.scrollIntoViewIfNeeded();
 
-            await assertLoanRowHasNoOverlap(page, 140);
-            if (await splitBtn142.isVisible()) {
-              await assertLoanRowHasNoOverlap(page, 142);
-            }
-            if (await splitBtn144.isVisible()) {
-              await assertLoanRowHasNoOverlap(page, 144);
-            }
+          await assertLoanRowHasNoOverlap(page, 140);
+          await assertLoanRowHasNoOverlap(page, 142);
+          await assertLoanRowHasNoOverlap(page, 144);
 
-            await page.waitForTimeout(250);
-            await page.screenshot({
-              path: `screenshots/${platform}/14b-loan-flow-pill.png`,
-            });
-          }
+          await page.waitForTimeout(250);
+          await page.screenshot({
+            path: `screenshots/${platform}/14b-loan-flow-pill.png`,
+          });
 
           const doneBtn = page.locator('[data-testid="modal-close-done-btn"] >> visible=true').first();
           if (await doneBtn.isVisible()) {

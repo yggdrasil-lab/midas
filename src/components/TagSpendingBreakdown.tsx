@@ -170,8 +170,9 @@ export const TagSpendingBreakdown: React.FC<TagSpendingBreakdownProps> = ({
   const [selectedTag, setSelectedTag] = useState<TagSpendingSummaryItem | null>(null);
 
   const handleTagDataChanged = () => {
-    void s.loadTagSummary();
+    const tagPromise = s.loadTagSummary();
     onRefreshRunway?.();
+    return tagPromise;
   };
 
   return (
