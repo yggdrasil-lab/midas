@@ -175,6 +175,33 @@ const MidasTabContent: React.FC<{
   }
 };
 
+const MidasStatusBanners: React.FC<{
+  sessionExpired: boolean;
+  needRefresh: boolean;
+  error: string | null;
+  loading: boolean;
+  hasData: boolean;
+  onApplyUpdate: () => void;
+  onDismissUpdate: () => void;
+  onRefresh: () => void;
+}> = ({ sessionExpired, needRefresh, error, loading, hasData, onApplyUpdate, onDismissUpdate, onRefresh }) => (
+  <>
+    {sessionExpired && <div className="mb-6"><SessionExpiredBanner /></div>}
+    {needRefresh && <PwaUpdateBanner onReload={onApplyUpdate} onDismiss={onDismissUpdate} className="mb-6" />}
+    {Boolean(error) && !sessionExpired && (
+      <AlertBanner
+        variant="error"
+        title="Failed to load financial metrics"
+        className="mb-6 p-4 shadow-lg"
+        action={<Button variant="rose" size="sm" onClick={onRefresh} className="shrink-0">Retry</Button>}
+      >
+        {error}
+      </AlertBanner>
+    )}
+    {loading && !hasData && <LoadingState label="Loading runway metrics..." variant="brand" className="py-24" />}
+  </>
+);
+
 /**
  * Root Midas application shell orchestrating runway telemetry, unified responsive
  * tab views, PWA update prompts, and global action modals.
@@ -219,19 +246,16 @@ export const App: React.FC = () => {
         <BottomNav variant="brand" hideOnDesktop tabs={MOBILE_NAV_TABS} activeTab={s.activeTab} onChangeTab={(tabId) => s.setActiveTab(tabId as MidasTab)} className="!bg-card/95 !border-border" />
       }
     >
-      {s.sessionExpired && <div className="mb-6"><SessionExpiredBanner /></div>}
-      {needRefresh && <PwaUpdateBanner onReload={() => void applyUpdate()} onDismiss={dismissUpdate} className="mb-6" />}
-      {Boolean(s.error) && !s.sessionExpired && (
-        <AlertBanner
-          variant="error"
-          title="Failed to load financial metrics"
-          className="mb-6 p-4 shadow-lg"
-          action={<Button variant="rose" size="sm" onClick={() => void s.handleRefresh()} className="shrink-0">Retry</Button>}
-        >
-          {s.error}
-        </AlertBanner>
-      )}
-      {s.loading && !s.data && <LoadingState label="Loading runway metrics..." variant="brand" className="py-24" />}
+      <MidasStatusBanners
+        sessionExpired={s.sessionExpired}
+        needRefresh={needRefresh}
+        error={s.error}
+        loading={s.loading}
+        hasData={Boolean(s.data)}
+        onApplyUpdate={() => void applyUpdate()}
+        onDismissUpdate={dismissUpdate}
+        onRefresh={() => void s.handleRefresh()}
+      />
       {s.data && (
         <>
           {s.data.breakdown.total_liquid_balance === 0 && (
