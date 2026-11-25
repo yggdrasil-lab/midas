@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { Calendar, Clock, Star } from 'lucide-react';
 import {
-  Calendar,
-  Clock,
-  Edit3,
-  Save,
-  Star,
-  TrendingDown,
-  TrendingUp,
-} from 'lucide-react';
-import { Button, CollapsibleSection, StatusBadge, TagPillList, TextArea } from '@yggdrasil-lab/ui';
+  CollapsibleSection,
+  DeltaBadge,
+  InlineNotesEditor,
+  StatusBadge,
+  TagPillList,
+} from '@yggdrasil-lab/ui';
 import { Product } from '../../types';
 import { formatMoney } from '../../utils/format';
 
@@ -23,77 +21,6 @@ interface ProductCardProps {
 const DOMAIN_LABELS: Record<string, string> = {
   '02-skin': 'Skin',
   '01-health': 'Health',
-};
-
-const ProductNotesBox: React.FC<{
-  notes?: string | null;
-  onSaveNote: (note: string) => Promise<void>;
-}> = ({ notes, onSaveNote }) => {
-  const [isEditingNote, setIsEditingNote] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(notes || '');
-  const [savingNote, setSavingNote] = useState(false);
-
-  const submitNote = async () => {
-    setSavingNote(true);
-    try {
-      await onSaveNote(noteDraft);
-      setIsEditingNote(false);
-    } finally {
-      setSavingNote(false);
-    }
-  };
-
-  return (
-    <div className="p-2 bg-card/40 rounded-lg border border-border/50 text-xs space-y-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
-          Notes & Observations
-        </span>
-        {!isEditingNote && (
-          <button
-            type="button"
-            onClick={() => {
-              setNoteDraft(notes || '');
-              setIsEditingNote(true);
-            }}
-            className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center space-x-1"
-          >
-            <Edit3 className="w-3 h-3" />
-            <span>{notes ? 'Edit' : 'Add Note'}</span>
-          </button>
-        )}
-      </div>
-
-      {isEditingNote ? (
-        <div className="space-y-2 pt-1">
-          <TextArea
-            value={noteDraft}
-            onChange={(e) => setNoteDraft(e.target.value)}
-            placeholder="Write impressions, skin reactions, usage instructions, or reasons for buying..."
-            rows={2}
-            variant="amber"
-            className="min-h-[68px]"
-          />
-          <div className="flex justify-end space-x-2">
-            <Button variant="outline" size="xs" onClick={() => setIsEditingNote(false)} disabled={savingNote}>
-              Cancel
-            </Button>
-            <Button variant="primary" size="xs" onClick={() => void submitNote()} disabled={savingNote} icon={<Save className="w-3 h-3" />}>
-              {savingNote ? 'Saving...' : 'Save Note'}
-            </Button>
-          </div>
-        </div>
-      ) : notes ? (
-        <p className="text-slate-300 text-xs italic bg-background/40 p-2 rounded border border-border/40">
-          {notes}
-        </p>
-      ) : (
-        <p className="text-slate-500 text-[11px] italic">
-          No notes added yet. Click &quot;Add Note&quot; to keep observations about this product.
-        </p>
-      )}
-    </div>
-  );
 };
 
 const ProductPriceHistory: React.FC<{ priceHistory: NonNullable<Product['price_history']> }> = ({
@@ -141,61 +68,49 @@ const ProductPriceHistory: React.FC<{ priceHistory: NonNullable<Product['price_h
 const ProductCardHeader: React.FC<{
   product: Product;
   onToggleFavorite: (product: Product) => Promise<void>;
-}> = ({ product: p, onToggleFavorite }) => {
-  const hasPriceChange = p.price_change_latest !== null && p.price_change_latest !== undefined;
-  const isPriceUp = hasPriceChange && (p.price_change_latest || 0) > 0;
-  const isPriceDown = hasPriceChange && (p.price_change_latest || 0) < 0;
-  const priceDeltaLabel = isPriceUp
-    ? `+${p.price_change_latest?.toFixed(2)}`
-    : p.price_change_latest?.toFixed(2) ?? '';
-
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <div className="space-y-0.5 min-w-0">
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={() => void onToggleFavorite(p)}
-            className="text-slate-400 hover:text-amber-400 transition-colors"
-            title={p.is_favorite ? 'Favorited' : 'Add to favorites'}
-          >
-            <Star className={`w-3.5 h-3.5 ${p.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-slate-500'}`} />
-          </button>
-          <span className="text-xs font-bold text-slate-100 truncate">{p.name}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
-          {p.brand && <span className="font-semibold text-slate-300">{p.brand}</span>}
-          {p.volume_ml && <span className="text-slate-400">({p.volume_ml})</span>}
-          {p.domain && (
-            <StatusBadge variant="warning" size="xs" showDot={false} label={DOMAIN_LABELS[p.domain] || p.domain} />
-          )}
-          <span>• {p.purchase_count} {p.purchase_count === 1 ? 'purchase' : 'purchases'}</span>
-        </div>
+}> = ({ product: p, onToggleFavorite }) => (
+  <div className="flex items-start justify-between gap-2">
+    <div className="space-y-0.5 min-w-0">
+      <div className="flex items-center space-x-2">
+        <button
+          type="button"
+          onClick={() => void onToggleFavorite(p)}
+          className="text-slate-400 hover:text-amber-400 transition-colors"
+          title={p.is_favorite ? 'Favorited' : 'Add to favorites'}
+        >
+          <Star className={`w-3.5 h-3.5 ${p.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-slate-500'}`} />
+        </button>
+        <span className="text-xs font-bold text-slate-100 truncate">{p.name}</span>
       </div>
-
-      <div className="text-right shrink-0 space-y-0.5">
-        <div className="flex items-center justify-end space-x-1.5">
-          <span className="text-xs font-bold font-mono text-slate-100">
-            {formatMoney(p.latest_price ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          {hasPriceChange && (
-            <StatusBadge
-              variant={isPriceUp ? 'error' : isPriceDown ? 'success' : 'idle'}
-              size="xs"
-              showDot={false}
-              className="font-mono font-semibold"
-              icon={isPriceUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-              label={priceDeltaLabel}
-            />
-          )}
-        </div>
-        <div className="text-[10px] text-slate-400 font-mono">
-          Total Spent: {formatMoney(p.total_spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </div>
+      <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
+        {p.brand && <span className="font-semibold text-slate-300">{p.brand}</span>}
+        {p.volume_ml && <span className="text-slate-400">({p.volume_ml})</span>}
+        {p.domain && (
+          <StatusBadge variant="warning" size="xs" showDot={false} label={DOMAIN_LABELS[p.domain] || p.domain} />
+        )}
+        <span>• {p.purchase_count} {p.purchase_count === 1 ? 'purchase' : 'purchases'}</span>
       </div>
     </div>
-  );
-};
+
+    <div className="text-right shrink-0 space-y-0.5">
+      <div className="flex items-center justify-end space-x-1.5">
+        <span className="text-xs font-bold font-mono text-slate-100">
+          {formatMoney(p.latest_price ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+        <DeltaBadge
+          value={p.price_change_latest}
+          precision={2}
+          positiveIsGood={false}
+          showZero
+          size="xs"
+        />
+      </div>
+      <div className="text-[10px] text-slate-400 font-mono">
+        Total Spent: {formatMoney(p.total_spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </div>
+    </div>
+  </div>
+);
 
 /**
  * Product inventory card with favorite star, tags, longevity projection,
@@ -239,7 +154,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       )}
     </div>
 
-    <ProductNotesBox notes={p.notes} onSaveNote={(note) => onSaveNote(p.id, note)} />
+    <InlineNotesEditor
+      title="Notes & Observations"
+      value={p.notes}
+      onSave={(note) => onSaveNote(p.id, note)}
+      emptyText='No notes added yet. Click "Add Note" to keep observations about this product.'
+      placeholder="Write impressions, skin reactions, usage instructions, or reasons for buying..."
+      variant="amber"
+      rows={2}
+    />
 
     {p.price_history && p.price_history.length > 0 && (
       <ProductPriceHistory priceHistory={p.price_history} />

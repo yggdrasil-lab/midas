@@ -8,7 +8,7 @@ import {
   UploadCloud,
   Wrench,
 } from 'lucide-react';
-import { GlassCard, SectionHeader, SegmentedControl, SelectableCard, StatusBadge } from '@yggdrasil-lab/ui';
+import { ActionTile, GlassCard, SectionHeader, SegmentedControl, StatusBadge } from '@yggdrasil-lab/ui';
 import { CategoryManagerModal } from './CategoryManagerModal';
 import { RulesManagerModal } from './RulesManagerModal';
 import { ScenarioSimulator } from './ScenarioSimulator';
@@ -58,36 +58,36 @@ const ToolsActionGrid: React.FC<{
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-      <SelectableCard
+      <ActionTile
         data-testid="receipts-hub-btn"
         onClick={onOpenReceiptsClick}
         variant="amber"
-        icon={<ReceiptIcon className="w-4 h-4 text-amber-400" />}
+        icon={<ReceiptIcon className="w-4 h-4" />}
         title="Receipts & Longevity"
         subtitle={receiptsSubtitle}
         badge={receiptsBadge}
       />
-      <SelectableCard
+      <ActionTile
         data-testid="rules-manager-btn"
         onClick={onOpenRules}
         variant="blue"
-        icon={<SlidersHorizontal className="w-4 h-4 text-sky-400" />}
+        icon={<SlidersHorizontal className="w-4 h-4" />}
         title="Categorization Rules"
         subtitle="Auto-tag merchants & recurrence"
       />
-      <SelectableCard
+      <ActionTile
         data-testid="data-controls-btn"
         onClick={onOpenDataClick}
         variant="emerald"
-        icon={<ArrowRightLeft className="w-4 h-4 text-emerald-400" />}
+        icon={<ArrowRightLeft className="w-4 h-4" />}
         title="Transfer & FX Reconciliation"
         subtitle="Pair internal transfers & cross-currency legs"
       />
-      <SelectableCard
+      <ActionTile
         data-testid="categories-manager-btn"
         onClick={onOpenCategories}
         variant="purple"
-        icon={<FolderTree className="w-4 h-4 text-violet-400" />}
+        icon={<FolderTree className="w-4 h-4" />}
         title="Categories & Hierarchy"
         subtitle="Manage classes & 52w spread"
       />

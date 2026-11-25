@@ -3,10 +3,31 @@ name: Deploy Midas
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install & Build
+        run: npm ci && npm run build
+
   deploy:
+    needs: verify
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, gaia]
 
     steps:

@@ -103,6 +103,85 @@ function resolveTotalPct(cat: CategoryBurnEstimate, totalAvgBurn: number): numbe
   return Math.round((cat.average_weekly_burn / totalAvgBurn) * 1000) / 10;
 }
 
+const RecurringLoanRow: React.FC<{ loan: LoanItem }> = ({ loan }) => (
+  <div
+    data-testid="recurring-loan-row"
+    className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/25 space-y-1.5"
+  >
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        <div className="text-xs font-semibold text-amber-200 truncate">{loan.name}</div>
+        <div className="text-[10px] text-slate-400 mt-0.5">
+          {loan.lender} | {loan.payments_remaining}/{loan.term_months} payments left | Starts {loan.start_date}
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-xs font-bold font-mono text-amber-300">
+          {formatMoney(loan.weekly_payment_equivalent)}/wk
+        </div>
+        <div className="text-[10px] font-mono text-slate-400">
+          {formatMoney(loan.monthly_payment)}/mo
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const RecurringCommitmentRow: React.FC<{ item: RecurringCommitmentItem }> = ({ item }) => {
+  const isForeign = item.currency !== 'NZD';
+  return (
+    <div
+      data-testid="recurring-commitment-row"
+      className="p-3 rounded-xl bg-card/70 border border-border/80 space-y-1.5"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex items-start gap-2">
+          <div className="p-1.5 rounded-lg bg-background border border-border/70 shrink-0 mt-0.5">
+            {getCategoryIcon(item.category)}
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-slate-100 truncate">{item.merchant}</div>
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+              <span>{item.category}</span>
+              <span>|</span>
+              <span className="inline-flex items-center gap-1 capitalize text-sky-300">
+                <Repeat className="w-2.5 h-2.5" />
+                {item.recurrence}
+              </span>
+              <span>|</span>
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="w-2.5 h-2.5" />
+                {item.last_charged_date}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="text-xs font-bold font-mono text-sky-300">
+            {formatMoney(item.weekly_nzd)}/wk
+          </div>
+          <div className="text-[10px] font-mono text-slate-400">
+            {formatMoney(item.monthly_nzd)}/mo
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50 text-[10px]">
+        <span className="text-slate-400 font-mono">
+          Charge: {item.currency} {item.original_amount.toFixed(2)}
+          {isForeign ? ` (${formatMoney(item.amount_nzd)} NZD)` : ''}
+        </span>
+        <StatusBadge
+          variant="info"
+          size="xs"
+          showDot={false}
+          className="font-mono"
+          label={`${item.percentage_of_recurring.toFixed(1)}% of fixed`}
+        />
+      </div>
+    </div>
+  );
+};
+
 const RecurringCommitmentsSection: React.FC<{
   commitments: RecurringCommitmentItem[];
   loans: LoanItem[];
@@ -148,89 +227,14 @@ const RecurringCommitmentsSection: React.FC<{
               <span>Structured Loans &amp; Financing ({loans.length})</span>
             </div>
             {loans.map((loan) => (
-              <div
-                key={`loan-${loan.id}`}
-                data-testid="recurring-loan-row"
-                className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/25 space-y-1.5"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-amber-200 truncate">
-                      {loan.name}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      {loan.lender} | {loan.payments_remaining}/{loan.term_months} payments left | Starts {loan.start_date}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xs font-bold font-mono text-amber-300">
-                      {formatMoney(loan.weekly_payment_equivalent)}/wk
-                    </div>
-                    <div className="text-[10px] font-mono text-slate-400">
-                      {formatMoney(loan.monthly_payment)}/mo
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <RecurringLoanRow key={`loan-${loan.id}`} loan={loan} />
             ))}
           </div>
         )}
 
-        {commitments.map((item) => {
-          const isForeign = item.currency !== 'NZD';
-          return (
-            <div
-              key={`${item.transaction_id}-${item.merchant}`}
-              data-testid="recurring-commitment-row"
-              className="p-3 rounded-xl bg-card/70 border border-border/80 space-y-1.5"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex items-start gap-2">
-                  <div className="p-1.5 rounded-lg bg-background border border-border/70 shrink-0 mt-0.5">
-                    {getCategoryIcon(item.category)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-slate-100 truncate">
-                      {item.merchant}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
-                      <span>{item.category}</span>
-                      <span>|</span>
-                      <span className="inline-flex items-center gap-1 capitalize text-sky-300">
-                        <Repeat className="w-2.5 h-2.5" />
-                        {item.recurrence}
-                      </span>
-                      <span>|</span>
-                      <span className="inline-flex items-center gap-1">
-                        <Calendar className="w-2.5 h-2.5" />
-                        {item.last_charged_date}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <div className="text-xs font-bold font-mono text-sky-300">
-                    {formatMoney(item.weekly_nzd)}/wk
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400">
-                    {formatMoney(item.monthly_nzd)}/mo
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50 text-[10px]">
-                <span className="text-slate-400 font-mono">
-                  Charge: {item.currency} {item.original_amount.toFixed(2)}
-                  {isForeign ? ` (${formatMoney(item.amount_nzd)} NZD)` : ''}
-                </span>
-                <span className="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-sky-300 font-mono">
-                  {item.percentage_of_recurring.toFixed(1)}% of fixed
-                </span>
-              </div>
-            </div>
-          );
-        })}
+        {commitments.map((item) => (
+          <RecurringCommitmentRow key={`${item.transaction_id}-${item.merchant}`} item={item} />
+        ))}
       </div>
     </div>
   );
@@ -282,9 +286,13 @@ const VariableCategoryRow: React.FC<VariableCategoryRowProps> = ({
         </div>
         <div className="text-right shrink-0 space-y-0.5">
           <div className="flex items-center justify-end gap-1.5">
-            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold font-mono text-amber-300">
-              {varPct.toFixed(1)}%
-            </span>
+            <StatusBadge
+              variant="warning"
+              size="xs"
+              showDot={false}
+              className="font-mono font-bold"
+              label={`${varPct.toFixed(1)}%`}
+            />
             <span className="text-xs font-bold font-mono text-slate-100">
               {formatMoney(cat.variable_weekly_burn)}/wk
             </span>

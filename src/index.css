@@ -22,11 +22,3 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-/* Safe area insets for iOS devices */
-.pb-safe {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
-}
-.pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-}
