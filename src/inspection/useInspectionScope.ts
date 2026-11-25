@@ -25,6 +25,16 @@ export type InspectionScopeRequest =
     }
   | { kind: 'tag'; tag: string; period: PeriodType };
 
+export interface ScopeLoadContext {
+  request: InspectionScopeRequest;
+  transport: ScopeTransport;
+  requestIdRef: { current: number };
+  loadedScopeKeyRef: { current: string | null };
+  setTransactions: (items: Transaction[]) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+}
+
 async function fetchScopeTransactions(
   request: InspectionScopeRequest,
   transport: ScopeTransport
@@ -60,7 +70,7 @@ function getScopeFallbackError(kind: InspectionScopeRequest['kind']): string {
   return 'Failed to load tagged transactions';
 }
 
-function buildScopeKey(request: InspectionScopeRequest): string {
+export function buildScopeKey(request: InspectionScopeRequest): string {
   if (request.kind === 'account') {
     return `account:${request.accountId ?? 'all'}:${request.period}:${request.startDate ?? ''}:${request.endDate ?? ''}`;
   }
@@ -77,6 +87,36 @@ function isRunnableScopeRequest(request: InspectionScopeRequest): boolean {
 }
 
 /**
+ * Executes a scope load or post-mutation reload. Only enters `loading = true`
+ * on initial load or when switching to a different scope key so post-mutation
+ * reloads keep existing rows mounted in the DOM.
+ */
+export async function runScopeLoad(ctx: ScopeLoadContext): Promise<void> {
+  if (!isRunnableScopeRequest(ctx.request)) return;
+  const scopeKey = buildScopeKey(ctx.request);
+  const reqId = ++ctx.requestIdRef.current;
+  const isInitialOrScopeSwitch = ctx.loadedScopeKeyRef.current !== scopeKey;
+  if (isInitialOrScopeSwitch) ctx.setLoading(true);
+  ctx.setError(null);
+  try {
+    const items = await fetchScopeTransactions(ctx.request, ctx.transport);
+    if (ctx.requestIdRef.current === reqId) {
+      ctx.loadedScopeKeyRef.current = scopeKey;
+      ctx.setTransactions(items);
+    }
+  } catch (err) {
+    if (ctx.requestIdRef.current === reqId) {
+      console.error(err);
+      ctx.setError(err instanceof Error ? err.message : getScopeFallbackError(ctx.request.kind));
+    }
+  } finally {
+    if (ctx.requestIdRef.current === reqId && isInitialOrScopeSwitch) {
+      ctx.setLoading(false);
+    }
+  }
+}
+
+/**
  * Shared scope loader for `account`, `category`, and `tag` inspection modals.
  * Collapses paired transfers once and exposes an awaitable `reload()` promise.
  */
@@ -90,30 +130,31 @@ export function useInspectionScope(params: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  const loadedScopeKeyRef = useRef<string | null>(null);
   const requestRef = useRef(request);
   requestRef.current = request;
   const scopeKey = buildScopeKey(request);
 
-  const reload = useCallback(async () => {
-    const active = requestRef.current;
-    if (!isRunnableScopeRequest(active)) return;
-    const reqId = ++requestIdRef.current;
-    setLoading(true);
-    setError(null);
-    try {
-      const items = await fetchScopeTransactions(active, transport);
-      if (requestIdRef.current === reqId) setRawTransactions(items);
-    } catch (err) {
-      if (requestIdRef.current === reqId) {
-        setError(err instanceof Error ? err.message : getScopeFallbackError(active.kind));
-      }
-    } finally {
-      if (requestIdRef.current === reqId) setLoading(false);
-    }
-  }, [scopeKey, transport]);
+  const reload = useCallback(
+    () =>
+      runScopeLoad({
+        request: requestRef.current,
+        transport,
+        requestIdRef,
+        loadedScopeKeyRef,
+        setTransactions: setRawTransactions,
+        setLoading,
+        setError,
+      }),
+    [scopeKey, transport]
+  );
 
   useEffect(() => {
-    if (enabled) void reload();
+    if (!enabled) {
+      loadedScopeKeyRef.current = null;
+      return;
+    }
+    void reload();
   }, [enabled, reload]);
 
   const transactions = useMemo(() => collapseInspectionTransfers(rawTransactions), [rawTransactions]);
@@ -186,8 +227,9 @@ function useCashflowPagination(opts: {
   includeSubclasses: boolean;
   transport: Pick<InspectionTransport, 'fetchFlowTransactions'>;
   onInflowCategories: (categories: string[]) => void;
+  onFirstPageLoaded: () => void;
 }) {
-  const { period, startDate, endDate, includeSubclasses, transport, onInflowCategories } = opts;
+  const { period, startDate, endDate, includeSubclasses, transport, onInflowCategories, onFirstPageLoaded } = opts;
   return useOffsetPagination<Transaction, CashflowPageQuery>({
     initialLoading: true,
     fetcher: async (query, offset) => {
@@ -206,8 +248,11 @@ function useCashflowPagination(opts: {
     },
     mergeItems: mergeLoadedCashflowItems,
     onPageLoaded: (res, query, offset) => {
-      if (offset === 0 && query.flow === 'inflow' && query.category === 'ALL') {
-        onInflowCategories(deriveInflowCategoryChips(res.items));
+      if (offset === 0) {
+        onFirstPageLoaded();
+        if (query.flow === 'inflow' && query.category === 'ALL') {
+          onInflowCategories(deriveInflowCategoryChips(res.items));
+        }
       }
     },
     formatError: (err, query) =>
@@ -230,11 +275,17 @@ export function useCashflowInspectionScope(options: {
   const { initialFlow, period, startDate, endDate, includeSubclasses, transport = plutusTransport } = options;
   const sel = useCashflowSelectionState(initialFlow);
   const [inflowCategories, setInflowCategories] = useState<string[]>([]);
+  const cashflowKey = `${sel.activeFlow}:${sel.selectedCategory}:${period}:${startDate ?? ''}:${endDate ?? ''}:${includeSubclasses}`;
+  const cashflowKeyRef = useRef(cashflowKey);
+  cashflowKeyRef.current = cashflowKey;
+  const loadedCashflowKeyRef = useRef<string | null>(null);
 
   useEffect(() => { setInflowCategories([]); }, [period, startDate, endDate, includeSubclasses]);
 
   const pagination = useCashflowPagination({
-    period, startDate, endDate, includeSubclasses, transport, onInflowCategories: setInflowCategories,
+    period, startDate, endDate, includeSubclasses, transport,
+    onInflowCategories: setInflowCategories,
+    onFirstPageLoaded: () => { loadedCashflowKeyRef.current = cashflowKeyRef.current; },
   });
 
   useEffect(() => {
@@ -258,7 +309,9 @@ export function useCashflowInspectionScope(options: {
     state: {
       activeFlow: sel.activeFlow, selectedCategory: sel.selectedCategory, searchQuery: sel.searchQuery,
       transactions: collapsedTransactions, totalCount: pagination.totalCount, loadedRegularCount,
-      inflowCategories, loading: pagination.loading, loadingMore: pagination.loadingMore, error: pagination.error,
+      inflowCategories,
+      loading: pagination.loading && loadedCashflowKeyRef.current !== cashflowKey,
+      loadingMore: pagination.loadingMore, error: pagination.error,
     },
     actions: {
       setSearchQuery: sel.setSearchQuery, setError: pagination.setError, switchFlow: sel.switchFlow,

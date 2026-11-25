@@ -42,8 +42,17 @@ export type {
   TransactionMutationHandle,
   UseTransactionMutationOptions,
 } from './mutation';
-export { useCashflowInspectionScope, useInspectionScope } from './useInspectionScope';
-export type { InspectionScopeRequest, ScopeTransport } from './useInspectionScope';
+export {
+  buildScopeKey,
+  runScopeLoad,
+  useCashflowInspectionScope,
+  useInspectionScope,
+} from './useInspectionScope';
+export type {
+  InspectionScopeRequest,
+  ScopeLoadContext,
+  ScopeTransport,
+} from './useInspectionScope';
 export type {
   AccountCashflowSummary,
   CashflowPartition,

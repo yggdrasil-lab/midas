@@ -67,11 +67,12 @@ export function matchesInspectionSearch(tx: Transaction, query: string): boolean
  */
 export function matchesInspectionCategory(
   tx: Transaction,
-  categoryFilter: string | null
+  categoryFilter: string | null,
+  defaultCategory = ''
 ): boolean {
   if (!categoryFilter) return true;
   const target = categoryFilter.toLowerCase();
-  if ((tx.category || '').toLowerCase() === target) return true;
+  if ((tx.category || defaultCategory).toLowerCase() === target) return true;
   return (tx.splits || []).some((split) => split.category.toLowerCase() === target);
 }
 
@@ -100,17 +101,12 @@ export function filterTagTransactions(
   selectedCategory: string,
   searchQuery: string
 ): Transaction[] {
-  const target = selectedCategory === 'ALL' ? null : selectedCategory.toLowerCase();
-  return collapsed.filter((tx) => {
-    if (target) {
-      const parentCategory = (tx.category || 'General').toLowerCase();
-      const splitMatch = (tx.splits || []).some(
-        (split) => split.category.toLowerCase() === target
-      );
-      if (parentCategory !== target && !splitMatch) return false;
-    }
-    return matchesInspectionSearch(tx, searchQuery);
-  });
+  const categoryFilter = selectedCategory === 'ALL' ? null : selectedCategory;
+  return collapsed.filter(
+    (tx) =>
+      matchesInspectionCategory(tx, categoryFilter, 'General') &&
+      matchesInspectionSearch(tx, searchQuery)
+  );
 }
 
 /**
