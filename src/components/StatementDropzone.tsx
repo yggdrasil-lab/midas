@@ -51,6 +51,103 @@ function resolveParsedAccountMetadata(
   };
 }
 
+function useStatementDropzoneActions(opts: {
+  file: File | null;
+  institution: string;
+  selectedAccountId: number | undefined;
+  tier: Account['tier'];
+  accountType: string;
+  accountName: string;
+  currency: string;
+  closingBalanceInput: string;
+  institutionsList: InstitutionInfo[];
+  parseResult: StatementParseResult | null;
+  onSuccess: () => void;
+  setters: {
+    setInstitution: (v: string) => void;
+    setTier: (v: Account['tier']) => void;
+    setAccountType: (v: string) => void;
+    setAccountName: (v: string) => void;
+    setCurrency: (v: string) => void;
+    setLoading: (v: boolean) => void;
+    setError: (v: string | null) => void;
+    setParseResult: (v: StatementParseResult | null) => void;
+    setClosingBalanceInput: (v: string) => void;
+    setCommitted: (v: boolean) => void;
+    setFile: (v: File | null) => void;
+  };
+}) {
+  const { setters } = opts;
+
+  const handleInstitutionChange = (val: string) => {
+    setters.setInstitution(val);
+    const match = opts.institutionsList.find((i) => i.name.toLowerCase() === val.toLowerCase());
+    if (match) {
+      setters.setTier(match.default_tier);
+      setters.setAccountType(match.default_type);
+      if (match.currency) setters.setCurrency(match.currency);
+    }
+  };
+
+  const handleParse = async () => {
+    if (!opts.file) return;
+    setters.setLoading(true);
+    setters.setCommitted(false);
+    setters.setError(null);
+    try {
+      const res = await uploadStatement(opts.file, 'auto', false);
+      const meta = resolveParsedAccountMetadata(res, opts.institutionsList);
+      setters.setParseResult(res);
+      setters.setInstitution(meta.detected);
+      setters.setTier(meta.tier);
+      setters.setAccountType(meta.accountType);
+      setters.setCurrency(meta.currency);
+      setters.setClosingBalanceInput(meta.closingBalanceInput);
+      setters.setAccountName(meta.accountName);
+    } catch (err) {
+      console.error(err);
+      setters.setError(err instanceof Error ? err.message : 'Statement parsing failed');
+    } finally {
+      setters.setLoading(false);
+    }
+  };
+
+  const handleConfirmAndSync = async () => {
+    if (!opts.file) return;
+    setters.setLoading(true);
+    setters.setError(null);
+    try {
+      const balanceToCommit =
+        opts.closingBalanceInput.trim() !== '' ? parseFloat(opts.closingBalanceInput) : undefined;
+      const targetInst = opts.institution.trim() || opts.parseResult?.institution || 'Unknown';
+      await uploadStatement(
+        opts.file, targetInst, true, opts.selectedAccountId, balanceToCommit,
+        opts.tier, opts.accountType, opts.accountName.trim() || undefined, opts.currency.trim() || undefined
+      );
+      setters.setCommitted(true);
+      opts.onSuccess();
+    } catch (err) {
+      console.error(err);
+      setters.setError(err instanceof Error ? err.message : 'Failed to commit statement to ledger');
+    } finally {
+      setters.setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setters.setFile(null);
+    setters.setParseResult(null);
+    setters.setInstitution('');
+    setters.setAccountName('');
+    setters.setCurrency('NZD');
+    setters.setClosingBalanceInput('');
+    setters.setCommitted(false);
+    setters.setError(null);
+  };
+
+  return { handleInstitutionChange, handleParse, handleConfirmAndSync, handleReset };
+}
+
 function useStatementDropzoneState(onSuccess: () => void) {
   const [file, setFile] = useState<File | null>(null);
   const [institution, setInstitution] = useState('');
@@ -76,79 +173,46 @@ function useStatementDropzoneState(onSuccess: () => void) {
       .catch((err) => console.warn('Could not load accounts or institutions:', err));
   }, []);
 
-  const handleInstitutionChange = (val: string) => {
-    setInstitution(val);
-    const match = institutionsList.find((i) => i.name.toLowerCase() === val.toLowerCase());
-    if (match) {
-      setTier(match.default_tier);
-      setAccountType(match.default_type);
-      if (match.currency) setCurrency(match.currency);
-    }
-  };
-
-  const handleParse = async () => {
-    if (!file) return;
-    setLoading(true);
-    setCommitted(false);
-    setError(null);
-    try {
-      const res = await uploadStatement(file, 'auto', false);
-      const meta = resolveParsedAccountMetadata(res, institutionsList);
-      setParseResult(res);
-      setInstitution(meta.detected);
-      setTier(meta.tier);
-      setAccountType(meta.accountType);
-      setCurrency(meta.currency);
-      setClosingBalanceInput(meta.closingBalanceInput);
-      setAccountName(meta.accountName);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Statement parsing failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfirmAndSync = async () => {
-    if (!file) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const balanceToCommit =
-        closingBalanceInput.trim() !== '' ? parseFloat(closingBalanceInput) : undefined;
-      const targetInst = institution.trim() || parseResult?.institution || 'Unknown';
-      await uploadStatement(
-        file, targetInst, true, selectedAccountId, balanceToCommit,
-        tier, accountType, accountName.trim() || undefined, currency.trim() || undefined
-      );
-      setCommitted(true);
-      onSuccess();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to commit statement to ledger');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReset = () => {
-    setFile(null);
-    setParseResult(null);
-    setInstitution('');
-    setAccountName('');
-    setCurrency('NZD');
-    setClosingBalanceInput('');
-    setCommitted(false);
-    setError(null);
-  };
+  const actions = useStatementDropzoneActions({
+    file, institution, selectedAccountId, tier, accountType, accountName,
+    currency, closingBalanceInput, institutionsList, parseResult, onSuccess,
+    setters: {
+      setInstitution, setTier, setAccountType, setAccountName, setCurrency,
+      setLoading, setError, setParseResult, setClosingBalanceInput, setCommitted, setFile,
+    },
+  });
 
   return {
     file, setFile, institution, accounts, institutionsList, selectedAccountId, setSelectedAccountId,
     tier, setTier, accountType, setAccountType, accountName, setAccountName, currency, setCurrency,
-    loading, error, parseResult, closingBalanceInput, setClosingBalanceInput, committed,
-    handleInstitutionChange, handleParse, handleConfirmAndSync, handleReset,
+    loading, error, parseResult, closingBalanceInput, setClosingBalanceInput, committed, ...actions,
   };
 }
+
+const StatementTargetAccountSelect: React.FC<{
+  accounts: Account[];
+  selectedAccountId: number | undefined;
+  onChange: (id: number | undefined) => void;
+}> = ({ accounts, selectedAccountId, onChange }) => {
+  if (accounts.length === 0) return null;
+  return (
+    <SelectInput
+      value={selectedAccountId !== undefined ? String(selectedAccountId) : ''}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
+      variant="amber"
+      containerClassName="w-auto"
+      className="min-h-[38px] py-1.5 text-xs text-slate-300"
+      aria-label="Target statement account"
+    >
+      <option value="">Auto-detect / Create New Account</option>
+      {accounts.map((acc) => (
+        <option key={acc.id} value={acc.id}>
+          Link to: {acc.name} ({acc.institution})
+        </option>
+      ))}
+    </SelectInput>
+  );
+};
 
 /**
  * Bank and brokerage statement dropzone with dry-run inspection,
@@ -165,26 +229,11 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         icon={<UploadCloud className="w-4 h-4" />}
         variant="emerald"
         actions={
-          s.accounts.length > 0 ? (
-            <SelectInput
-              value={s.selectedAccountId !== undefined ? String(s.selectedAccountId) : ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                s.setSelectedAccountId(val ? Number(val) : undefined);
-              }}
-              variant="amber"
-              containerClassName="w-auto"
-              className="min-h-[38px] py-1.5 text-xs text-slate-300"
-              aria-label="Target statement account"
-            >
-              <option value="">Auto-detect / Create New Account</option>
-              {s.accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  Link to: {acc.name} ({acc.institution})
-                </option>
-              ))}
-            </SelectInput>
-          ) : undefined
+          <StatementTargetAccountSelect
+            accounts={s.accounts}
+            selectedAccountId={s.selectedAccountId}
+            onChange={s.setSelectedAccountId}
+          />
         }
       />
 

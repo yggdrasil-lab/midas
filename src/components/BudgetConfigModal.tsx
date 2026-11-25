@@ -30,6 +30,64 @@ interface BudgetConfigModalProps {
   initialCategory?: string;
 }
 
+const AvgBurnDetailsList: React.FC<{
+  avgBurnReport: AverageBurnReportResponse;
+  variableCats: AverageBurnReportResponse['categories'];
+  recurringItems: NonNullable<AverageBurnReportResponse['recurring_commitments']>;
+  getVarPct: (catVar: number, preset?: number) => number;
+  onPopulateCategory: (cat: string, period: BudgetPeriod, weeklyBurn: number) => void;
+}> = ({ avgBurnReport, variableCats, recurringItems, getVarPct, onPopulateCategory }) => (
+  <CollapsibleSection variant="inline" title="View % & fixed" className="pt-1 border-t-0">
+    <div className="space-y-2 max-h-44 overflow-y-auto pr-1 text-[11px]">
+      {variableCats.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-slate-400">
+            Variable Share ({avgBurnReport.lookback_weeks}w avg)
+          </div>
+          {variableCats.map((cat) => (
+            <button
+              key={cat.category}
+              type="button"
+              onClick={() => onPopulateCategory(cat.category, cat.budget_period || 'monthly', cat.average_weekly_burn)}
+              className="w-full text-left flex items-center justify-between gap-2 px-2 py-1 rounded bg-background/60 border border-border/60 hover:border-amber-500/40 cursor-pointer"
+            >
+              <span className="text-slate-200 truncate">
+                {cat.category}
+                {cat.budget_period === 'annual' ? ' (52w)' : ''}
+              </span>
+              <span className="font-mono text-slate-300 shrink-0">
+                <span className="text-amber-300">
+                  {getVarPct(cat.variable_weekly_burn, cat.variable_percentage).toFixed(1)}%
+                </span>{' '}
+                ({formatMoney(cat.variable_weekly_burn)}/wk
+                {cat.recurring_weekly_burn > 0 ? ` + ${formatMoney(cat.recurring_weekly_burn)} fixed` : ''})
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {recurringItems.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wider text-slate-400">
+            Active Fixed Commitments ({recurringItems.length})
+          </div>
+          {recurringItems.map((item) => (
+            <div key={`${item.transaction_id}-${item.merchant}`} className="flex items-center justify-between gap-2 px-2 py-1 rounded bg-background/60 border border-border/60">
+              <span className="text-slate-200 truncate">
+                {item.merchant} <span className="text-slate-400">({item.recurrence})</span>
+              </span>
+              <span className="font-mono text-sky-300 shrink-0">
+                {formatMoney(item.weekly_nzd)}/wk ({item.percentage_of_recurring.toFixed(1)}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </CollapsibleSection>
+);
+
 const AvgBurnSummaryCard: React.FC<{
   avgBurnReport: AverageBurnReportResponse;
   loading: boolean;
@@ -57,14 +115,7 @@ const AvgBurnSummaryCard: React.FC<{
             {formatMoney(avgBurnReport.variable_weekly_burn)}/wk variable
           </div>
         </div>
-        <Button
-          variant="amber"
-          size="xs"
-          loading={loading}
-          icon={<Calculator className="w-3.5 h-3.5" />}
-          onClick={onSyncFromBurn}
-          data-testid="sync-from-burn-btn"
-        >
+        <Button variant="amber" size="xs" loading={loading} icon={<Calculator className="w-3.5 h-3.5" />} onClick={onSyncFromBurn} data-testid="sync-from-burn-btn">
           Use Avg Burn
         </Button>
       </div>
@@ -76,9 +127,7 @@ const AvgBurnSummaryCard: React.FC<{
               <button
                 key={cat.category}
                 type="button"
-                onClick={() =>
-                  onPopulateCategory(cat.category, cat.budget_period || 'monthly', cat.average_weekly_burn)
-                }
+                onClick={() => onPopulateCategory(cat.category, cat.budget_period || 'monthly', cat.average_weekly_burn)}
                 className="px-1.5 py-0.5 rounded bg-background/70 border border-border/70 hover:border-amber-500/40 text-[10px] text-slate-200 font-mono transition-colors"
                 title="Tap to populate budget rule"
               >
@@ -86,61 +135,13 @@ const AvgBurnSummaryCard: React.FC<{
               </button>
             ))}
           </div>
-
-          <CollapsibleSection variant="inline" title="View % & fixed" className="pt-1 border-t-0">
-            <div className="space-y-2 max-h-44 overflow-y-auto pr-1 text-[11px]">
-              {variableCats.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                    Variable Share ({avgBurnReport.lookback_weeks}w avg)
-                  </div>
-                  {variableCats.map((cat) => (
-                    <button
-                      key={cat.category}
-                      type="button"
-                      onClick={() =>
-                        onPopulateCategory(cat.category, cat.budget_period || 'monthly', cat.average_weekly_burn)
-                      }
-                      className="w-full text-left flex items-center justify-between gap-2 px-2 py-1 rounded bg-background/60 border border-border/60 hover:border-amber-500/40 cursor-pointer"
-                    >
-                      <span className="text-slate-200 truncate">
-                        {cat.category}
-                        {cat.budget_period === 'annual' ? ' (52w)' : ''}
-                      </span>
-                      <span className="font-mono text-slate-300 shrink-0">
-                        <span className="text-amber-300">
-                          {getVarPct(cat.variable_weekly_burn, cat.variable_percentage).toFixed(1)}%
-                        </span>{' '}
-                        ({formatMoney(cat.variable_weekly_burn)}/wk
-                        {cat.recurring_weekly_burn > 0 ? ` + ${formatMoney(cat.recurring_weekly_burn)} fixed` : ''})
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {recurringItems.length > 0 && (
-                <div className="space-y-1">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400">
-                    Active Fixed Commitments ({recurringItems.length})
-                  </div>
-                  {recurringItems.map((item) => (
-                    <div
-                      key={`${item.transaction_id}-${item.merchant}`}
-                      className="flex items-center justify-between gap-2 px-2 py-1 rounded bg-background/60 border border-border/60"
-                    >
-                      <span className="text-slate-200 truncate">
-                        {item.merchant} <span className="text-slate-400">({item.recurrence})</span>
-                      </span>
-                      <span className="font-mono text-sky-300 shrink-0">
-                        {formatMoney(item.weekly_nzd)}/wk ({item.percentage_of_recurring.toFixed(1)}%)
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CollapsibleSection>
+          <AvgBurnDetailsList
+            avgBurnReport={avgBurnReport}
+            variableCats={variableCats}
+            recurringItems={recurringItems}
+            getVarPct={getVarPct}
+            onPopulateCategory={onPopulateCategory}
+          />
         </div>
       )}
     </div>
@@ -363,6 +364,57 @@ const ConfiguredBudgetRulesList: React.FC<{
   </div>
 );
 
+function convertRateFields(source: 'weekly' | 'monthly' | 'annual', val: string) {
+  const num = parseFloat(val);
+  const valid = !isNaN(num) && num > 0;
+  if (source === 'weekly') {
+    return {
+      weekly: val,
+      monthly: valid ? ((num * 52) / 12).toFixed(2) : '',
+      annual: valid ? (num * 52).toFixed(2) : '',
+    };
+  }
+  if (source === 'monthly') {
+    return {
+      weekly: valid ? ((num * 12) / 52).toFixed(2) : '',
+      monthly: val,
+      annual: valid ? (num * 12).toFixed(2) : '',
+    };
+  }
+  return {
+    weekly: valid ? (num / 52).toFixed(2) : '',
+    monthly: valid ? (num / 12).toFixed(2) : '',
+    annual: val,
+  };
+}
+
+function useBudgetMutations(
+  loadRules: () => Promise<void>,
+  onSuccess: () => void,
+  setLoading: (v: boolean) => void,
+  setError: (v: string | null) => void,
+  setSuccessMsg: (v: string | null) => void
+) {
+  return async (fn: () => Promise<void>, fallbackErr: string, msg?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await fn();
+      if (msg) {
+        setSuccessMsg(msg);
+        setTimeout(() => setSuccessMsg(null), 3000);
+      }
+      await loadRules();
+      onSuccess();
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : fallbackErr);
+    } finally {
+      setLoading(false);
+    }
+  };
+}
+
 function useBudgetConfigState(isOpen: boolean, initialCategory: string | undefined, onSuccess: () => void) {
   const [rules, setRules] = useState<BudgetRule[]>([]);
   const [avgBurnReport, setAvgBurnReport] = useState<AverageBurnReportResponse | null>(null);
@@ -387,10 +439,7 @@ function useBudgetConfigState(isOpen: boolean, initialCategory: string | undefin
     setLoading(true);
     setError(null);
     try {
-      const [res, burnReport] = await Promise.all([
-        fetchBudgetRules(),
-        fetchAverageBurn(12).catch(() => null),
-      ]);
+      const [res, burnReport] = await Promise.all([fetchBudgetRules(), fetchAverageBurn(12).catch(() => null)]);
       setRules(res);
       setAvgBurnReport(burnReport);
       if (initialCategory) {
@@ -410,55 +459,19 @@ function useBudgetConfigState(isOpen: boolean, initialCategory: string | undefin
     if (isOpen) void loadRules();
   }, [isOpen, initialCategory]);
 
-  const flashSuccess = (msg: string) => {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(null), 3000);
-  };
-
-  const runMutation = async (fn: () => Promise<void>, fallbackErr: string, msg?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await fn();
-      if (msg) flashSuccess(msg);
-      await loadRules();
-      onSuccess();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : fallbackErr);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleWeeklyChange = (val: string) => {
-    setWeeklyLimit(val);
-    const num = parseFloat(val);
-    setMonthlyLimit(!isNaN(num) && num > 0 ? ((num * 52) / 12).toFixed(2) : '');
-    setAnnualLimit(!isNaN(num) && num > 0 ? (num * 52).toFixed(2) : '');
-  };
-
-  const handleMonthlyChange = (val: string) => {
-    setMonthlyLimit(val);
-    const num = parseFloat(val);
-    setWeeklyLimit(!isNaN(num) && num > 0 ? ((num * 12) / 52).toFixed(2) : '');
-    setAnnualLimit(!isNaN(num) && num > 0 ? (num * 12).toFixed(2) : '');
-  };
-
-  const handleAnnualChange = (val: string) => {
-    setAnnualLimit(val);
-    const num = parseFloat(val);
-    setWeeklyLimit(!isNaN(num) && num > 0 ? (num / 52).toFixed(2) : '');
-    setMonthlyLimit(!isNaN(num) && num > 0 ? (num / 12).toFixed(2) : '');
+  const runMutation = useBudgetMutations(loadRules, onSuccess, setLoading, setError, setSuccessMsg);
+  const applyRate = (source: 'weekly' | 'monthly' | 'annual', val: string) => {
+    const next = convertRateFields(source, val);
+    setWeeklyLimit(next.weekly);
+    setMonthlyLimit(next.monthly);
+    setAnnualLimit(next.annual);
   };
 
   const handleSave = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!category.trim()) return setError('Please select or enter a category name');
     const [w, m, a] = [parseFloat(weeklyLimit), parseFloat(monthlyLimit), parseFloat(annualLimit)];
-    if (isNaN(w) && isNaN(m) && isNaN(a)) {
-      return setError('Please provide a weekly, monthly, or annual budget limit');
-    }
+    if (isNaN(w) && isNaN(m) && isNaN(a)) return setError('Please provide a weekly, monthly, or annual budget limit');
     await runMutation(
       () => upsertBudgetRule(category.trim(), isNaN(w) ? undefined : w, isNaN(m) ? undefined : m, isNaN(a) ? undefined : a, budgetPeriod).then(() => undefined),
       'Failed to save budget target',
@@ -468,8 +481,10 @@ function useBudgetConfigState(isOpen: boolean, initialCategory: string | undefin
 
   return {
     rules, avgBurnReport, loading, error, successMsg, category, setCategory,
-    weeklyLimit, monthlyLimit, annualLimit, budgetPeriod, setBudgetPeriod,
-    syncFromRule, handleWeeklyChange, handleMonthlyChange, handleAnnualChange,
+    weeklyLimit, monthlyLimit, annualLimit, budgetPeriod, setBudgetPeriod, syncFromRule,
+    handleWeeklyChange: (val: string) => applyRate('weekly', val),
+    handleMonthlyChange: (val: string) => applyRate('monthly', val),
+    handleAnnualChange: (val: string) => applyRate('annual', val),
     handleSave,
     handleToggleRulePeriod: (rule: BudgetRule) => {
       const nextPeriod: BudgetPeriod = rule.budget_period === 'annual' ? 'monthly' : 'annual';

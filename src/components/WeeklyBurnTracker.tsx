@@ -5,6 +5,7 @@ import {
   Button,
   GlassCard,
   SummaryMetricGrid,
+  SummaryMetricItem,
 } from '@yggdrasil-lab/ui';
 import { RunwayData } from '../types';
 import { formatMoney } from '../utils/format';
@@ -14,6 +15,46 @@ interface WeeklyBurnTrackerProps {
   data: RunwayData;
   onQuickLogClick: () => void;
   onBudgetChanged?: () => void;
+}
+
+function buildBurnMetricItems(
+  avgWeeklyBurn: number,
+  recurringBurn: number,
+  variableBurn: number,
+  onOpen: (tab: BurnBreakdownTab) => void
+): SummaryMetricItem[] {
+  return [
+    {
+      id: 'avg-burn',
+      label: 'Avg Burn/wk',
+      value: formatMoney(avgWeeklyBurn),
+      subvalue: '4w trailing + fixed',
+      valueClassName: 'font-mono text-amber-300 text-xs sm:text-sm',
+      variant: 'amber',
+      testId: 'inspect-avg-burn-btn',
+      onClick: () => onOpen('variable'),
+    },
+    {
+      id: 'recurring-burn',
+      label: 'Recurring',
+      value: formatMoney(recurringBurn),
+      subvalue: <span className="text-sky-400/90">View fixed</span>,
+      valueClassName: 'font-mono text-sky-300 text-xs sm:text-sm',
+      variant: 'blue',
+      testId: 'inspect-recurring-burn-btn',
+      onClick: () => onOpen('recurring'),
+    },
+    {
+      id: 'variable-burn',
+      label: 'Variable',
+      value: formatMoney(variableBurn),
+      subvalue: <span className="text-amber-400/90">Category %</span>,
+      valueClassName: 'font-mono text-slate-200 text-xs sm:text-sm',
+      variant: 'amber',
+      testId: 'inspect-variable-burn-btn',
+      onClick: () => onOpen('variable'),
+    },
+  ];
 }
 
 /**
@@ -28,15 +69,12 @@ export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({
 }) => {
   const { weekly_spend_this_week, weekly_budget_target, time_banked_this_week, breakdown } = data;
   const isBankedPositive = time_banked_this_week >= 0;
-
   const [breakdownOpen, setBreakdownOpen] = useState(false);
   const [breakdownTab, setBreakdownTab] = useState<BurnBreakdownTab>('recurring');
 
   const avgWeeklyBurn = breakdown.weekly_burn_rate;
   const recurringBurn = breakdown.recurring_weekly_burn ?? 0;
-  const variableBurn =
-    breakdown.variable_weekly_burn ?? Math.max(0, avgWeeklyBurn - recurringBurn);
-
+  const variableBurn = breakdown.variable_weekly_burn ?? Math.max(0, avgWeeklyBurn - recurringBurn);
   const openBreakdown = (tab: BurnBreakdownTab) => {
     setBreakdownTab(tab);
     setBreakdownOpen(true);
@@ -57,12 +95,7 @@ export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({
           isPositive: isBankedPositive,
         }}
         action={
-          <Button
-            variant="amber"
-            size="sm"
-            icon={<PlusCircle className="w-3.5 h-3.5" />}
-            onClick={onQuickLogClick}
-          >
+          <Button variant="amber" size="sm" icon={<PlusCircle className="w-3.5 h-3.5" />} onClick={onQuickLogClick}>
             Quick Log
           </Button>
         }
@@ -71,40 +104,8 @@ export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({
       <GlassCard className="!p-3 space-y-2">
         <SummaryMetricGrid
           columns={3}
-          items={[
-            {
-              id: 'avg-burn',
-              label: 'Avg Burn/wk',
-              value: formatMoney(avgWeeklyBurn),
-              subvalue: '4w trailing + fixed',
-              valueClassName: 'font-mono text-amber-300 text-xs sm:text-sm',
-              variant: 'amber',
-              testId: 'inspect-avg-burn-btn',
-              onClick: () => openBreakdown('variable'),
-            },
-            {
-              id: 'recurring-burn',
-              label: 'Recurring',
-              value: formatMoney(recurringBurn),
-              subvalue: <span className="text-sky-400/90">View fixed</span>,
-              valueClassName: 'font-mono text-sky-300 text-xs sm:text-sm',
-              variant: 'blue',
-              testId: 'inspect-recurring-burn-btn',
-              onClick: () => openBreakdown('recurring'),
-            },
-            {
-              id: 'variable-burn',
-              label: 'Variable',
-              value: formatMoney(variableBurn),
-              subvalue: <span className="text-amber-400/90">Category %</span>,
-              valueClassName: 'font-mono text-slate-200 text-xs sm:text-sm',
-              variant: 'amber',
-              testId: 'inspect-variable-burn-btn',
-              onClick: () => openBreakdown('variable'),
-            },
-          ]}
+          items={buildBurnMetricItems(avgWeeklyBurn, recurringBurn, variableBurn, openBreakdown)}
         />
-
         <div className="text-[10px] text-slate-400 text-center">
           Tap any metric to view recurring items &amp; category %
         </div>

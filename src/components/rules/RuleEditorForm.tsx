@@ -303,6 +303,43 @@ const RuleTargetAccountFields: React.FC<{
   </>
 );
 
+const RuleEditorFooter: React.FC<{
+  applyRetroactively: boolean;
+  isEditing: boolean;
+  saving: boolean;
+  onToggleRetroactive: (checked: boolean) => void;
+  onCancel: () => void;
+}> = ({ applyRetroactively, isEditing, saving, onToggleRetroactive, onCancel }) => (
+  <>
+    <div className="pt-1 flex items-center space-x-2">
+      <input
+        type="checkbox"
+        id="apply_retroactively_check"
+        checked={applyRetroactively}
+        onChange={(e) => onToggleRetroactive(e.target.checked)}
+        className="rounded border-border text-amber-500 focus:ring-amber-500"
+      />
+      <label htmlFor="apply_retroactively_check" className="text-[11px] text-slate-300 cursor-pointer">
+        Apply immediately to historical transactions matching this rule
+      </label>
+    </div>
+
+    <div className="flex items-center justify-end space-x-2 pt-2 border-t border-border/50">
+      <Button variant="outline" size="xs" onClick={onCancel} type="button">Cancel</Button>
+      <Button
+        variant="primary"
+        size="xs"
+        type="submit"
+        disabled={saving}
+        data-testid="save-rule-btn"
+        icon={saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+      >
+        {isEditing ? 'Update Rule' : 'Save Rule'}
+      </Button>
+    </div>
+  </>
+);
+
 /**
  * Form for creating or updating an Outlook-style transaction categorization rule.
  */
@@ -324,7 +361,6 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
   const selectableAccounts = accounts.filter((acc) => acc.is_active || String(acc.id) === draft.counterpartAccountId);
   const selectableLoans = loans.filter((loan) => loan.is_active || String(loan.id) === draft.loanId);
   const showLoanTarget = draft.targetCategory.trim().toLowerCase() === 'debt & loans' || Boolean(draft.loanId);
-
   const updateField: UpdateFieldFn = (key, value) => onChange((prev) => ({ ...prev, [key]: value }));
 
   return (
@@ -362,32 +398,13 @@ export const RuleEditorForm: React.FC<RuleEditorFormProps> = ({
         />
       </div>
 
-      <div className="pt-1 flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="apply_retroactively_check"
-          checked={draft.applyRetroactively}
-          onChange={(e) => updateField('applyRetroactively', e.target.checked)}
-          className="rounded border-border text-amber-500 focus:ring-amber-500"
-        />
-        <label htmlFor="apply_retroactively_check" className="text-[11px] text-slate-300 cursor-pointer">
-          Apply immediately to historical transactions matching this rule
-        </label>
-      </div>
-
-      <div className="flex items-center justify-end space-x-2 pt-2 border-t border-border/50">
-        <Button variant="outline" size="xs" onClick={onCancel} type="button">Cancel</Button>
-        <Button
-          variant="primary"
-          size="xs"
-          type="submit"
-          disabled={saving}
-          data-testid="save-rule-btn"
-          icon={saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-        >
-          {isEditing ? 'Update Rule' : 'Save Rule'}
-        </Button>
-      </div>
+      <RuleEditorFooter
+        applyRetroactively={draft.applyRetroactively}
+        isEditing={isEditing}
+        saving={saving}
+        onToggleRetroactive={(checked) => updateField('applyRetroactively', checked)}
+        onCancel={onCancel}
+      />
     </form>
   );
 };

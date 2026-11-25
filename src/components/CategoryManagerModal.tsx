@@ -75,6 +75,49 @@ const CategoryDeleteConfirmBox: React.FC<{
   </div>
 );
 
+const CategoryRowActions: React.FC<{
+  cat: CategoryItem;
+  slug: string;
+  isAnnual: boolean;
+  isToggling: boolean;
+  onToggleAmortize: (cat: CategoryItem) => void;
+  onEdit: (cat: CategoryItem) => void;
+  onStartDelete: (cat: CategoryItem) => void;
+}> = ({ cat, slug, isAnnual, isToggling, onToggleAmortize, onEdit, onStartDelete }) => (
+  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+    <button
+      type="button"
+      data-testid={`toggle-amortize-${slug}`}
+      disabled={isToggling}
+      onClick={() => onToggleAmortize(cat)}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-medium transition-colors cursor-pointer ${
+        isAnnual ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-background/80 border-border text-slate-300 hover:border-amber-500/40 hover:text-amber-300'
+      } ${isToggling ? 'opacity-60 cursor-wait' : ''}`}
+    >
+      <Calendar className="w-3 h-3" />
+      <span>{isAnnual ? '52w On' : 'Spread 52w'}</span>
+    </button>
+    <button
+      type="button"
+      data-testid={`edit-category-${slug}`}
+      aria-label={`Edit ${cat.name}`}
+      onClick={() => onEdit(cat)}
+      className="p-1.5 rounded-lg bg-background/80 border border-border text-slate-300 hover:text-amber-300 hover:border-amber-500/40 transition-colors cursor-pointer"
+    >
+      <Pencil className="w-3.5 h-3.5" />
+    </button>
+    <button
+      type="button"
+      data-testid={`delete-category-${slug}`}
+      aria-label={`Delete ${cat.name}`}
+      onClick={() => onStartDelete(cat)}
+      className="p-1.5 rounded-lg bg-background/80 border border-border text-slate-300 hover:text-rose-300 hover:border-rose-500/40 transition-colors cursor-pointer"
+    >
+      <Trash2 className="w-3.5 h-3.5" />
+    </button>
+  </div>
+);
+
 const CategoryRowCard: React.FC<{
   cat: CategoryItem;
   isChild: boolean;
@@ -105,9 +148,7 @@ const CategoryRowCard: React.FC<{
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-start gap-2.5 min-w-0">
-          <div className="p-1.5 rounded-lg bg-background border border-border/70 shrink-0 mt-0.5">
-            {getCategoryIcon(cat.name)}
-          </div>
+          <div className="p-1.5 rounded-lg bg-background border border-border/70 shrink-0 mt-0.5">{getCategoryIcon(cat.name)}</div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-100">{cat.name}</span>
@@ -123,49 +164,13 @@ const CategoryRowCard: React.FC<{
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-          <button
-            type="button"
-            data-testid={`toggle-amortize-${slug}`}
-            disabled={isToggling}
-            onClick={() => onToggleAmortize(cat)}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-medium transition-colors cursor-pointer ${
-              isAnnual ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-background/80 border-border text-slate-300 hover:border-amber-500/40 hover:text-amber-300'
-            } ${isToggling ? 'opacity-60 cursor-wait' : ''}`}
-          >
-            <Calendar className="w-3 h-3" />
-            <span>{isAnnual ? '52w On' : 'Spread 52w'}</span>
-          </button>
-          <button
-            type="button"
-            data-testid={`edit-category-${slug}`}
-            aria-label={`Edit ${cat.name}`}
-            onClick={() => onEdit(cat)}
-            className="p-1.5 rounded-lg bg-background/80 border border-border text-slate-300 hover:text-amber-300 hover:border-amber-500/40 transition-colors cursor-pointer"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            data-testid={`delete-category-${slug}`}
-            aria-label={`Delete ${cat.name}`}
-            onClick={() => onStartDelete(cat)}
-            className="p-1.5 rounded-lg bg-background/80 border border-border text-slate-300 hover:text-rose-300 hover:border-rose-500/40 transition-colors cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <CategoryRowActions cat={cat} slug={slug} isAnnual={isAnnual} isToggling={isToggling} onToggleAmortize={onToggleAmortize} onEdit={onEdit} onStartDelete={onStartDelete} />
       </div>
 
       {isConfirming && (
         <CategoryDeleteConfirmBox
-          cat={cat}
-          reassignChoices={reassignChoices}
-          reassignTarget={reassignTarget}
-          isDeleting={isDeleting}
-          onReassignChange={onReassignChange}
-          onConfirm={() => onConfirmDelete(cat)}
-          onCancel={onCancelDelete}
+          cat={cat} reassignChoices={reassignChoices} reassignTarget={reassignTarget} isDeleting={isDeleting}
+          onReassignChange={onReassignChange} onConfirm={() => onConfirmDelete(cat)} onCancel={onCancelDelete}
         />
       )}
     </div>
@@ -333,6 +338,109 @@ function filterCategoryTree(activeItems: CategoryItem[], searchQuery: string) {
   return { filteredGroups, systemCats };
 }
 
+function useCategoryMutations(opts: {
+  editingCategory: CategoryItem | null;
+  draftName: string;
+  draftParentId: string;
+  draftAmortize: AmortizeSelection;
+  reassignTarget: string;
+  activeItems: CategoryItem[];
+  syncAll: () => Promise<void>;
+  setters: {
+    setError: (v: string | null) => void;
+    setStatusMsg: (v: string | null) => void;
+    setSaving: (v: boolean) => void;
+    setIsFormOpen: (v: boolean) => void;
+    setEditingCategory: (v: CategoryItem | null) => void;
+    setTogglingId: (v: number | null) => void;
+    setConfirmDeleteId: (v: number | null) => void;
+    setReassignTarget: (v: string) => void;
+    setDeletingId: (v: number | null) => void;
+  };
+}) {
+  const { setters } = opts;
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = opts.draftName.trim();
+    if (!cleaned) return setters.setError('Category name is required.');
+    const parentId = opts.draftParentId ? Number(opts.draftParentId) : null;
+    const amortizePeriod: AmortizePeriod = opts.draftAmortize === 'annual' ? 'annual' : null;
+    setters.setSaving(true);
+    setters.setError(null);
+    setters.setStatusMsg(null);
+    try {
+      if (opts.editingCategory) {
+        await updateCategory(opts.editingCategory.id, {
+          name: cleaned,
+          parent_id: opts.editingCategory.child_count > 0 ? opts.editingCategory.parent_id : parentId,
+          amortize_period: amortizePeriod,
+        });
+        setters.setStatusMsg(`Updated category "${cleaned}"`);
+      } else {
+        await createCategory({ name: cleaned, parent_id: parentId, amortize_period: amortizePeriod });
+        setters.setStatusMsg(`Created category "${cleaned}"`);
+      }
+      setters.setIsFormOpen(false);
+      setters.setEditingCategory(null);
+      await opts.syncAll();
+    } catch (err) {
+      console.error(err);
+      setters.setError(err instanceof Error ? err.message : 'Failed to save category');
+    } finally {
+      setters.setSaving(false);
+    }
+  };
+
+  const handleToggleAmortize = async (cat: CategoryItem) => {
+    const nextAmortize: AmortizePeriod = cat.amortize_period === 'annual' ? null : 'annual';
+    setters.setTogglingId(cat.id);
+    setters.setError(null);
+    setters.setStatusMsg(null);
+    try {
+      await updateCategory(cat.id, { amortize_period: nextAmortize });
+      setters.setStatusMsg(nextAmortize === 'annual' ? `Enabled 52w annual spread for "${cat.name}"` : `Disabled 52w annual spread for "${cat.name}"`);
+      await opts.syncAll();
+    } catch (err) {
+      console.error(err);
+      setters.setError(err instanceof Error ? err.message : 'Failed to update 52w spread setting');
+    } finally {
+      setters.setTogglingId(null);
+    }
+  };
+
+  const startDeleteFlow = (cat: CategoryItem) => {
+    const fallback =
+      cat.parent_name && opts.activeItems.some((c) => c.name === cat.parent_name && c.id !== cat.id)
+        ? cat.parent_name
+        : opts.activeItems.find((c) => c.name === 'General' && c.id !== cat.id)?.name ||
+          opts.activeItems.find((c) => c.id !== cat.id)?.name || 'General';
+    setters.setReassignTarget(fallback);
+    setters.setConfirmDeleteId(cat.id);
+    setters.setError(null);
+    setters.setStatusMsg(null);
+  };
+
+  const handleConfirmDelete = async (cat: CategoryItem) => {
+    setters.setDeletingId(cat.id);
+    setters.setError(null);
+    setters.setStatusMsg(null);
+    try {
+      const res = await deleteCategory(cat.id, opts.reassignTarget);
+      setters.setConfirmDeleteId(null);
+      setters.setStatusMsg(`Deleted "${res.deleted_name}" (reassigned ${res.transactions_reassigned} txns and ${res.rules_reassigned} rules to "${res.reassigned_to}")`);
+      await opts.syncAll();
+    } catch (err) {
+      console.error(err);
+      setters.setError(err instanceof Error ? err.message : 'Failed to delete category');
+    } finally {
+      setters.setDeletingId(null);
+    }
+  };
+
+  return { handleSaveCategory, handleToggleAmortize, startDeleteFlow, handleConfirmDelete };
+}
+
 function useCategoryManagerState(isOpen: boolean, onCategoriesChanged?: () => void) {
   const { refreshCategories } = useCategories();
   const [items, setItems] = useState<CategoryItem[]>([]);
@@ -377,12 +485,12 @@ function useCategoryManagerState(isOpen: boolean, onCategoriesChanged?: () => vo
     setSearchQuery('');
   }, [isOpen, loadLocalCategories]);
 
+  const activeItems = useMemo(() => items.filter((c) => c.is_active), [items]);
   const syncAll = async () => {
     await loadLocalCategories();
     await refreshCategories();
     onCategoriesChanged?.();
   };
-
   const openForm = (cat: CategoryItem | null) => {
     setEditingCategory(cat);
     setDraftName(cat ? cat.name : '');
@@ -393,102 +501,54 @@ function useCategoryManagerState(isOpen: boolean, onCategoriesChanged?: () => vo
     setError(null);
     setIsFormOpen(true);
   };
-
-  const handleSaveCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleaned = draftName.trim();
-    if (!cleaned) return setError('Category name is required.');
-    const parentId = draftParentId ? Number(draftParentId) : null;
-    const amortizePeriod: AmortizePeriod = draftAmortize === 'annual' ? 'annual' : null;
-    setSaving(true);
-    setError(null);
-    setStatusMsg(null);
-    try {
-      if (editingCategory) {
-        await updateCategory(editingCategory.id, {
-          name: cleaned,
-          parent_id: editingCategory.child_count > 0 ? editingCategory.parent_id : parentId,
-          amortize_period: amortizePeriod,
-        });
-        setStatusMsg(`Updated category "${cleaned}"`);
-      } else {
-        await createCategory({ name: cleaned, parent_id: parentId, amortize_period: amortizePeriod });
-        setStatusMsg(`Created category "${cleaned}"`);
-      }
-      setIsFormOpen(false);
-      setEditingCategory(null);
-      await syncAll();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to save category');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleToggleAmortize = async (cat: CategoryItem) => {
-    const nextAmortize: AmortizePeriod = cat.amortize_period === 'annual' ? null : 'annual';
-    setTogglingId(cat.id);
-    setError(null);
-    setStatusMsg(null);
-    try {
-      await updateCategory(cat.id, { amortize_period: nextAmortize });
-      setStatusMsg(
-        nextAmortize === 'annual'
-          ? `Enabled 52w annual spread for "${cat.name}"`
-          : `Disabled 52w annual spread for "${cat.name}"`
-      );
-      await syncAll();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to update 52w spread setting');
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
-  const activeItems = useMemo(() => items.filter((c) => c.is_active), [items]);
-
-  const startDeleteFlow = (cat: CategoryItem) => {
-    const fallback =
-      cat.parent_name && activeItems.some((c) => c.name === cat.parent_name && c.id !== cat.id)
-        ? cat.parent_name
-        : activeItems.find((c) => c.name === 'General' && c.id !== cat.id)?.name ||
-          activeItems.find((c) => c.id !== cat.id)?.name ||
-          'General';
-    setReassignTarget(fallback);
-    setConfirmDeleteId(cat.id);
-    setError(null);
-    setStatusMsg(null);
-  };
-
-  const handleConfirmDelete = async (cat: CategoryItem) => {
-    setDeletingId(cat.id);
-    setError(null);
-    setStatusMsg(null);
-    try {
-      const res = await deleteCategory(cat.id, reassignTarget);
-      setConfirmDeleteId(null);
-      setStatusMsg(
-        `Deleted "${res.deleted_name}" (reassigned ${res.transactions_reassigned} txns and ${res.rules_reassigned} rules to "${res.reassigned_to}")`
-      );
-      await syncAll();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to delete category');
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const mutations = useCategoryMutations({
+    editingCategory, draftName, draftParentId, draftAmortize, reassignTarget, activeItems, syncAll,
+    setters: { setError, setStatusMsg, setSaving, setIsFormOpen, setEditingCategory, setTogglingId, setConfirmDeleteId, setReassignTarget, setDeletingId },
+  });
 
   return {
     items, activeItems, loading, error, statusMsg, searchQuery, setSearchQuery,
     isFormOpen, setIsFormOpen, editingCategory, setEditingCategory, draftName, setDraftName,
     draftParentId, setDraftParentId, draftAmortize, setDraftAmortize, saving, togglingId,
-    confirmDeleteId, setConfirmDeleteId, reassignTarget, setReassignTarget, deletingId,
-    openForm, handleSaveCategory, handleToggleAmortize, startDeleteFlow, handleConfirmDelete,
+    confirmDeleteId, setConfirmDeleteId, reassignTarget, setReassignTarget, deletingId, openForm, ...mutations,
   };
 }
+
+const CategoryTreeList: React.FC<{
+  state: ReturnType<typeof useCategoryManagerState>;
+  filteredGroups: Array<{ root: CategoryItem; children: CategoryItem[] }>;
+  systemCats: CategoryItem[];
+}> = ({ state: s, filteredGroups, systemCats }) => {
+  const renderRow = (cat: CategoryItem, isChild: boolean) => (
+    <CategoryRowCard
+      key={cat.id} cat={cat} isChild={isChild} isToggling={s.togglingId === cat.id}
+      isConfirming={s.confirmDeleteId === cat.id} isDeleting={s.deletingId === cat.id}
+      reassignChoices={s.activeItems.filter((c) => c.id !== cat.id)} reassignTarget={s.reassignTarget}
+      onReassignChange={s.setReassignTarget} onToggleAmortize={(c) => void s.handleToggleAmortize(c)}
+      onEdit={(c) => s.openForm(c)} onStartDelete={s.startDeleteFlow}
+      onConfirmDelete={(c) => void s.handleConfirmDelete(c)} onCancelDelete={() => s.setConfirmDeleteId(null)}
+    />
+  );
+
+  if (s.loading && s.items.length === 0) return <LoadingState label="Loading categories..." variant="amber" />;
+  if (filteredGroups.length === 0 && systemCats.length === 0) return <EmptyState title="No categories match your search." variant="dashed" />;
+
+  return (
+    <div className="space-y-3 max-h-[42vh] sm:max-h-[50vh] overflow-y-auto pr-1">
+      {filteredGroups.map(({ root, children }) => (
+        <div key={root.id} className="space-y-1.5">
+          {renderRow(root, false)}
+          {children.length > 0 && (
+            <div className="ml-3 pl-3 border-l border-border/70 space-y-1.5">
+              {children.map((child) => renderRow(child, true))}
+            </div>
+          )}
+        </div>
+      ))}
+      <SystemCategoriesSection systemCats={systemCats} />
+    </div>
+  );
+};
 
 /**
  * Modal for creating, renaming, reparenting (2-level hierarchy), toggling 52-week
@@ -509,90 +569,36 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     [s.activeItems, s.searchQuery]
   );
 
-  const renderRow = (cat: CategoryItem, isChild: boolean) => (
-    <CategoryRowCard
-      key={cat.id}
-      cat={cat}
-      isChild={isChild}
-      isToggling={s.togglingId === cat.id}
-      isConfirming={s.confirmDeleteId === cat.id}
-      isDeleting={s.deletingId === cat.id}
-      reassignChoices={s.activeItems.filter((c) => c.id !== cat.id)}
-      reassignTarget={s.reassignTarget}
-      onReassignChange={s.setReassignTarget}
-      onToggleAmortize={(c) => void s.handleToggleAmortize(c)}
-      onEdit={(c) => s.openForm(c)}
-      onStartDelete={s.startDeleteFlow}
-      onConfirmDelete={(c) => void s.handleConfirmDelete(c)}
-      onCancelDelete={() => s.setConfirmDeleteId(null)}
-    />
-  );
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Categories & Hierarchy"
       className="sm:max-w-2xl"
-      footer={!s.isFormOpen ? (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>Done</Button>
-        </div>
-      ) : undefined}
+      footer={!s.isFormOpen ? <div className="flex justify-end"><Button variant="outline" size="sm" onClick={onClose}>Done</Button></div> : undefined}
     >
       <div className="space-y-3 sm:space-y-4">
         {!s.isFormOpen && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <p className="text-xs text-slate-300">
-              Organize base pillars, nested sub-categories, and 52-week annual amortization rules.
-            </p>
+            <p className="text-xs text-slate-300">Organize base pillars, nested sub-categories, and 52-week annual amortization rules.</p>
             <Button variant="primary" size="xs" data-testid="new-category-btn" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => s.openForm(null)} className="shrink-0">
               New Category
             </Button>
           </div>
         )}
-
         {s.error && <AlertBanner variant="error">{s.error}</AlertBanner>}
         {s.statusMsg && <AlertBanner variant="success">{s.statusMsg}</AlertBanner>}
-
         {s.isFormOpen ? (
           <CategoryEditorForm
-            editingCategory={s.editingCategory}
-            draftName={s.draftName}
-            draftParentId={s.draftParentId}
-            draftAmortize={s.draftAmortize}
-            rootBaseOptions={rootBaseOptions}
-            saving={s.saving}
-            onNameChange={s.setDraftName}
-            onParentChange={s.setDraftParentId}
-            onAmortizeChange={s.setDraftAmortize}
-            onSubmit={(e) => void s.handleSaveCategory(e)}
-            onCancel={() => { s.setIsFormOpen(false); s.setEditingCategory(null); }}
+            editingCategory={s.editingCategory} draftName={s.draftName} draftParentId={s.draftParentId}
+            draftAmortize={s.draftAmortize} rootBaseOptions={rootBaseOptions} saving={s.saving}
+            onNameChange={s.setDraftName} onParentChange={s.setDraftParentId} onAmortizeChange={s.setDraftAmortize}
+            onSubmit={(e) => void s.handleSaveCategory(e)} onCancel={() => { s.setIsFormOpen(false); s.setEditingCategory(null); }}
           />
         ) : (
           <>
-            {s.activeItems.length > 0 && (
-              <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search base pillars or sub-categories..." variant="amber" />
-            )}
-            {s.loading && s.items.length === 0 ? (
-              <LoadingState label="Loading categories..." variant="amber" />
-            ) : filteredGroups.length === 0 && systemCats.length === 0 ? (
-              <EmptyState title="No categories match your search." variant="dashed" />
-            ) : (
-              <div className="space-y-3 max-h-[42vh] sm:max-h-[50vh] overflow-y-auto pr-1">
-                {filteredGroups.map(({ root, children }) => (
-                  <div key={root.id} className="space-y-1.5">
-                    {renderRow(root, false)}
-                    {children.length > 0 && (
-                      <div className="ml-3 pl-3 border-l border-border/70 space-y-1.5">
-                        {children.map((child) => renderRow(child, true))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <SystemCategoriesSection systemCats={systemCats} />
-              </div>
-            )}
+            {s.activeItems.length > 0 && <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search base pillars or sub-categories..." variant="amber" />}
+            <CategoryTreeList state={s} filteredGroups={filteredGroups} systemCats={systemCats} />
           </>
         )}
       </div>

@@ -71,139 +71,114 @@ function buildLoanPayload(
   };
 }
 
+function nextFormForLoanType(prev: LoanFormState, nextType: LoanType): LoanFormState {
+  return {
+    ...prev,
+    loan_type: nextType,
+    annual_interest_pct: nextType === 'lent' ? '0' : prev.annual_interest_pct === '0' ? '9.62' : prev.annual_interest_pct,
+    term_months: nextType === 'lent' ? '0' : prev.term_months === '0' ? '36' : prev.term_months,
+    monthly_payment: nextType === 'lent' ? '0' : prev.monthly_payment === '0' ? '' : prev.monthly_payment,
+    asset_value: nextType === 'lent' ? '' : prev.asset_value,
+  };
+}
+
+const LoanCreateFields: React.FC<{
+  form: LoanFormState;
+  isLent: boolean;
+  onChange: React.Dispatch<React.SetStateAction<LoanFormState>>;
+}> = ({ form, isLent, onChange }) => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+    <FormField label="Loan Name" required>
+      <TextInput type="text" placeholder={isLent ? 'Loan Name (e.g. Loan to Brother)' : 'Loan Name (e.g. Toyota Corolla Cross)'} value={form.name} onChange={(e) => onChange((p) => ({ ...p, name: e.target.value }))} variant="amber" required />
+    </FormField>
+    <FormField label={isLent ? 'Borrower' : 'Lender'} required>
+      <TextInput type="text" placeholder={isLent ? 'Borrower (e.g. Brother)' : 'Lender (e.g. Toyota Financial Services)'} aria-label={isLent ? 'Borrower' : 'Lender'} value={form.lender} onChange={(e) => onChange((p) => ({ ...p, lender: e.target.value }))} variant="amber" required />
+    </FormField>
+    <FormField label="Principal (NZD)" required>
+      <TextInput type="number" step="0.01" placeholder="Principal NZD (e.g. 45399.42)" value={form.principal_amount} onChange={(e) => onChange((p) => ({ ...p, principal_amount: e.target.value }))} variant="amber" className="font-mono" required />
+    </FormField>
+    <FormField label="Monthly Payment (NZD)" required={!isLent}>
+      <TextInput type="number" step="0.01" placeholder={isLent ? 'Monthly Payment NZD (optional, default 0)' : 'Monthly Payment NZD (e.g. 1452.42)'} value={form.monthly_payment} onChange={(e) => onChange((p) => ({ ...p, monthly_payment: e.target.value }))} variant="amber" className="font-mono" required={!isLent} />
+    </FormField>
+    <FormField label="Interest (% p.a.)" required={!isLent}>
+      <TextInput type="number" step="0.01" placeholder={isLent ? 'Interest % p.a. (optional, default 0)' : 'Interest % p.a. (e.g. 9.62)'} value={form.annual_interest_pct} onChange={(e) => onChange((p) => ({ ...p, annual_interest_pct: e.target.value }))} variant="amber" className="font-mono" required={!isLent} />
+    </FormField>
+    <FormField label="Term (Months)" required={!isLent}>
+      <TextInput type="number" min={isLent ? '0' : '1'} placeholder={isLent ? 'Term Months (optional, default 0)' : 'Term Months (e.g. 36)'} value={form.term_months} onChange={(e) => onChange((p) => ({ ...p, term_months: e.target.value }))} variant="amber" className="font-mono" required={!isLent} />
+    </FormField>
+    <FormField label="Start Date" required>
+      <TextInput type="date" value={form.start_date} onChange={(e) => onChange((p) => ({ ...p, start_date: e.target.value }))} variant="amber" className="font-mono" required />
+    </FormField>
+    {!isLent && (
+      <FormField label="Asset Value (NZD, optional)">
+        <TextInput type="number" step="0.01" placeholder="Asset Value NZD (optional, e.g. 55000)" value={form.asset_value} onChange={(e) => onChange((p) => ({ ...p, asset_value: e.target.value }))} variant="amber" className="font-mono" />
+      </FormField>
+    )}
+  </div>
+);
+
 const LoanCreateForm: React.FC<{
   form: LoanFormState;
   saving: boolean;
   onChange: React.Dispatch<React.SetStateAction<LoanFormState>>;
   onSubmit: (e: React.FormEvent) => void;
-}> = ({ form, saving, onChange, onSubmit }) => {
-  const isLent = form.loan_type === 'lent';
-  const handleTypeChange = (nextType: LoanType) =>
-    onChange((prev) => ({
-      ...prev,
-      loan_type: nextType,
-      annual_interest_pct: nextType === 'lent' ? '0' : prev.annual_interest_pct === '0' ? '9.62' : prev.annual_interest_pct,
-      term_months: nextType === 'lent' ? '0' : prev.term_months === '0' ? '36' : prev.term_months,
-      monthly_payment: nextType === 'lent' ? '0' : prev.monthly_payment === '0' ? '' : prev.monthly_payment,
-      asset_value: nextType === 'lent' ? '' : prev.asset_value,
-    }));
+}> = ({ form, saving, onChange, onSubmit }) => (
+  <form onSubmit={onSubmit} className="p-3.5 rounded-xl bg-background/60 border border-amber-500/30 space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <span className="text-[11px] text-slate-300 font-medium">Loan Type</span>
+      <SegmentedControl<LoanType>
+        idPrefix="loan-type"
+        variant="amber"
+        size="xs"
+        value={form.loan_type}
+        onChange={(nextType) => onChange((prev) => nextFormForLoanType(prev, nextType))}
+        options={[{ id: 'borrowed', label: 'I Owe' }, { id: 'lent', label: 'Owed to Me' }]}
+      />
+    </div>
+    <LoanCreateFields form={form} isLent={form.loan_type === 'lent'} onChange={onChange} />
+    <div className="flex justify-end">
+      <Button variant="primary" size="xs" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Loan'}</Button>
+    </div>
+  </form>
+);
+
+const LoanPaymentRow: React.FC<{
+  payment: NonNullable<LoanItem['linked_payments']>[number];
+  isLent: boolean;
+}> = ({ payment, isLent }) => {
+  const rawAmt = Math.abs(Number(payment.amount));
+  const appliedAmt =
+    payment.applied_amount != null
+      ? Number(payment.applied_amount)
+      : payment.loan_payment_amount != null
+        ? Number(payment.loan_payment_amount)
+        : rawAmt;
+  const isPartial =
+    payment.loan_payment_amount != null ||
+    (payment.applied_amount != null && Math.abs(appliedAmt - rawAmt) > 0.005);
 
   return (
-    <form onSubmit={onSubmit} className="p-3.5 rounded-xl bg-background/60 border border-amber-500/30 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-300 font-medium">Loan Type</span>
-        <SegmentedControl<LoanType>
-          idPrefix="loan-type"
-          variant="amber"
-          size="xs"
-          value={form.loan_type}
-          onChange={handleTypeChange}
-          options={[
-            { id: 'borrowed', label: 'I Owe' },
-            { id: 'lent', label: 'Owed to Me' },
-          ]}
-        />
+    <div data-testid={`loan-payment-row-${payment.id}`} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/60 border border-border/60 text-[11px]">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-mono text-[10px] text-slate-400 whitespace-nowrap">{payment.transaction_date}</span>
+          {Boolean(payment.account_name) && (
+            <StatusBadge variant="idle" size="xs" showDot={false} label={payment.account_name!} className="max-w-[140px]" />
+          )}
+        </div>
+        <div className="font-medium text-slate-200 truncate" title={payment.merchant}>{payment.merchant}</div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <FormField label="Loan Name" required>
-          <TextInput
-            type="text"
-            placeholder={isLent ? 'Loan Name (e.g. Loan to Brother)' : 'Loan Name (e.g. Toyota Corolla Cross)'}
-            value={form.name}
-            onChange={(e) => onChange((p) => ({ ...p, name: e.target.value }))}
-            variant="amber"
-            required
-          />
-        </FormField>
-        <FormField label={isLent ? 'Borrower' : 'Lender'} required>
-          <TextInput
-            type="text"
-            placeholder={isLent ? 'Borrower (e.g. Brother)' : 'Lender (e.g. Toyota Financial Services)'}
-            aria-label={isLent ? 'Borrower' : 'Lender'}
-            value={form.lender}
-            onChange={(e) => onChange((p) => ({ ...p, lender: e.target.value }))}
-            variant="amber"
-            required
-          />
-        </FormField>
-        <FormField label="Principal (NZD)" required>
-          <TextInput
-            type="number"
-            step="0.01"
-            placeholder="Principal NZD (e.g. 45399.42)"
-            value={form.principal_amount}
-            onChange={(e) => onChange((p) => ({ ...p, principal_amount: e.target.value }))}
-            variant="amber"
-            className="font-mono"
-            required
-          />
-        </FormField>
-        <FormField label="Monthly Payment (NZD)" required={!isLent}>
-          <TextInput
-            type="number"
-            step="0.01"
-            placeholder={isLent ? 'Monthly Payment NZD (optional, default 0)' : 'Monthly Payment NZD (e.g. 1452.42)'}
-            value={form.monthly_payment}
-            onChange={(e) => onChange((p) => ({ ...p, monthly_payment: e.target.value }))}
-            variant="amber"
-            className="font-mono"
-            required={!isLent}
-          />
-        </FormField>
-        <FormField label="Interest (% p.a.)" required={!isLent}>
-          <TextInput
-            type="number"
-            step="0.01"
-            placeholder={isLent ? 'Interest % p.a. (optional, default 0)' : 'Interest % p.a. (e.g. 9.62)'}
-            value={form.annual_interest_pct}
-            onChange={(e) => onChange((p) => ({ ...p, annual_interest_pct: e.target.value }))}
-            variant="amber"
-            className="font-mono"
-            required={!isLent}
-          />
-        </FormField>
-        <FormField label="Term (Months)" required={!isLent}>
-          <TextInput
-            type="number"
-            min={isLent ? '0' : '1'}
-            placeholder={isLent ? 'Term Months (optional, default 0)' : 'Term Months (e.g. 36)'}
-            value={form.term_months}
-            onChange={(e) => onChange((p) => ({ ...p, term_months: e.target.value }))}
-            variant="amber"
-            className="font-mono"
-            required={!isLent}
-          />
-        </FormField>
-        <FormField label="Start Date" required>
-          <TextInput
-            type="date"
-            value={form.start_date}
-            onChange={(e) => onChange((p) => ({ ...p, start_date: e.target.value }))}
-            variant="amber"
-            className="font-mono"
-            required
-          />
-        </FormField>
-        {!isLent && (
-          <FormField label="Asset Value (NZD, optional)">
-            <TextInput
-              type="number"
-              step="0.01"
-              placeholder="Asset Value NZD (optional, e.g. 55000)"
-              value={form.asset_value}
-              onChange={(e) => onChange((p) => ({ ...p, asset_value: e.target.value }))}
-              variant="amber"
-              className="font-mono"
-            />
-          </FormField>
+      <div className="text-right shrink-0">
+        <div className={`font-mono font-semibold whitespace-nowrap ${isLent ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {formatMoney(appliedAmt, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {payment.currency}
+        </div>
+        {isPartial && (
+          <div className="text-[10px] font-mono text-slate-400 whitespace-nowrap">
+            of {formatMoney(rawAmt, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
         )}
       </div>
-      <div className="flex justify-end">
-        <Button variant="primary" size="xs" type="submit" disabled={saving}>
-          {saving ? 'Saving...' : 'Save Loan'}
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 };
 
@@ -224,68 +199,18 @@ const LoanLinkedEntries: React.FC<{ loan: LoanItem; isLent: boolean }> = ({ loan
           </div>
         ) : (
           <>
-            {linkedPayments.map((payment) => {
-              const rawAmt = Math.abs(Number(payment.amount));
-              const appliedAmt =
-                payment.applied_amount != null
-                  ? Number(payment.applied_amount)
-                  : payment.loan_payment_amount != null
-                    ? Number(payment.loan_payment_amount)
-                    : rawAmt;
-              const isPartial =
-                payment.loan_payment_amount != null ||
-                (payment.applied_amount != null && Math.abs(appliedAmt - rawAmt) > 0.005);
-              return (
-                <div
-                  key={`${payment.id}-${payment.split_id ?? 'tx'}`}
-                  data-testid={`loan-payment-row-${payment.id}`}
-                  className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/60 border border-border/60 text-[11px]"
-                >
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono text-[10px] text-slate-400 whitespace-nowrap">
-                        {payment.transaction_date}
-                      </span>
-                      {Boolean(payment.account_name) && (
-                        <StatusBadge variant="idle" size="xs" showDot={false} label={payment.account_name!} className="max-w-[140px]" />
-                      )}
-                    </div>
-                    <div className="font-medium text-slate-200 truncate" title={payment.merchant}>
-                      {payment.merchant}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className={`font-mono font-semibold whitespace-nowrap ${isLent ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {formatMoney(appliedAmt, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {payment.currency}
-                    </div>
-                    {isPartial && (
-                      <div className="text-[10px] font-mono text-slate-400 whitespace-nowrap">
-                        of {formatMoney(rawAmt, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {linkedPayments.map((payment) => (
+              <LoanPaymentRow key={`${payment.id}-${payment.split_id ?? 'tx'}`} payment={payment} isLent={isLent} />
+            ))}
             {disbursements.map((disb) => (
-              <div
-                key={`disb-${disb.id}`}
-                data-testid={`loan-disbursement-row-${disb.id}`}
-                className="flex items-center justify-between gap-2 p-2 rounded-lg bg-amber-950/20 border border-amber-500/25 text-[11px]"
-              >
+              <div key={`disb-${disb.id}`} data-testid={`loan-disbursement-row-${disb.id}`} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-amber-950/20 border border-amber-500/25 text-[11px]">
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-mono text-[10px] text-slate-400 whitespace-nowrap">
-                      {disb.transaction_date}
-                    </span>
+                    <span className="font-mono text-[10px] text-slate-400 whitespace-nowrap">{disb.transaction_date}</span>
                     <StatusBadge variant="warning" size="xs" showDot={false} label="Disbursement" />
-                    {Boolean(disb.account_name) && (
-                      <StatusBadge variant="idle" size="xs" showDot={false} label={disb.account_name!} className="max-w-[140px]" />
-                    )}
+                    {Boolean(disb.account_name) && <StatusBadge variant="idle" size="xs" showDot={false} label={disb.account_name!} className="max-w-[140px]" />}
                   </div>
-                  <div className="font-medium text-slate-200 truncate" title={disb.merchant}>
-                    {disb.merchant}
-                  </div>
+                  <div className="font-medium text-slate-200 truncate" title={disb.merchant}>{disb.merchant}</div>
                 </div>
                 <span className="font-mono font-semibold text-amber-300 whitespace-nowrap shrink-0">
                   {formatMoney(Math.abs(Number(disb.amount)), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {disb.currency}

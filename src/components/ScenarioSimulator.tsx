@@ -174,6 +174,79 @@ function useScenarioSimulatorState() {
   };
 }
 
+const ScenarioControls: React.FC<{
+  burnDelta: number;
+  returnRate: number;
+  payOffLoans: boolean;
+  baselineBurn: number;
+  maxDelta: number;
+  loading: boolean;
+  onBurnDeltaChange: (val: number) => void;
+  onReturnRateChange: (val: number) => void;
+  onPayOffLoansChange: (val: boolean) => void;
+  onSimulate: () => void;
+  onOpenAi: () => void;
+}> = (p) => (
+  <div className="space-y-4 pt-1">
+    <RangeSlider
+      label="Weekly Spend Adjustment"
+      valueDisplay={`${p.burnDelta > 0 ? `+$${p.burnDelta}` : p.burnDelta < 0 ? `-$${Math.abs(p.burnDelta)}` : '$0'} /week`}
+      valueClassName={p.burnDelta < 0 ? 'text-emerald-400' : p.burnDelta > 0 ? 'text-rose-400' : 'text-slate-200'}
+      min={-p.maxDelta}
+      max={p.maxDelta}
+      step={25}
+      value={p.burnDelta}
+      onChange={p.onBurnDeltaChange}
+      minLabel={`-$${p.maxDelta}/w (Frugal)`}
+      midLabel={`Current: $${Math.round(p.baselineBurn)}/w`}
+      maxLabel={`+$${p.maxDelta}/w (High Burn)`}
+      variant="amber"
+    />
+
+    <RangeSlider
+      label="Expected Real Portfolio Return"
+      valueDisplay={`${(p.returnRate * 100).toFixed(1)}% /yr`}
+      min={0.0}
+      max={0.12}
+      step={0.005}
+      value={p.returnRate}
+      onChange={p.onReturnRateChange}
+      minLabel="0% (Cash only)"
+      midLabel="5% (Balanced)"
+      maxLabel="12% (Bull Market)"
+      variant="sky"
+    />
+
+    <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer pt-1">
+      <input
+        type="checkbox"
+        checked={p.payOffLoans}
+        onChange={(e) => p.onPayOffLoansChange(e.target.checked)}
+        data-testid="time-machine-payoff-loans"
+        className="rounded border-border text-amber-500 focus:ring-amber-500"
+      />
+      <span>Pay off active loans early from liquid assets</span>
+    </label>
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+      <Button
+        variant="secondary"
+        size="md"
+        fullWidth
+        loading={p.loading}
+        loadingText="Simulating..."
+        icon={<Zap className="w-3.5 h-3.5 text-amber-400" />}
+        onClick={p.onSimulate}
+      >
+        Recalculate Freedom Horizon
+      </Button>
+      <Button variant="amber" size="md" fullWidth icon={<Sparkles className="w-3.5 h-3.5" />} onClick={p.onOpenAi}>
+        AI Freedom Advisor
+      </Button>
+    </div>
+  </div>
+);
+
 export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBurn }) => {
   const s = useScenarioSimulatorState();
   const maxDelta = Math.max(500, Math.round(baselineBurn || 1000));
@@ -193,70 +266,19 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
         }
       />
 
-      <div className="space-y-4 pt-1">
-        <RangeSlider
-          label="Weekly Spend Adjustment"
-          valueDisplay={`${s.burnDelta > 0 ? `+$${s.burnDelta}` : s.burnDelta < 0 ? `-$${Math.abs(s.burnDelta)}` : '$0'} /week`}
-          valueClassName={s.burnDelta < 0 ? 'text-emerald-400' : s.burnDelta > 0 ? 'text-rose-400' : 'text-slate-200'}
-          min={-maxDelta}
-          max={maxDelta}
-          step={25}
-          value={s.burnDelta}
-          onChange={s.setBurnDelta}
-          minLabel={`-$${maxDelta}/w (Frugal)`}
-          midLabel={`Current: $${Math.round(baselineBurn)}/w`}
-          maxLabel={`+$${maxDelta}/w (High Burn)`}
-          variant="amber"
-        />
-
-        <RangeSlider
-          label="Expected Real Portfolio Return"
-          valueDisplay={`${(s.returnRate * 100).toFixed(1)}% /yr`}
-          min={0.0}
-          max={0.12}
-          step={0.005}
-          value={s.returnRate}
-          onChange={s.setReturnRate}
-          minLabel="0% (Cash only)"
-          midLabel="5% (Balanced)"
-          maxLabel="12% (Bull Market)"
-          variant="sky"
-        />
-
-        <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer pt-1">
-          <input
-            type="checkbox"
-            checked={s.payOffLoans}
-            onChange={(e) => s.setPayOffLoans(e.target.checked)}
-            data-testid="time-machine-payoff-loans"
-            className="rounded border-border text-amber-500 focus:ring-amber-500"
-          />
-          <span>Pay off active loans early from liquid assets</span>
-        </label>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-          <Button
-            variant="secondary"
-            size="md"
-            fullWidth
-            loading={s.loading}
-            loadingText="Simulating..."
-            icon={<Zap className="w-3.5 h-3.5 text-amber-400" />}
-            onClick={s.handleSimulate}
-          >
-            Recalculate Freedom Horizon
-          </Button>
-          <Button
-            variant="amber"
-            size="md"
-            fullWidth
-            icon={<Sparkles className="w-3.5 h-3.5" />}
-            onClick={() => s.setIsAiModalOpen(true)}
-          >
-            AI Freedom Advisor
-          </Button>
-        </div>
-      </div>
+      <ScenarioControls
+        burnDelta={s.burnDelta}
+        returnRate={s.returnRate}
+        payOffLoans={s.payOffLoans}
+        baselineBurn={baselineBurn}
+        maxDelta={maxDelta}
+        loading={s.loading}
+        onBurnDeltaChange={s.setBurnDelta}
+        onReturnRateChange={s.setReturnRate}
+        onPayOffLoansChange={s.setPayOffLoans}
+        onSimulate={s.handleSimulate}
+        onOpenAi={() => s.setIsAiModalOpen(true)}
+      />
 
       {s.result && <SimulationResultCard result={s.result} />}
       {s.aiSynthesis && <AiSynthesisCard aiSynthesis={s.aiSynthesis} />}

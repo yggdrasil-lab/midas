@@ -474,6 +474,33 @@ function useBurnBreakdownState(
   };
 }
 
+const BurnBreakdownContent: React.FC<{
+  report: AverageBurnReportResponse | null;
+  loading: boolean;
+  activeTab: BurnBreakdownTab;
+  loans: LoanItem[];
+  togglingCategory: string | null;
+  onTogglePeriod: (cat: CategoryBurnEstimate) => void;
+}> = ({ report, loading, activeTab, loans, togglingCategory, onTogglePeriod }) => {
+  if (loading && !report) {
+    return <LoadingState label="Calculating burn anatomy..." variant="amber" className="py-10" />;
+  }
+  if (!report) return null;
+  if (activeTab === 'recurring') {
+    return <RecurringCommitmentsSection commitments={report.recurring_commitments ?? []} loans={loans} />;
+  }
+  return (
+    <VariableCategorySection
+      categories={report.categories}
+      lookbackWeeks={report.lookback_weeks}
+      totalVariableBurn={report.variable_weekly_burn ?? 0}
+      totalEffectiveBurn={report.effective_weekly_burn ?? 0}
+      togglingCategory={togglingCategory}
+      onTogglePeriod={onTogglePeriod}
+    />
+  );
+};
+
 /**
  * Inspects itemized active recurring fixed commitments and per-category estimated
  * variable burn percentages across configurable 4w / 12w / 26w trailing windows.
@@ -500,34 +527,16 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
       subtitle="Fixed recurring commitments and estimated variable category shares"
       headerIcon={<Flame className="w-4 h-4 text-amber-400" />}
       className="sm:max-w-xl"
-      footer={
-        <div className="flex justify-end">
-          <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
-        </div>
-      }
+      footer={<div className="flex justify-end"><Button variant="ghost" size="sm" onClick={onClose}>Close</Button></div>}
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <SegmentedControl<LookbackOption>
-            idPrefix="burn-lookback"
-            options={LOOKBACK_OPTIONS}
-            value={lookback}
-            onChange={state.setLookback}
-            variant="amber"
-            size="xs"
-          />
+          <SegmentedControl<LookbackOption> idPrefix="burn-lookback" options={LOOKBACK_OPTIONS} value={lookback} onChange={state.setLookback} variant="amber" size="xs" />
           {report && <StatusBadge variant="info" label={`As of ${report.as_of_date}`} />}
         </div>
 
         {state.error && (
-          <AlertBanner
-            variant="error"
-            action={
-              <Button variant="rose" size="xs" icon={<RefreshCw className="w-3 h-3" />} onClick={() => void state.loadReport(Number(lookback))}>
-                Retry
-              </Button>
-            }
-          >
+          <AlertBanner variant="error" action={<Button variant="rose" size="xs" icon={<RefreshCw className="w-3 h-3" />} onClick={() => void state.loadReport(Number(lookback))}>Retry</Button>}>
             {state.error}
           </AlertBanner>
         )}
@@ -551,37 +560,19 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
           value={state.activeTab}
           onChange={state.setActiveTab}
           options={[
-            {
-              id: 'recurring',
-              label: 'Fixed',
-              icon: <Repeat className="w-3.5 h-3.5" />,
-              badge: report !== null ? (report.recurring_commitments?.length ?? 0) + loans.length : undefined,
-            },
-            {
-              id: 'variable',
-              label: 'Variable %',
-              icon: <Percent className="w-3.5 h-3.5" />,
-              badge: report?.categories.filter((c) => c.variable_weekly_burn > 0).length,
-            },
+            { id: 'recurring', label: 'Fixed', icon: <Repeat className="w-3.5 h-3.5" />, badge: report !== null ? (report.recurring_commitments?.length ?? 0) + loans.length : undefined },
+            { id: 'variable', label: 'Variable %', icon: <Percent className="w-3.5 h-3.5" />, badge: report?.categories.filter((c) => c.variable_weekly_burn > 0).length },
           ]}
         />
 
-        {state.loading && !report ? (
-          <LoadingState label="Calculating burn anatomy..." variant="amber" className="py-10" />
-        ) : report ? (
-          state.activeTab === 'recurring' ? (
-            <RecurringCommitmentsSection commitments={report.recurring_commitments ?? []} loans={loans} />
-          ) : (
-            <VariableCategorySection
-              categories={report.categories}
-              lookbackWeeks={report.lookback_weeks}
-              totalVariableBurn={variableWeekly}
-              totalEffectiveBurn={totalWeekly}
-              togglingCategory={state.togglingCategory}
-              onTogglePeriod={(cat) => void state.handleToggleCategoryPeriod(cat)}
-            />
-          )
-        ) : null}
+        <BurnBreakdownContent
+          report={report}
+          loading={state.loading}
+          activeTab={state.activeTab}
+          loans={loans}
+          togglingCategory={state.togglingCategory}
+          onTogglePeriod={(cat) => void state.handleToggleCategoryPeriod(cat)}
+        />
       </div>
     </Modal>
   );

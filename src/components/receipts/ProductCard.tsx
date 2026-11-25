@@ -138,6 +138,65 @@ const ProductPriceHistory: React.FC<{ priceHistory: NonNullable<Product['price_h
   </CollapsibleSection>
 );
 
+const ProductCardHeader: React.FC<{
+  product: Product;
+  onToggleFavorite: (product: Product) => Promise<void>;
+}> = ({ product: p, onToggleFavorite }) => {
+  const hasPriceChange = p.price_change_latest !== null && p.price_change_latest !== undefined;
+  const isPriceUp = hasPriceChange && (p.price_change_latest || 0) > 0;
+  const isPriceDown = hasPriceChange && (p.price_change_latest || 0) < 0;
+  const priceDeltaLabel = isPriceUp
+    ? `+${p.price_change_latest?.toFixed(2)}`
+    : p.price_change_latest?.toFixed(2) ?? '';
+
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <div className="space-y-0.5 min-w-0">
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() => void onToggleFavorite(p)}
+            className="text-slate-400 hover:text-amber-400 transition-colors"
+            title={p.is_favorite ? 'Favorited' : 'Add to favorites'}
+          >
+            <Star className={`w-3.5 h-3.5 ${p.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-slate-500'}`} />
+          </button>
+          <span className="text-xs font-bold text-slate-100 truncate">{p.name}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
+          {p.brand && <span className="font-semibold text-slate-300">{p.brand}</span>}
+          {p.volume_ml && <span className="text-slate-400">({p.volume_ml})</span>}
+          {p.domain && (
+            <StatusBadge variant="warning" size="xs" showDot={false} label={DOMAIN_LABELS[p.domain] || p.domain} />
+          )}
+          <span>• {p.purchase_count} {p.purchase_count === 1 ? 'purchase' : 'purchases'}</span>
+        </div>
+      </div>
+
+      <div className="text-right shrink-0 space-y-0.5">
+        <div className="flex items-center justify-end space-x-1.5">
+          <span className="text-xs font-bold font-mono text-slate-100">
+            {formatMoney(p.latest_price ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          {hasPriceChange && (
+            <StatusBadge
+              variant={isPriceUp ? 'error' : isPriceDown ? 'success' : 'idle'}
+              size="xs"
+              showDot={false}
+              className="font-mono font-semibold"
+              icon={isPriceUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+              label={priceDeltaLabel}
+            />
+          )}
+        </div>
+        <div className="text-[10px] text-slate-400 font-mono">
+          Total Spent: {formatMoney(p.total_spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /**
  * Product inventory card with favorite star, tags, longevity projection,
  * inline notes editor, and expandable price history timeline.
@@ -148,100 +207,42 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onSaveNote,
   onAddTag,
   onRemoveTag,
-}) => {
-  const hasPriceChange =
-    p.price_change_latest !== null && p.price_change_latest !== undefined;
-  const isPriceUp = hasPriceChange && (p.price_change_latest || 0) > 0;
-  const isPriceDown = hasPriceChange && (p.price_change_latest || 0) < 0;
-  const priceDeltaLabel = isPriceUp
-    ? `+${p.price_change_latest?.toFixed(2)}`
-    : p.price_change_latest?.toFixed(2) ?? '';
+}) => (
+  <div className="p-3 bg-card/60 hover:bg-card/80 border border-border rounded-xl space-y-2.5 transition-all">
+    <ProductCardHeader product={p} onToggleFavorite={onToggleFavorite} />
 
-  return (
-    <div className="p-3 bg-card/60 hover:bg-card/80 border border-border rounded-xl space-y-2.5 transition-all">
-      <div className="flex items-start justify-between gap-2">
-        <div className="space-y-0.5 min-w-0">
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => void onToggleFavorite(p)}
-              className="text-slate-400 hover:text-amber-400 transition-colors"
-              title={p.is_favorite ? 'Favorited' : 'Add to favorites'}
-            >
-              <Star className={`w-3.5 h-3.5 ${p.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-slate-500'}`} />
-            </button>
-            <span className="text-xs font-bold text-slate-100 truncate">{p.name}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
-            {p.brand && <span className="font-semibold text-slate-300">{p.brand}</span>}
-            {p.volume_ml && <span className="text-slate-400">({p.volume_ml})</span>}
-            {p.domain && (
-              <StatusBadge
-                variant="warning"
-                size="xs"
-                showDot={false}
-                label={DOMAIN_LABELS[p.domain] || p.domain}
-              />
-            )}
-            <span>• {p.purchase_count} {p.purchase_count === 1 ? 'purchase' : 'purchases'}</span>
-          </div>
-        </div>
+    <TagPillList
+      tags={p.tags}
+      variant="slate"
+      placeholder="tag..."
+      onAddTag={(tag) => onAddTag(p.id, tag)}
+      onRemoveTag={(tag) => onRemoveTag(p.id, tag)}
+      className="pt-0.5"
+    />
 
-        <div className="text-right shrink-0 space-y-0.5">
-          <div className="flex items-center justify-end space-x-1.5">
-            <span className="text-xs font-bold font-mono text-slate-100">
-              {formatMoney(p.latest_price ?? 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            {hasPriceChange && (
-              <StatusBadge
-                variant={isPriceUp ? 'error' : isPriceDown ? 'success' : 'idle'}
-                size="xs"
-                showDot={false}
-                className="font-mono font-semibold"
-                icon={isPriceUp ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-                label={priceDeltaLabel}
-              />
-            )}
-          </div>
-          <div className="text-[10px] text-slate-400 font-mono">
-            Total Spent: {formatMoney(p.total_spent, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
+    <div className="p-2 bg-background/80 rounded-lg border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] gap-2">
+      <div className="flex items-center space-x-1.5 text-slate-300">
+        <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        <span>
+          {p.avg_days_between_purchases
+            ? `Usage Longevity: ~${p.avg_days_between_purchases} days per unit`
+            : p.first_purchased
+              ? `First recorded: ${p.first_purchased}`
+              : 'Single purchase recorded'}
+        </span>
       </div>
-
-      <TagPillList
-        tags={p.tags}
-        variant="slate"
-        placeholder="tag..."
-        onAddTag={(tag) => onAddTag(p.id, tag)}
-        onRemoveTag={(tag) => onRemoveTag(p.id, tag)}
-        className="pt-0.5"
-      />
-
-      <div className="p-2 bg-background/80 rounded-lg border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] gap-2">
-        <div className="flex items-center space-x-1.5 text-slate-300">
-          <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>
-            {p.avg_days_between_purchases
-              ? `Usage Longevity: ~${p.avg_days_between_purchases} days per unit`
-              : p.first_purchased
-                ? `First recorded: ${p.first_purchased}`
-                : 'Single purchase recorded'}
-          </span>
+      {p.estimated_depletion_date && (
+        <div className="flex items-center space-x-1.5 text-emerald-300 font-medium">
+          <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span>Est. Restock: {p.estimated_depletion_date}</span>
         </div>
-        {p.estimated_depletion_date && (
-          <div className="flex items-center space-x-1.5 text-emerald-300 font-medium">
-            <Calendar className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span>Est. Restock: {p.estimated_depletion_date}</span>
-          </div>
-        )}
-      </div>
-
-      <ProductNotesBox notes={p.notes} onSaveNote={(note) => onSaveNote(p.id, note)} />
-
-      {p.price_history && p.price_history.length > 0 && (
-        <ProductPriceHistory priceHistory={p.price_history} />
       )}
     </div>
-  );
-};
+
+    <ProductNotesBox notes={p.notes} onSaveNote={(note) => onSaveNote(p.id, note)} />
+
+    {p.price_history && p.price_history.length > 0 && (
+      <ProductPriceHistory priceHistory={p.price_history} />
+    )}
+  </div>
+);

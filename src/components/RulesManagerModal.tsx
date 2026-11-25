@@ -105,6 +105,81 @@ function buildRulePayload(
   };
 }
 
+function useRuleMutations(opts: {
+  draft: RuleFormDraft;
+  editingRuleId: number | null;
+  loadRules: () => Promise<void>;
+  onRulesApplied?: () => void;
+  setters: {
+    setRules: React.Dispatch<React.SetStateAction<CategorizationRule[]>>;
+    setError: (v: string | null) => void;
+    setStatusMsg: (v: string | null) => void;
+    setIsSaving: (v: boolean) => void;
+    setIsFormOpen: (v: boolean) => void;
+    setEditingRuleId: (v: number | null) => void;
+    setIsApplyingAll: (v: boolean) => void;
+  };
+}) {
+  const { setters } = opts;
+
+  const handleSaveRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = buildRulePayload(opts.draft, setters.setError);
+    if (!payload) return;
+    setters.setIsSaving(true); setters.setError(null); setters.setStatusMsg(null);
+    try {
+      if (opts.editingRuleId) {
+        await updateRule(opts.editingRuleId, payload);
+        setters.setStatusMsg(`Updated rule "${payload.name}"`);
+      } else {
+        await createRule({ ...payload, is_active: true });
+        setters.setStatusMsg(`Created rule "${payload.name}"`);
+      }
+      setters.setIsFormOpen(false);
+      setters.setEditingRuleId(null);
+      await opts.loadRules();
+      opts.onRulesApplied?.();
+    } catch (err) {
+      setters.setError(err instanceof Error ? err.message : 'Failed to save categorization rule');
+    } finally { setters.setIsSaving(false); }
+  };
+
+  const handleToggleRule = async (rule: CategorizationRule) => {
+    setters.setError(null);
+    try {
+      await updateRule(rule.id, { is_active: !rule.is_active });
+      setters.setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, is_active: !rule.is_active } : r)));
+      setters.setStatusMsg(`Rule "${rule.name}" is now ${!rule.is_active ? 'active' : 'inactive'}`);
+      opts.onRulesApplied?.();
+    } catch (err) { setters.setError(err instanceof Error ? err.message : 'Failed to toggle rule state'); }
+  };
+
+  const handleDeleteRule = async (rule: CategorizationRule) => {
+    setters.setError(null);
+    try {
+      await deleteRule(rule.id);
+      setters.setRules((prev) => prev.filter((r) => r.id !== rule.id));
+      setters.setStatusMsg(`Deleted rule "${rule.name}"`);
+      opts.onRulesApplied?.();
+    } catch (err) { setters.setError(err instanceof Error ? err.message : 'Failed to delete rule'); }
+  };
+
+  const handleApplyAll = async () => {
+    setters.setIsApplyingAll(true); setters.setError(null); setters.setStatusMsg(null);
+    try {
+      const res = await applyAllRules();
+      const itemNote = res.receipt_items_updated !== undefined ? ` and ${res.receipt_items_updated} of ${res.receipt_items_evaluated ?? 0} receipt items` : '';
+      setters.setStatusMsg(`Evaluated ${res.evaluated} transactions (${res.updated} updated)${itemNote}.`);
+      await opts.loadRules();
+      opts.onRulesApplied?.();
+    } catch (err) {
+      setters.setError(err instanceof Error ? err.message : 'Failed to run categorization rules');
+    } finally { setters.setIsApplyingAll(false); }
+  };
+
+  return { handleSaveRule, handleToggleRule, handleDeleteRule, handleApplyAll };
+}
+
 function useRulesManagerState(
   isOpen: boolean,
   prefillRule: Partial<CategorizationRuleCreate> | null | undefined,
@@ -127,213 +202,109 @@ function useRulesManagerState(
     setLoading(true);
     setError(null);
     try {
-      const [rulesRes, accountsRes, loansRes] = await Promise.all([
-        fetchRules(),
-        fetchAccounts(),
-        fetchLoans().catch(() => null),
-      ]);
-      setRules(rulesRes);
-      setAccounts(accountsRes);
-      setLoans(loansRes?.loans || []);
+      const [rulesRes, accountsRes, loansRes] = await Promise.all([fetchRules(), fetchAccounts(), fetchLoans().catch(() => null)]);
+      setRules(rulesRes); setAccounts(accountsRes); setLoans(loansRes?.loans || []);
     } catch (err) {
-      console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load categorization rules');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => {
     if (isOpen) {
       void loadRules();
-      if (prefillRule) {
-        setDraft(draftFromPrefill(prefillRule));
-        setEditingRuleId(null);
-        setIsFormOpen(true);
-      }
+      if (prefillRule) { setDraft(draftFromPrefill(prefillRule)); setEditingRuleId(null); setIsFormOpen(true); }
       return;
     }
-    setIsFormOpen(false);
-    setEditingRuleId(null);
-    setStatusMsg(null);
+    setIsFormOpen(false); setEditingRuleId(null); setStatusMsg(null);
   }, [isOpen, prefillRule]);
 
-  const handleSaveRule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload = buildRulePayload(draft, setError);
-    if (!payload) return;
-    setIsSaving(true);
-    setError(null);
-    setStatusMsg(null);
-    try {
-      if (editingRuleId) {
-        await updateRule(editingRuleId, payload);
-        setStatusMsg(`Updated rule "${payload.name}"`);
-      } else {
-        await createRule({ ...payload, is_active: true });
-        setStatusMsg(`Created rule "${payload.name}"`);
-      }
-      setIsFormOpen(false);
-      setEditingRuleId(null);
-      await loadRules();
-      onRulesApplied?.();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to save categorization rule');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleToggleRule = async (rule: CategorizationRule) => {
-    setError(null);
-    try {
-      await updateRule(rule.id, { is_active: !rule.is_active });
-      setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, is_active: !rule.is_active } : r)));
-      setStatusMsg(`Rule "${rule.name}" is now ${!rule.is_active ? 'active' : 'inactive'}`);
-      onRulesApplied?.();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to toggle rule state');
-    }
-  };
-
-  const handleDeleteRule = async (rule: CategorizationRule) => {
-    setError(null);
-    try {
-      await deleteRule(rule.id);
-      setRules((prev) => prev.filter((r) => r.id !== rule.id));
-      setStatusMsg(`Deleted rule "${rule.name}"`);
-      onRulesApplied?.();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to delete rule');
-    }
-  };
-
-  const handleApplyAll = async () => {
-    setIsApplyingAll(true);
-    setError(null);
-    setStatusMsg(null);
-    try {
-      const res = await applyAllRules();
-      const itemNote =
-        res.receipt_items_updated !== undefined
-          ? ` and ${res.receipt_items_updated} of ${res.receipt_items_evaluated ?? 0} receipt items`
-          : '';
-      setStatusMsg(`Evaluated ${res.evaluated} transactions (${res.updated} updated)${itemNote}.`);
-      await loadRules();
-      onRulesApplied?.();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to run categorization rules');
-    } finally {
-      setIsApplyingAll(false);
-    }
-  };
+  const mutations = useRuleMutations({
+    draft, editingRuleId, loadRules, onRulesApplied,
+    setters: { setRules, setError, setStatusMsg, setIsSaving, setIsFormOpen, setEditingRuleId, setIsApplyingAll },
+  });
 
   return {
     rules, accounts, loans, loading, error, statusMsg, setStatusMsg,
     searchQuery, setSearchQuery, isFormOpen, setIsFormOpen, editingRuleId, setEditingRuleId,
-    draft, setDraft, isSaving, isApplyingAll,
-    handleSaveRule, handleToggleRule, handleDeleteRule, handleApplyAll,
+    draft, setDraft, isSaving, isApplyingAll, ...mutations,
   };
 }
+
+function matchesRuleSearch(r: CategorizationRule, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    r.name.toLowerCase().includes(q) ||
+    r.description_pattern.toLowerCase().includes(q) ||
+    r.target_category.toLowerCase().includes(q) ||
+    Boolean(r.direction?.toLowerCase().includes(q)) ||
+    Boolean(r.rename_merchant?.toLowerCase().includes(q)) ||
+    Boolean(r.counterpart_account_name?.toLowerCase().includes(q)) ||
+    Boolean(r.loan_name?.toLowerCase().includes(q))
+  );
+}
+
+const RulesManagerToolbar: React.FC<{
+  hasRules: boolean;
+  isApplyingAll: boolean;
+  onNewRule: () => void;
+  onApplyAll: () => void;
+}> = ({ hasRules, isApplyingAll, onNewRule, onApplyAll }) => (
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <p className="text-xs text-slate-300">
+      Define custom pattern and amount rules to automatically categorize transactions and rename merchants.
+    </p>
+    <div className="flex items-center space-x-2 shrink-0">
+      <Button variant="primary" size="xs" icon={<Plus className="w-3.5 h-3.5" />} onClick={onNewRule}>
+        New Rule
+      </Button>
+      <Button variant="outline" size="xs" icon={<Play className={`w-3.5 h-3.5 text-amber-400 ${isApplyingAll ? 'animate-spin' : ''}`} />} onClick={onApplyAll} disabled={isApplyingAll || !hasRules}>
+        Run Rules
+      </Button>
+    </div>
+  </div>
+);
 
 /**
  * Modal for creating, editing, toggling, deleting, and running Outlook-style
  * categorization rules across transactions.
  */
-export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
-  isOpen,
-  onClose,
-  onRulesApplied,
-  prefillRule,
-}) => {
+export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({ isOpen, onClose, onRulesApplied, prefillRule }) => {
   const s = useRulesManagerState(isOpen, prefillRule, onRulesApplied);
-  const filteredRules = s.rules.filter((r) => {
-    if (!s.searchQuery.trim()) return true;
-    const q = s.searchQuery.toLowerCase();
-    return (
-      r.name.toLowerCase().includes(q) ||
-      r.description_pattern.toLowerCase().includes(q) ||
-      r.target_category.toLowerCase().includes(q) ||
-      Boolean(r.direction?.toLowerCase().includes(q)) ||
-      Boolean(r.rename_merchant?.toLowerCase().includes(q)) ||
-      Boolean(r.counterpart_account_name?.toLowerCase().includes(q)) ||
-      Boolean(r.loan_name?.toLowerCase().includes(q))
-    );
-  });
+  const filteredRules = s.rules.filter((r) => matchesRuleSearch(r, s.searchQuery));
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Outlook-Style Categorization Rules"
-      footer={
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>Done</Button>
-        </div>
-      }
+      footer={<div className="flex justify-end"><Button variant="outline" size="sm" onClick={onClose}>Done</Button></div>}
     >
       <div className="space-y-4">
         {!s.isFormOpen && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <p className="text-xs text-slate-300">
-              Define custom pattern and amount rules to automatically categorize transactions and rename merchants.
-            </p>
-            <div className="flex items-center space-x-2 shrink-0">
-              <Button
-                variant="primary"
-                size="xs"
-                icon={<Plus className="w-3.5 h-3.5" />}
-                onClick={() => { s.setEditingRuleId(null); s.setDraft(DEFAULT_RULE_DRAFT); s.setIsFormOpen(true); s.setStatusMsg(null); }}
-              >
-                New Rule
-              </Button>
-              <Button
-                variant="outline"
-                size="xs"
-                icon={<Play className={`w-3.5 h-3.5 text-amber-400 ${s.isApplyingAll ? 'animate-spin' : ''}`} />}
-                onClick={() => void s.handleApplyAll()}
-                disabled={s.isApplyingAll || s.rules.length === 0}
-              >
-                Run Rules
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {s.error && <AlertBanner variant="error">{s.error}</AlertBanner>}
-        {s.statusMsg && <AlertBanner variant="success">{s.statusMsg}</AlertBanner>}
-
-        {s.isFormOpen && (
-          <RuleEditorForm
-            draft={s.draft}
-            accounts={s.accounts}
-            loans={s.loans}
-            isEditing={Boolean(s.editingRuleId)}
-            saving={s.isSaving}
-            onChange={s.setDraft}
-            onSubmit={(e) => void s.handleSaveRule(e)}
-            onCancel={() => { s.setIsFormOpen(false); s.setEditingRuleId(null); }}
+          <RulesManagerToolbar
+            hasRules={s.rules.length > 0}
+            isApplyingAll={s.isApplyingAll}
+            onNewRule={() => { s.setEditingRuleId(null); s.setDraft(DEFAULT_RULE_DRAFT); s.setIsFormOpen(true); s.setStatusMsg(null); }}
+            onApplyAll={() => void s.handleApplyAll()}
           />
         )}
-
+        {s.error && <AlertBanner variant="error">{s.error}</AlertBanner>}
+        {s.statusMsg && <AlertBanner variant="success">{s.statusMsg}</AlertBanner>}
+        {s.isFormOpen && (
+          <RuleEditorForm
+            draft={s.draft} accounts={s.accounts} loans={s.loans} isEditing={Boolean(s.editingRuleId)} saving={s.isSaving}
+            onChange={s.setDraft} onSubmit={(e) => void s.handleSaveRule(e)} onCancel={() => { s.setIsFormOpen(false); s.setEditingRuleId(null); }}
+          />
+        )}
         {s.rules.length > 0 && !s.isFormOpen && (
           <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search rules by pattern, category, or merchant..." variant="amber" />
         )}
-
         <RulesList
-          rules={filteredRules}
-          loading={s.loading}
-          hasRules={s.rules.length > 0}
-          isFormOpen={s.isFormOpen}
-          hasSearchQuery={Boolean(s.searchQuery.trim())}
+          rules={filteredRules} loading={s.loading} hasRules={s.rules.length > 0} isFormOpen={s.isFormOpen} hasSearchQuery={Boolean(s.searchQuery.trim())}
           onCreateClick={() => { s.setEditingRuleId(null); s.setDraft(DEFAULT_RULE_DRAFT); s.setIsFormOpen(true); s.setStatusMsg(null); }}
           onEdit={(rule) => { s.setEditingRuleId(rule.id); s.setDraft(draftFromRule(rule)); s.setIsFormOpen(true); s.setStatusMsg(null); }}
-          onToggle={s.handleToggleRule}
-          onDelete={s.handleDeleteRule}
+          onToggle={s.handleToggleRule} onDelete={s.handleDeleteRule}
         />
       </div>
     </Modal>

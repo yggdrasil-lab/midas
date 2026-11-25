@@ -1,17 +1,7 @@
 import React from 'react';
 import { Lock, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
-import {
-  FormField,
-  GlassCard,
-  SegmentedControl,
-  SelectInput,
-  TextInput,
-} from '@yggdrasil-lab/ui';
-import {
-  ACCOUNT_TYPE_OPTIONS,
-  COMMON_CURRENCIES,
-  COMMON_INSTITUTIONS,
-} from '../../constants/categories';
+import { FormField, GlassCard, SegmentedControl, SelectInput, TextInput } from '@yggdrasil-lab/ui';
+import { ACCOUNT_TYPE_OPTIONS, COMMON_CURRENCIES, COMMON_INSTITUTIONS } from '../../constants/categories';
 import { Account, InstitutionInfo } from '../../types';
 
 interface StatementConfigFormProps {
@@ -36,31 +26,53 @@ const TIER_SEGMENT_OPTIONS = [
   { id: 'locked' as const, label: 'Locked', icon: <Lock className="w-3 h-3" /> },
 ];
 
+const StatementConfigFields: React.FC<{
+  institution: string;
+  accountName: string;
+  accountType: string;
+  currency: string;
+  combinedInstitutions: string[];
+  onInstitutionChange: (val: string) => void;
+  onAccountNameChange: (val: string) => void;
+  onAccountTypeChange: (val: string) => void;
+  onCurrencyChange: (val: string) => void;
+}> = ({
+  institution, accountName, accountType, currency, combinedInstitutions,
+  onInstitutionChange, onAccountNameChange, onAccountTypeChange, onCurrencyChange,
+}) => (
+  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+    <FormField label="Institution">
+      <TextInput type="text" value={institution} onChange={(e) => onInstitutionChange(e.target.value)} placeholder="e.g. ANZ, ASB, Sharesies" list="known-institutions" variant="amber" />
+      <datalist id="known-institutions">
+        {combinedInstitutions.map((inst) => <option key={inst} value={inst} />)}
+      </datalist>
+    </FormField>
+    <FormField label="Account Display Name">
+      <TextInput type="text" value={accountName} onChange={(e) => onAccountNameChange(e.target.value)} placeholder="e.g. ANZ Freedom" variant="amber" />
+    </FormField>
+    <FormField label="Account Type">
+      <SelectInput value={accountType} onChange={(e) => onAccountTypeChange(e.target.value)} options={ACCOUNT_TYPE_OPTIONS} variant="amber" />
+    </FormField>
+    <FormField label="Currency">
+      <TextInput type="text" maxLength={3} value={currency} onChange={(e) => onCurrencyChange(e.target.value.toUpperCase())} placeholder="NZD, SGD, USD" list="common-currencies" variant="amber" className="font-mono uppercase" />
+      <datalist id="common-currencies">
+        {COMMON_CURRENCIES.map((code) => <option key={code} value={code} />)}
+      </datalist>
+    </FormField>
+  </div>
+);
+
 /**
  * Configuration form for creating or matching a target portfolio account
  * during statement ingestion.
  */
 export const StatementConfigForm: React.FC<StatementConfigFormProps> = ({
-  detectedInstitution,
-  institution,
-  accountName,
-  accountType,
-  currency,
-  tier,
-  institutionsList,
-  accounts,
-  onInstitutionChange,
-  onAccountNameChange,
-  onAccountTypeChange,
-  onCurrencyChange,
-  onTierChange,
+  detectedInstitution, institution, accountName, accountType, currency, tier,
+  institutionsList, accounts, onInstitutionChange, onAccountNameChange,
+  onAccountTypeChange, onCurrencyChange, onTierChange,
 }) => {
   const combinedInstitutions = Array.from(
-    new Set([
-      ...institutionsList.map((i) => i.name),
-      ...accounts.map((a) => a.institution),
-      ...COMMON_INSTITUTIONS,
-    ])
+    new Set([...institutionsList.map((i) => i.name), ...accounts.map((a) => a.institution), ...COMMON_INSTITUTIONS])
   ).filter(Boolean);
 
   return (
@@ -69,77 +81,17 @@ export const StatementConfigForm: React.FC<StatementConfigFormProps> = ({
         <span className="font-semibold text-slate-200">Account Configuration</span>
         <span className="text-[11px] text-emerald-400 flex items-center space-x-1 font-medium">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>
-            Auto-detected: {detectedInstitution || 'Unknown'} ({currency})
-          </span>
+          <span>Auto-detected: {detectedInstitution || 'Unknown'} ({currency})</span>
         </span>
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-        <FormField label="Institution">
-          <TextInput
-            type="text"
-            value={institution}
-            onChange={(e) => onInstitutionChange(e.target.value)}
-            placeholder="e.g. ANZ, ASB, Sharesies"
-            list="known-institutions"
-            variant="amber"
-          />
-          <datalist id="known-institutions">
-            {combinedInstitutions.map((inst) => (
-              <option key={inst} value={inst} />
-            ))}
-          </datalist>
-        </FormField>
-
-        <FormField label="Account Display Name">
-          <TextInput
-            type="text"
-            value={accountName}
-            onChange={(e) => onAccountNameChange(e.target.value)}
-            placeholder="e.g. ANZ Freedom"
-            variant="amber"
-          />
-        </FormField>
-
-        <FormField label="Account Type">
-          <SelectInput
-            value={accountType}
-            onChange={(e) => onAccountTypeChange(e.target.value)}
-            options={ACCOUNT_TYPE_OPTIONS}
-            variant="amber"
-          />
-        </FormField>
-
-        <FormField label="Currency">
-          <TextInput
-            type="text"
-            maxLength={3}
-            value={currency}
-            onChange={(e) => onCurrencyChange(e.target.value.toUpperCase())}
-            placeholder="NZD, SGD, USD"
-            list="common-currencies"
-            variant="amber"
-            className="font-mono uppercase"
-          />
-          <datalist id="common-currencies">
-            {COMMON_CURRENCIES.map((code) => (
-              <option key={code} value={code} />
-            ))}
-          </datalist>
-        </FormField>
-      </div>
-
+      <StatementConfigFields
+        institution={institution} accountName={accountName} accountType={accountType}
+        currency={currency} combinedInstitutions={combinedInstitutions}
+        onInstitutionChange={onInstitutionChange} onAccountNameChange={onAccountNameChange}
+        onAccountTypeChange={onAccountTypeChange} onCurrencyChange={onCurrencyChange}
+      />
       <FormField label="Asset Tier (Telemetry Placement)">
-        <SegmentedControl<Account['tier']>
-          idPrefix="statement-tier"
-          fullWidth
-          size="sm"
-          variant="amber"
-          value={tier}
-          onChange={onTierChange}
-          options={TIER_SEGMENT_OPTIONS}
-        />
+        <SegmentedControl<Account['tier']> idPrefix="statement-tier" fullWidth size="sm" variant="amber" value={tier} onChange={onTierChange} options={TIER_SEGMENT_OPTIONS} />
       </FormField>
     </GlassCard>
   );

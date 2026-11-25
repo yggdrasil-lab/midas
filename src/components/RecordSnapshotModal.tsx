@@ -17,18 +17,8 @@ interface RecordSnapshotModalProps {
   onError: (message: string) => void;
 }
 
-/**
- * Modal for recording a manual balance valuation checkpoint on a portfolio account.
- */
-export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
-  isOpen,
-  onClose,
-  accounts,
-  initialAccountId,
-  getAccountLatestBalance,
-  onSnapshotSaved,
-  onError,
-}) => {
+function useRecordSnapshotForm(opts: Omit<RecordSnapshotModalProps, 'isOpen'> & { isOpen: boolean }) {
+  const { isOpen, onClose, accounts, initialAccountId, getAccountLatestBalance, onSnapshotSaved, onError } = opts;
   const [accountId, setAccountId] = useState<number | null>(initialAccountId);
   const [balance, setBalance] = useState('');
   const [snapshotDate, setSnapshotDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -54,7 +44,6 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
       onError('Please enter a valid numeric balance amount');
       return;
     }
-
     setSaving(true);
     try {
       await recordAccountSnapshot(accountId, {
@@ -65,7 +54,6 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
         source: 'manual',
         notes: notes.trim() || undefined,
       });
-
       const updatedSnaps = await fetchAccountSnapshots(accountId, 12);
       onSnapshotSaved(accountId, updatedSnaps, selectedAccount?.name || 'account');
       onClose();
@@ -77,34 +65,42 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
     }
   };
 
+  return { accountId, setAccountId, balance, setBalance, snapshotDate, setSnapshotDate, notes, setNotes, saving, selectedAccount, handleSave };
+}
+
+/**
+ * Modal for recording a manual balance valuation checkpoint on a portfolio account.
+ */
+export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = (props) => {
+  const f = useRecordSnapshotForm(props);
+  const { isOpen, onClose, accounts, getAccountLatestBalance } = props;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={
-        selectedAccount
-          ? `Record Balance Valuation Snapshot: ${selectedAccount.name}`
+        f.selectedAccount
+          ? `Record Balance Valuation Snapshot: ${f.selectedAccount.name}`
           : 'Record Balance Valuation Snapshot'
       }
       footer={
         <div className="flex items-center justify-end space-x-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form="record-snapshot-form" variant="amber" size="sm" loading={saving}>
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="record-snapshot-form" variant="amber" size="sm" loading={f.saving}>
             Confirm & Save Valuation
           </Button>
         </div>
       }
     >
-      <form id="record-snapshot-form" onSubmit={handleSave} className="space-y-4 pt-1">
+      <form id="record-snapshot-form" onSubmit={(e) => void f.handleSave(e)} className="space-y-4 pt-1">
         <FormField label="Select Account">
           <SelectInput
-            value={accountId ? String(accountId) : ''}
+            value={f.accountId ? String(f.accountId) : ''}
             onChange={(e) => {
               const nextId = parseInt(e.target.value, 10);
-              setAccountId(nextId);
-              setBalance(String(getAccountLatestBalance(nextId) || ''));
+              f.setAccountId(nextId);
+              f.setBalance(String(getAccountLatestBalance(nextId) || ''));
             }}
             variant="amber"
           >
@@ -117,20 +113,15 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
         </FormField>
 
         <FormField label="Snapshot Date">
-          <TextInput
-            type="date"
-            value={snapshotDate}
-            onChange={(e) => setSnapshotDate(e.target.value)}
-            variant="amber"
-          />
+          <TextInput type="date" value={f.snapshotDate} onChange={(e) => f.setSnapshotDate(e.target.value)} variant="amber" />
         </FormField>
 
-        <FormField label={`Closing Balance (${selectedAccount?.currency || 'NZD'})`} required>
+        <FormField label={`Closing Balance (${f.selectedAccount?.currency || 'NZD'})`} required>
           <TextInput
             type="number"
             step="any"
-            value={balance}
-            onChange={(e) => setBalance(e.target.value)}
+            value={f.balance}
+            onChange={(e) => f.setBalance(e.target.value)}
             placeholder="0.00"
             variant="amber"
             className="font-mono"
@@ -141,8 +132,8 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
         <FormField label="Notes (Optional)">
           <TextInput
             type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={f.notes}
+            onChange={(e) => f.setNotes(e.target.value)}
             placeholder="e.g. Monthly statement reconciliation"
             variant="amber"
           />
