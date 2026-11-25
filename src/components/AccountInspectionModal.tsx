@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Building2, Landmark, Lock, PlusCircle, TrendingUp, Wallet } from 'lucide-react';
 import {
   AlertBanner,
@@ -10,11 +10,17 @@ import {
   SummaryMetricGrid,
   SummaryMetricItem,
 } from '@yggdrasil-lab/ui';
-import { isTransferCategory } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
-import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchAccounts, fetchAccountTransactions, fetchLoans } from '../transport';
-import { Account, LoanItem, PeriodType, Transaction } from '../types';
+import {
+  buildInspectionListProps,
+  computeAccountCashflow,
+  filterAccountTransactions,
+  InspectionContextErrorBanner,
+  useInspectionContext,
+  useInspectionScope,
+  useTransactionMutation,
+} from '../inspection';
+import { Account, PeriodType } from '../types';
 import {
   formatAccountSubtitle,
   formatMoney,
@@ -22,7 +28,6 @@ import {
   formatPrincipalRecoveredPct,
   formatSignedTransactionAmount,
 } from '../utils/format';
-import { collapsePairedTransfers, filterCounterpartAccountTransactions } from '../utils/transfers';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
@@ -38,7 +43,7 @@ interface AccountInspectionModalProps {
   endDate?: string;
   onStartDateChange?: (date: string) => void;
   onEndDateChange?: (date: string) => void;
-  onTransactionCategoryChanged: () => void;
+  onTransactionCategoryChanged: () => Promise<void> | void;
   onRecordSnapshotClick?: () => void;
   latestBalance?: number;
   latestBalanceNzd?: number;
@@ -52,57 +57,6 @@ const TIER_BADGE_MAP: Record<
   growth: { label: 'Growth', variant: 'warning', icon: <TrendingUp className="w-3 h-3" /> },
   locked: { label: 'Locked', variant: 'info', icon: <Lock className="w-3 h-3" /> },
 };
-
-function computeAccountCashflow(collapsed: Transaction[], account: Account | null) {
-  let totalSpend = 0;
-  let totalIncome = 0;
-  let totalTransfers = 0;
-  for (const tx of collapsed) {
-    if (account && tx.account_id !== account.id) continue;
-    if (isTransferCategory(tx.category, tx)) totalTransfers += Math.abs(tx.amount);
-    else if (tx.amount < 0) totalSpend += Math.abs(tx.amount);
-    else if (tx.amount > 0) totalIncome += tx.amount;
-  }
-  return { totalSpend, totalIncome, totalTransfers };
-}
-
-function matchesAccountSearch(tx: Transaction, query: string): boolean {
-  const q = query.trim().toLowerCase().replace(/^#+/, '');
-  if (!q) return true;
-  return (
-    tx.merchant.toLowerCase().includes(q) ||
-    tx.category.toLowerCase().includes(q) ||
-    (tx.account_name || '').toLowerCase().includes(q) ||
-    (tx.linked_account_name || '').toLowerCase().includes(q) ||
-    (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
-    (tx.loan_name || '').toLowerCase().includes(q) ||
-    (tx.raw_description || '').toLowerCase().includes(q) ||
-    (tx.tags || []).some((tag) => tag.toLowerCase().includes(q)) ||
-    (tx.splits || []).some(
-      (s) =>
-        s.category.toLowerCase().includes(q) ||
-        (s.loan_name || '').toLowerCase().includes(q) ||
-        (s.notes || '').toLowerCase().includes(q) ||
-        (s.tags || []).some((tag) => tag.toLowerCase().includes(q))
-    )
-  );
-}
-
-function filterAccountTransactions(
-  collapsed: Transaction[],
-  categoryFilter: string | null,
-  searchQuery: string
-): Transaction[] {
-  const catLower = categoryFilter ? categoryFilter.toLowerCase() : null;
-  return collapsed.filter((tx) => {
-    if (catLower) {
-      const parentMatch = tx.category.toLowerCase() === catLower;
-      const splitMatch = (tx.splits || []).some((s) => s.category.toLowerCase() === catLower);
-      if (!parentMatch && !splitMatch) return false;
-    }
-    return matchesAccountSearch(tx, searchQuery);
-  });
-}
 
 function buildAccountSummaryItems(params: {
   currentBalance?: number;
@@ -173,16 +127,18 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
             <span className="text-sm font-bold text-slate-100">
               {account ? account.name : 'All Portfolio Accounts'}
             </span>
-            {tierInfo && <StatusBadge label={tierInfo.label} variant={tierInfo.variant} icon={tierInfo.icon} />}
+            {Boolean(tierInfo) && (
+              <StatusBadge label={tierInfo!.label} variant={tierInfo!.variant} icon={tierInfo!.icon} />
+            )}
           </div>
           <p className="text-xs text-slate-400">{subtitleText}</p>
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        {onPeriodChange && (
+        {Boolean(onPeriodChange) && (
           <PeriodFilterBar
             period={period}
-            onPeriodChange={onPeriodChange}
+            onPeriodChange={onPeriodChange!}
             startDate={startDate}
             endDate={endDate}
             onStartDateChange={onStartDateChange}
@@ -190,7 +146,7 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
             idPrefix="modal-period"
           />
         )}
-        {account && onRecordSnapshotClick && (
+        {Boolean(account && onRecordSnapshotClick) && (
           <Button
             variant="brand"
             size="xs"
@@ -248,109 +204,54 @@ const AccountTotalEarnedTile: React.FC<{ account: Account; nativeBalance?: numbe
   );
 };
 
-function useAccountModalData(opts: {
-  isOpen: boolean;
-  account: Account | null;
-  accountsProp?: Account[];
-  period: PeriodType;
-  startDate: string;
-  endDate: string;
-  onChanged: () => void;
-}) {
-  const { isOpen, account, accountsProp, period, startDate, endDate, onChanged } = opts;
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loans, setLoans] = useState<LoanItem[]>([]);
-  const [fetchedAccounts, setFetchedAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const mutationSucceededRef = useRef(false);
-
-  const patchLocal = useCallback((txId: number, patch: Partial<Transaction>) => {
-    mutationSucceededRef.current = true;
-    setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, ...patch } : t)));
-  }, []);
-
-  const mutation = useTransactionCategoryMutation({
-    onTransactionUpdated: patchLocal,
-    onChanged,
-    onError: (msg) => setError(msg || null),
-  });
-
-  const accountId = account?.id;
-
-  const loadTransactions = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const raw = await fetchAccountTransactions({
-        accountId,
-        period,
-        startDate: period === 'custom' ? startDate : undefined,
-        endDate: period === 'custom' ? endDate : undefined,
-        limit: 500,
-      });
-      setTransactions(filterCounterpartAccountTransactions(raw, accountId));
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load account transactions');
-    } finally {
-      setLoading(false);
-    }
-  }, [accountId, period, startDate, endDate]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    mutation.setSuccessNote(null);
-    void loadTransactions();
-    fetchLoans().then((r) => setLoans(r.loans || [])).catch(() => setLoans([]));
-  }, [isOpen, accountId, period, startDate, endDate, loadTransactions]);
-
-  useEffect(() => {
-    if (isOpen && !accountsProp) {
-      fetchAccounts().then(setFetchedAccounts).catch(() => setFetchedAccounts([]));
-    }
-  }, [isOpen, accountsProp]);
-
-  const accounts = accountsProp ?? fetchedAccounts;
-  return { transactions, loans, accounts, loading, error, setError, mutation, mutationSucceededRef, loadTransactions };
+interface AccountFilterToolbarProps {
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  categoryFilter: string | null;
+  onCategoryFilterChange: (value: string | null) => void;
+  availableCategories: string[];
+  filteredCount: number;
+  totalCount: number;
 }
 
-function buildAccountListHandlers(opts: {
-  loans: LoanItem[];
-  accounts: Account[];
-  mutation: ReturnType<typeof useTransactionCategoryMutation>;
-  mutationSucceededRef: React.MutableRefObject<boolean>;
-  setError: (msg: string | null) => void;
-  loadTransactions: () => Promise<void>;
-  onTransactionCategoryChanged: () => void;
-}) {
-  const { loans, accounts, mutation, mutationSucceededRef, setError, loadTransactions, onTransactionCategoryChanged } = opts;
-  return {
-    onCategoryChange: (txId: number, cat: string) => {
-      setError(null);
-      void mutation.handleCategoryChange(txId, cat);
-    },
-    onTagsChange: (txId: number, tags: string[]) => void mutation.handleTagsChange(txId, tags),
-    onRecurrenceChange: (txId: number, rec: Transaction['recurrence']) =>
-      void mutation.handleRecurrenceChange(txId, rec ?? null),
-    onLoanChange: (txId: number, loanId: number | null, amt?: number | null) => {
-      setError(null);
-      const matched = loans.find((l) => l.id === loanId);
-      void mutation.handleLoanChange(txId, loanId, amt, matched?.name ?? null, matched?.loan_type ?? null);
-    },
-    onCounterpartChange: async (txId: number, counterpartId: number | null) => {
-      setError(null);
-      mutationSucceededRef.current = false;
-      const matched = accounts.find((a) => a.id === counterpartId) ?? null;
-      await mutation.handleCounterpartChange(txId, counterpartId, matched);
-      if (mutationSucceededRef.current) void loadTransactions();
-    },
-    onReceiptUpdated: () => {
-      void loadTransactions();
-      onTransactionCategoryChanged();
-    },
-  };
-}
+const AccountFilterToolbar: React.FC<AccountFilterToolbarProps> = ({
+  searchQuery,
+  onSearchChange,
+  categoryFilter,
+  onCategoryFilterChange,
+  availableCategories,
+  filteredCount,
+  totalCount,
+}) => (
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+    <SearchInput
+      value={searchQuery}
+      onChange={onSearchChange}
+      placeholder="Search merchant or category..."
+      variant="brand"
+      className="flex-1"
+      data-testid="modal-tx-search"
+    />
+    <div className="flex items-center gap-2">
+      <SelectInput
+        value={categoryFilter || ''}
+        onChange={(e) => onCategoryFilterChange(e.target.value || null)}
+        containerClassName="w-auto"
+        className="min-h-[40px] py-1.5 text-xs"
+        aria-label="Filter transactions by category"
+        data-testid="modal-tx-category-filter"
+      >
+        <option value="">All Categories</option>
+        {availableCategories.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </SelectInput>
+      <div className="text-[11px] text-slate-400 shrink-0">
+        {filteredCount} of {totalCount}
+      </div>
+    </div>
+  </div>
+);
 
 interface AccountInspectionBodyProps extends AccountInspectionModalProps {
   startDate: string;
@@ -359,14 +260,28 @@ interface AccountInspectionBodyProps extends AccountInspectionModalProps {
   onEndDateChange: (date: string) => void;
 }
 
-const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
-  const { isOpen, account, accounts: accountsProp, period, onPeriodChange, startDate, endDate, onStartDateChange, onEndDateChange, onTransactionCategoryChanged, onRecordSnapshotClick, latestBalance, latestBalanceNzd } = props;
+function useAccountModalViewState(props: AccountInspectionBodyProps) {
+  const { isOpen, account, accounts: accountsProp, period, startDate, endDate, onTransactionCategoryChanged, latestBalance, latestBalanceNzd } = props;
   const { categoryNames } = useCategories();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const data = useAccountModalData({
-    isOpen, account, accountsProp, period, startDate, endDate, onChanged: onTransactionCategoryChanged,
+  const accountId = account?.id;
+
+  const ctx = useInspectionContext({ enabled: isOpen, providedAccounts: accountsProp });
+  const scope = useInspectionScope({
+    enabled: isOpen,
+    request: { kind: 'account', accountId, period, startDate, endDate },
   });
+  const mutation = useTransactionMutation({
+    onTransactionUpdated: scope.patchTransactionLocal,
+    reloadScope: scope.reload,
+    onRefreshParent: onTransactionCategoryChanged,
+    onError: scope.setError,
+  });
+
+  useEffect(() => {
+    if (isOpen) mutation.setSuccessNote(null);
+  }, [isOpen, accountId, period, startDate, endDate, mutation.setSuccessNote]);
 
   const currentBalance = latestBalance !== undefined ? latestBalance : latestBalanceNzd;
   const displayCurrency = account?.currency || 'NZD';
@@ -374,65 +289,80 @@ const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
   const amountFormatOpts = isCrypto
     ? { minimumFractionDigits: 2, maximumFractionDigits: 8 }
     : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-
-  const collapsed = useMemo(() => collapsePairedTransfers(data.transactions), [data.transactions]);
-  const analytics = useMemo(() => computeAccountCashflow(collapsed, account), [collapsed, account]);
+  const analytics = useMemo(() => computeAccountCashflow(scope.transactions, account), [scope.transactions, account]);
   const availableCategories = useMemo(() => {
     const set = new Set<string>(categoryNames);
-    collapsed.forEach((tx) => { if (tx.category) set.add(tx.category); });
+    scope.transactions.forEach((tx) => { if (tx.category) set.add(tx.category); });
     return Array.from(set).sort();
-  }, [collapsed, categoryNames]);
+  }, [scope.transactions, categoryNames]);
   const filteredTransactions = useMemo(
-    () => filterAccountTransactions(collapsed, categoryFilter, searchQuery),
-    [collapsed, categoryFilter, searchQuery]
+    () => filterAccountTransactions(scope.transactions, categoryFilter, searchQuery),
+    [scope.transactions, categoryFilter, searchQuery]
   );
   const summaryItems = buildAccountSummaryItems({ currentBalance, displayCurrency, amountFormatOpts, analytics });
-  const showTotalEarned = Boolean(account && ((account.payout_count ?? 0) > 0 || account.account_type === 'private_note'));
-  const handlers = buildAccountListHandlers({
-    loans: data.loans, accounts: data.accounts, mutation: data.mutation,
-    mutationSucceededRef: data.mutationSucceededRef, setError: data.setError,
-    loadTransactions: data.loadTransactions, onTransactionCategoryChanged,
+  const listProps = buildInspectionListProps({
+    categories: availableCategories, loans: ctx.loans, accounts: ctx.accounts, mutation,
+    showAccountBadge: account === null, fallbackCurrency: account?.currency,
   });
+
+  return {
+    ctx, scope, mutation, searchQuery, setSearchQuery, categoryFilter, setCategoryFilter,
+    currentBalance, availableCategories, filteredTransactions, summaryItems, listProps,
+    showTotalEarned: Boolean(account && ((account.payout_count ?? 0) > 0 || account.account_type === 'private_note')),
+  };
+}
+
+const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
+  const { account, period, onPeriodChange, startDate, endDate, onStartDateChange, onEndDateChange, onRecordSnapshotClick } = props;
+  const v = useAccountModalViewState(props);
 
   return (
     <>
       <div className="space-y-4" data-testid="account-inspection-modal">
-        <AccountModalHeader account={account} period={period} startDate={startDate} endDate={endDate} onPeriodChange={onPeriodChange} onStartDateChange={onStartDateChange} onEndDateChange={onEndDateChange} onRecordSnapshotClick={onRecordSnapshotClick} />
-        <SummaryMetricGrid items={summaryItems} columns={currentBalance !== undefined ? 4 : 3} />
-        {showTotalEarned && <AccountTotalEarnedTile account={account!} nativeBalance={currentBalance} />}
-        {Boolean(data.error) && <AlertBanner variant="error">{data.error}</AlertBanner>}
-        {Boolean(data.mutation.successNote) && (
-          <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>
+        <AccountModalHeader
+          account={account} period={period} startDate={startDate} endDate={endDate}
+          onPeriodChange={onPeriodChange} onStartDateChange={onStartDateChange}
+          onEndDateChange={onEndDateChange} onRecordSnapshotClick={onRecordSnapshotClick}
+        />
+        <SummaryMetricGrid items={v.summaryItems} columns={v.currentBalance !== undefined ? 4 : 3} />
+        {v.showTotalEarned && (
+          <AccountTotalEarnedTile account={account!} nativeBalance={v.currentBalance} />
         )}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
-          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search merchant or category..." variant="brand" className="flex-1" data-testid="modal-tx-search" />
-          <div className="flex items-center gap-2">
-            <SelectInput
-              value={categoryFilter || ''}
-              onChange={(e) => setCategoryFilter(e.target.value || null)}
-              containerClassName="w-auto"
-              className="min-h-[40px] py-1.5 text-xs"
-              aria-label="Filter transactions by category"
-              data-testid="modal-tx-category-filter"
-            >
-              <option value="">All Categories</option>
-              {availableCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </SelectInput>
-            <div className="text-[11px] text-slate-400 shrink-0">{filteredTransactions.length} of {collapsed.length}</div>
-          </div>
-        </div>
+        <InspectionContextErrorBanner
+          contextError={v.ctx.contextError}
+          retrying={v.ctx.contextLoading}
+          onRetry={() => void v.ctx.retryContext()}
+        />
+        {Boolean(v.scope.error) && <AlertBanner variant="error">{v.scope.error}</AlertBanner>}
+        {Boolean(v.mutation.successNote) && (
+          <AlertBanner variant="success">{v.mutation.successNote}</AlertBanner>
+        )}
+        <AccountFilterToolbar
+          searchQuery={v.searchQuery}
+          onSearchChange={v.setSearchQuery}
+          categoryFilter={v.categoryFilter}
+          onCategoryFilterChange={v.setCategoryFilter}
+          availableCategories={v.availableCategories}
+          filteredCount={v.filteredTransactions.length}
+          totalCount={v.scope.transactions.length}
+        />
         <TransactionList
-          transactions={filteredTransactions} categories={availableCategories} loading={data.loading} loadingLabel="Loading account transactions..." emptyTitle="No transactions found for this account and period." updatingId={data.mutation.updatingId}
-          loans={data.loans} accounts={data.accounts} onCreateRule={data.mutation.handleCreateRuleFromTx}
-          onSplitsUpdated={(updatedTx) => { data.mutation.setSuccessNote(updatedTx.is_split ? 'Saved transaction splits' : 'Cleared transaction splits'); }}
-          showAccountBadge={account === null} fallbackCurrency={account?.currency} listTestId="modal-tx-list"
-          getRowTestId={(tx) => `account-modal-tx-row-${tx.id}`} getSelectTestId={(tx) => `modal-select-category-${tx.id}`} getRuleBtnTestId={(tx) => `modal-rule-btn-${tx.id}`}
-          {...handlers}
+          transactions={v.filteredTransactions}
+          loading={v.scope.loading}
+          loadingLabel="Loading account transactions..."
+          emptyTitle="No transactions found for this account and period."
+          listTestId="modal-tx-list"
+          getRowTestId={(tx) => `account-modal-tx-row-${tx.id}`}
+          getSelectTestId={(tx) => `modal-select-category-${tx.id}`}
+          getRuleBtnTestId={(tx) => `modal-rule-btn-${tx.id}`}
+          {...v.listProps}
         />
       </div>
       <RulesManagerModal
-        isOpen={data.mutation.isRulesModalOpen} onClose={data.mutation.closeRulesModal} prefillRule={data.mutation.rulePrefill}
-        onRulesApplied={() => { void data.loadTransactions(); onTransactionCategoryChanged(); }}
+        isOpen={v.mutation.isRulesModalOpen}
+        onClose={v.mutation.closeRulesModal}
+        prefillRule={v.mutation.rulePrefill}
+        onRulesApplied={() => void v.mutation.handleRulesApplied()}
       />
     </>
   );

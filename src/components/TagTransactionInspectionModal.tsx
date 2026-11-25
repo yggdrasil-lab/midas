@@ -1,13 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Tag } from 'lucide-react';
 import { AlertBanner, Button, Modal, SearchInput, SummaryMetricGrid } from '@yggdrasil-lab/ui';
 import { formatPeriodLabel, isTransferCategory as checkTransferCategory } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
-import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchAccounts, fetchLoans, fetchTagTransactions } from '../transport';
-import { Account, LoanItem, PeriodType, TagCategoryBreakdownItem, TagSpendingSummaryItem, Transaction } from '../types';
-import { formatMoney, getTransactionNzdAmount } from '../utils/format';
-import { collapsePairedTransfers } from '../utils/transfers';
+import {
+  buildInspectionListProps,
+  computeTagStats,
+  filterTagTransactions,
+  InspectionContextErrorBanner,
+  useInspectionContext,
+  useInspectionScope,
+  useTransactionMutation,
+} from '../inspection';
+import { PeriodType, TagCategoryBreakdownItem, TagSpendingSummaryItem } from '../types';
+import { formatMoney } from '../utils/format';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
 
@@ -16,62 +22,7 @@ interface TagTransactionInspectionModalProps {
   onClose: () => void;
   summary: TagSpendingSummaryItem | null;
   period: PeriodType;
-  onTagDataChanged: () => void;
-}
-
-function computeTagStats(
-  loading: boolean,
-  transactionsCount: number,
-  summary: TagSpendingSummaryItem | null,
-  expenseTransactions: Transaction[]
-) {
-  if (loading && transactionsCount === 0 && summary) {
-    return { totalSpend: summary.total_spend, txCount: summary.transaction_count, categories: summary.categories };
-  }
-  const totalSpend = expenseTransactions.reduce((sum, tx) => sum + getTransactionNzdAmount(tx), 0);
-  const roundedTotal = Math.round(totalSpend * 100) / 100;
-  const byCat = new Map<string, { spend: number; count: number }>();
-
-  for (const tx of expenseTransactions) {
-    const cat = (tx.category || 'General').trim() || 'General';
-    const entry = byCat.get(cat) || { spend: 0, count: 0 };
-    entry.spend += getTransactionNzdAmount(tx);
-    entry.count += 1;
-    byCat.set(cat, entry);
-  }
-  const categories: TagCategoryBreakdownItem[] = Array.from(byCat.entries())
-    .map(([category, data]) => ({
-      category,
-      total_spend: Math.round(data.spend * 100) / 100,
-      transaction_count: data.count,
-      percentage: roundedTotal > 0 ? Math.round((data.spend / roundedTotal) * 1000) / 10 : 0,
-    }))
-    .sort((a, b) => b.total_spend - a.total_spend || a.category.localeCompare(b.category));
-  return { totalSpend: roundedTotal, txCount: expenseTransactions.length, categories };
-}
-
-function filterTagTransactions(
-  collapsed: Transaction[],
-  selectedCategory: string,
-  searchQuery: string
-): Transaction[] {
-  const base =
-    selectedCategory === 'ALL'
-      ? collapsed
-      : collapsed.filter((tx) => (tx.category || 'General').toLowerCase() === selectedCategory.toLowerCase());
-  const q = searchQuery.trim().toLowerCase().replace(/^#+/, '');
-  if (!q) return base;
-  return base.filter(
-    (tx) =>
-      tx.merchant.toLowerCase().includes(q) ||
-      tx.category.toLowerCase().includes(q) ||
-      (tx.account_name || '').toLowerCase().includes(q) ||
-      (tx.linked_account_name || '').toLowerCase().includes(q) ||
-      (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
-      (tx.loan_name || '').toLowerCase().includes(q) ||
-      (tx.raw_description || '').toLowerCase().includes(q) ||
-      (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
-  );
+  onTagDataChanged: () => Promise<void> | void;
 }
 
 interface TagBreakdownPillsProps {
@@ -115,87 +66,51 @@ const TagBreakdownPills: React.FC<TagBreakdownPillsProps> = ({
   );
 };
 
-function useTagInspectionData(opts: {
+function useTagInspectionViewState(opts: {
   isOpen: boolean;
-  tagName: string;
+  summary: TagSpendingSummaryItem | null;
   period: PeriodType;
-  onTagDataChanged: () => void;
+  onTagDataChanged: () => Promise<void> | void;
 }) {
-  const { isOpen, tagName, period, onTagDataChanged } = opts;
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loans, setLoans] = useState<LoanItem[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isOpen, summary, period, onTagDataChanged } = opts;
+  const { categoryNames } = useCategories();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const tagName = summary?.tag || '';
+  const activeEnabled = Boolean(isOpen && tagName);
 
-  const handleTransactionUpdated = useCallback((txId: number, patch: Partial<Transaction>) => {
-    setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, ...patch } : t)));
-  }, []);
-
-  const mutation = useTransactionCategoryMutation({
-    onTransactionUpdated: handleTransactionUpdated,
-    onChanged: onTagDataChanged,
-    onError: (msg) => setError(msg || null),
+  const ctx = useInspectionContext({ enabled: activeEnabled });
+  const scope = useInspectionScope({ enabled: activeEnabled, request: { kind: 'tag', tag: tagName, period } });
+  const mutation = useTransactionMutation({
+    onTransactionUpdated: scope.patchTransactionLocal,
+    reloadScope: scope.reload,
+    onRefreshParent: onTagDataChanged,
+    onError: scope.setError,
   });
 
-  const loadTransactions = useCallback(async () => {
-    if (!tagName) return;
-    setLoading(true);
-    setError(null);
-    try {
-      setTransactions(await fetchTagTransactions(tagName, period));
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load tagged transactions');
-    } finally {
-      setLoading(false);
-    }
-  }, [tagName, period]);
-
   useEffect(() => {
-    if (!isOpen || !tagName) return;
+    if (!activeEnabled) return;
     mutation.setSuccessNote(null);
     setSearchQuery('');
     setSelectedCategory('ALL');
-    void loadTransactions();
-    fetchLoans().then((r) => setLoans(r.loans || [])).catch(() => setLoans([]));
-    fetchAccounts().then(setAccounts).catch(() => setAccounts([]));
-  }, [isOpen, tagName, period, loadTransactions, mutation.setSuccessNote]);
+  }, [activeEnabled, tagName, period, mutation.setSuccessNote]);
 
-  return {
-    transactions, loans, accounts, loading, error, setError, searchQuery, setSearchQuery,
-    selectedCategory, setSelectedCategory, mutation, loadTransactions, handleTransactionUpdated,
-  };
-}
-
-function buildTagListHandlers(opts: {
-  data: ReturnType<typeof useTagInspectionData>;
-  onTagDataChanged: () => void;
-}) {
-  const { data, onTagDataChanged } = opts;
-  return {
-    onCategoryChange: (txId: number, cat: string) => { data.setError(null); void data.mutation.handleCategoryChange(txId, cat); },
-    onTagsChange: (txId: number, newTags: string[]) => { data.setError(null); void data.mutation.handleTagsChange(txId, newTags); },
-    onRecurrenceChange: (txId: number, rec: Transaction['recurrence']) => void data.mutation.handleRecurrenceChange(txId, rec ?? null),
-    onLoanChange: (txId: number, loanId: number | null, amt?: number | null) => {
-      data.setError(null);
-      const matched = data.loans.find((l) => l.id === loanId);
-      void data.mutation.handleLoanChange(txId, loanId, amt, matched?.name ?? null, matched?.loan_type ?? null);
-    },
-    onCounterpartChange: (txId: number, counterpartId: number | null) => {
-      data.setError(null);
-      const matched = data.accounts.find((a) => a.id === counterpartId) ?? null;
-      void data.mutation.handleCounterpartChange(txId, counterpartId, matched);
-    },
-    onCreateRule: data.mutation.handleCreateRuleFromTx,
-    onReceiptUpdated: () => { void data.loadTransactions(); onTagDataChanged(); },
-    onSplitsUpdated: (updatedTx: Transaction) => {
-      data.handleTransactionUpdated(updatedTx.id, updatedTx);
-      data.mutation.setSuccessNote(updatedTx.is_split ? 'Saved transaction splits' : 'Cleared transaction splits');
-    },
-  };
+  const expenseTransactions = useMemo(
+    () => scope.transactions.filter((tx) => !checkTransferCategory(tx.category, tx) && Number(tx.amount) < 0),
+    [scope.transactions]
+  );
+  const computedStats = useMemo(
+    () => computeTagStats(scope.loading, scope.transactions.length, summary, expenseTransactions),
+    [scope.loading, scope.transactions.length, summary, expenseTransactions]
+  );
+  const filteredTransactions = useMemo(
+    () => filterTagTransactions(scope.transactions, selectedCategory, searchQuery),
+    [scope.transactions, selectedCategory, searchQuery]
+  );
+  const listProps = buildInspectionListProps({
+    categories: categoryNames, loans: ctx.loans, accounts: ctx.accounts, mutation, showAccountBadge: true,
+  });
+  return { tagName, ctx, scope, mutation, searchQuery, setSearchQuery, selectedCategory, setSelectedCategory, computedStats, filteredTransactions, listProps };
 }
 
 /**
@@ -205,35 +120,19 @@ function buildTagListHandlers(opts: {
 export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionModalProps> = ({
   isOpen, onClose, summary, period, onTagDataChanged,
 }) => {
-  const { categoryNames } = useCategories();
-  const tagName = summary?.tag || '';
-  const data = useTagInspectionData({ isOpen, tagName, period, onTagDataChanged });
-  const collapsed = useMemo(() => collapsePairedTransfers(data.transactions), [data.transactions]);
-  const expenseTransactions = useMemo(
-    () => collapsed.filter((tx) => !checkTransferCategory(tx.category, tx) && Number(tx.amount) < 0),
-    [collapsed]
-  );
-  const computedStats = useMemo(
-    () => computeTagStats(data.loading, data.transactions.length, summary, expenseTransactions),
-    [data.loading, data.transactions.length, summary, expenseTransactions]
-  );
-  const filteredTransactions = useMemo(
-    () => filterTagTransactions(collapsed, data.selectedCategory, data.searchQuery),
-    [collapsed, data.selectedCategory, data.searchQuery]
-  );
+  const v = useTagInspectionViewState({ isOpen, summary, period, onTagDataChanged });
   if (!summary) return null;
 
   const periodLabel = formatPeriodLabel(period);
   const dateRangeLabel = summary.first_date === summary.last_date ? summary.last_date : `${summary.first_date} to ${summary.last_date}`;
-  const handlers = buildTagListHandlers({ data, onTagDataChanged });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Inspect Tag: #${tagName}`} className="sm:max-w-2xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Inspect Tag: #${v.tagName}`} className="sm:max-w-2xl">
       <div className="space-y-4" data-testid="tag-inspection-modal">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-300 bg-card/60 p-3 rounded-xl border border-border gap-2">
           <div className="flex items-center space-x-2 flex-wrap gap-y-1">
             <span className="p-1 rounded bg-amber-500/10 text-amber-400"><Tag className="w-3.5 h-3.5" /></span>
-            <span className="font-semibold text-amber-300">#{tagName}</span>
+            <span className="font-semibold text-amber-300">#{v.tagName}</span>
             <span className="text-[11px] text-slate-400">({periodLabel})</span>
           </div>
           <div className="text-[11px] text-slate-400">{dateRangeLabel}</div>
@@ -241,27 +140,28 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
         <SummaryMetricGrid
           columns={3}
           items={[
-            { id: 'tag-total-nzd', label: 'Total Spend (NZD)', value: formatMoney(computedStats.totalSpend, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), valueClassName: 'text-slate-100 font-mono text-xs sm:text-sm tracking-tight' },
-            { id: 'tag-txn-count', label: 'Expenses', value: computedStats.txCount, valueClassName: 'text-amber-300 font-mono text-xs sm:text-sm tracking-tight' },
-            { id: 'tag-category-count', label: 'Categories', value: computedStats.categories.length, valueClassName: 'text-slate-200 font-mono text-xs sm:text-sm tracking-tight' },
+            { id: 'tag-total-nzd', label: 'Total Spend (NZD)', value: formatMoney(v.computedStats.totalSpend, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), valueClassName: 'text-slate-100 font-mono text-xs sm:text-sm tracking-tight' },
+            { id: 'tag-txn-count', label: 'Expenses', value: v.computedStats.txCount, valueClassName: 'text-amber-300 font-mono text-xs sm:text-sm tracking-tight' },
+            { id: 'tag-category-count', label: 'Categories', value: v.computedStats.categories.length, valueClassName: 'text-slate-200 font-mono text-xs sm:text-sm tracking-tight' },
           ]}
         />
-        <TagBreakdownPills categories={computedStats.categories} txCount={computedStats.txCount} selectedCategory={data.selectedCategory} onSelectCategory={data.setSelectedCategory} />
-        {Boolean(data.error) && <AlertBanner variant="error">{data.error}</AlertBanner>}
-        {Boolean(data.mutation.successNote) && (
-          <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>
-        )}
-        {data.transactions.length > 0 && (
-          <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant, category, or account..." variant="brand" />
+        <TagBreakdownPills categories={v.computedStats.categories} txCount={v.computedStats.txCount} selectedCategory={v.selectedCategory} onSelectCategory={v.setSelectedCategory} />
+        <InspectionContextErrorBanner contextError={v.ctx.contextError} retrying={v.ctx.contextLoading} onRetry={() => void v.ctx.retryContext()} />
+        {Boolean(v.scope.error) && <AlertBanner variant="error">{v.scope.error}</AlertBanner>}
+        {Boolean(v.mutation.successNote) && <AlertBanner variant="success">{v.mutation.successNote}</AlertBanner>}
+        {v.scope.transactions.length > 0 && (
+          <SearchInput value={v.searchQuery} onChange={v.setSearchQuery} placeholder="Filter by merchant, category, or account..." variant="brand" />
         )}
         <TransactionList
-          transactions={filteredTransactions} categories={categoryNames} loading={data.loading} loadingLabel={`Loading #${tagName} transactions...`}
-          emptyTitle={`No transactions found for #${tagName} in ${periodLabel.toLowerCase()}.`} updatingId={data.mutation.updatingId}
-          loans={data.loans} accounts={data.accounts} showAccountBadge {...handlers}
+          transactions={v.filteredTransactions}
+          loading={v.scope.loading}
+          loadingLabel={`Loading #${v.tagName} transactions...`}
+          emptyTitle={`No transactions found for #${v.tagName} in ${periodLabel.toLowerCase()}.`}
+          {...v.listProps}
         />
         <div className="pt-2 flex justify-end"><Button variant="outline" size="sm" onClick={onClose}>Done</Button></div>
       </div>
-      <RulesManagerModal isOpen={data.mutation.isRulesModalOpen} onClose={data.mutation.closeRulesModal} prefillRule={data.mutation.rulePrefill} onRulesApplied={() => { void data.loadTransactions(); onTagDataChanged(); }} />
+      <RulesManagerModal isOpen={v.mutation.isRulesModalOpen} onClose={v.mutation.closeRulesModal} prefillRule={v.mutation.rulePrefill} onRulesApplied={() => void v.mutation.handleRulesApplied()} />
     </Modal>
   );
 };

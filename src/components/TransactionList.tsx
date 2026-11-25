@@ -30,6 +30,7 @@ interface TransactionListProps {
   onSplitsUpdated?: (updatedTx: Transaction) => void;
   showAccountBadge?: boolean;
   fallbackCurrency?: string;
+  skipTransferCollapse?: boolean;
   scrollable?: boolean;
   listTestId?: string;
   getRowTestId?: (tx: Transaction) => string;
@@ -106,8 +107,9 @@ export const TransactionList: React.FC<TransactionListProps> = (props) => {
   } | null>(null);
   const [splittingTx, setSplittingTx] = useState<Transaction | null>(null);
   const displayTransactions = useMemo(
-    () => collapsePairedTransfers(transactions),
-    [transactions]
+    () =>
+      props.skipTransferCollapse ? transactions : collapsePairedTransfers(transactions),
+    [transactions, props.skipTransferCollapse]
   );
 
   if (loading) return <LoadingState label={loadingLabel} variant="brand" />;

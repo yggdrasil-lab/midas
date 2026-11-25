@@ -105,8 +105,9 @@ function useSpendingBreakdownState(compact: boolean, onRefreshRunway?: () => voi
   }, [loadBreakdown]);
 
   const refreshAll = useCallback(() => {
-    void loadBreakdown();
+    const breakdownPromise = loadBreakdown();
     onRefreshRunway?.();
+    return breakdownPromise;
   }, [loadBreakdown, onRefreshRunway]);
 
   return {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowRightLeft, Layers, Repeat } from 'lucide-react';
 import {
   AlertBanner,
@@ -14,16 +14,18 @@ import {
   isTransferCategory as checkTransferCategory,
 } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
-import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
 import {
-  fetchAccounts,
-  fetchCategoryTransactions,
-  fetchLoans,
-  triggerReconcileTransfers,
-} from '../transport';
-import { Account, LoanItem, PeriodType, Transaction } from '../types';
+  buildInspectionListProps,
+  InspectionContextErrorBanner,
+  matchesInspectionSearch,
+  partitionCashflowTransactions,
+  SharedInspectionListProps,
+  useInspectionContext,
+  useInspectionScope,
+  useTransactionMutation,
+} from '../inspection';
+import { PeriodType, Transaction } from '../types';
 import { formatMoney, getTransactionNzdAmount } from '../utils/format';
-import { collapsePairedTransfers } from '../utils/transfers';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
 
@@ -36,39 +38,7 @@ interface CategoryTransactionInspectionModalProps {
   endDate?: string;
   isAnnualOverride?: boolean;
   includeSubclasses?: boolean;
-  onCategoryChanged: () => void;
-}
-
-type CategoryListSharedProps = Omit<
-  React.ComponentProps<typeof TransactionList>,
-  'transactions' | 'loading' | 'scrollable' | 'loadingLabel'
->;
-
-function matchesTransactionSearch(tx: Transaction, query: string): boolean {
-  const q = query.trim().toLowerCase().replace(/^#+/, '');
-  if (!q) return true;
-  return (
-    tx.merchant.toLowerCase().includes(q) ||
-    (tx.account_name || '').toLowerCase().includes(q) ||
-    (tx.linked_account_name || '').toLowerCase().includes(q) ||
-    (tx.counterpart_account_name || '').toLowerCase().includes(q) ||
-    (tx.loan_name || '').toLowerCase().includes(q) ||
-    (tx.raw_description || '').toLowerCase().includes(q) ||
-    (tx.recurrence || '').toLowerCase().includes(q) ||
-    (tx.tags || []).some((tag) => tag.toLowerCase().includes(q))
-  );
-}
-
-function partitionCategoryTransactions(collapsed: Transaction[]) {
-  const actual: Transaction[] = [];
-  const amortized: Transaction[] = [];
-  const excluded: Transaction[] = [];
-  for (const tx of collapsed) {
-    if (tx.is_amortized_commitment) amortized.push(tx);
-    else if (tx.excluded_from_period_budget) excluded.push(tx);
-    else actual.push(tx);
-  }
-  return { actualTransactions: actual, amortizedCommitments: amortized, excludedTransactions: excluded };
+  onCategoryChanged: () => Promise<void> | void;
 }
 
 interface CategoryHeaderAndMetricsProps {
@@ -132,22 +102,31 @@ interface CategorySectionsBodyProps {
   searchQuery: string;
   category: string;
   periodLabel: string;
-  sharedListProps: CategoryListSharedProps;
+  emptyTitle: string;
+  sharedListProps: SharedInspectionListProps;
 }
 
 const CategorySectionsBody: React.FC<CategorySectionsBodyProps> = ({
   loading, hasSupplementalSections, filteredActual, filteredAmortized, filteredExcluded,
-  actualVolume, amortizedVolume, cadenceUnit, searchQuery, category, periodLabel, sharedListProps,
+  actualVolume, amortizedVolume, cadenceUnit, searchQuery, category, periodLabel, emptyTitle, sharedListProps,
 }) => {
   if (!hasSupplementalSections) {
-    return <TransactionList transactions={filteredActual} loading={loading} loadingLabel="Loading transactions..." {...sharedListProps} />;
+    return (
+      <TransactionList
+        transactions={filteredActual}
+        loading={loading}
+        loadingLabel="Loading transactions..."
+        emptyTitle={emptyTitle}
+        {...sharedListProps}
+      />
+    );
   }
   if (loading) return <LoadingState label="Loading transactions..." variant="brand" />;
   if (filteredActual.length === 0 && filteredAmortized.length === 0 && filteredExcluded.length === 0) {
-    const emptyTitle = searchQuery.trim()
+    const resolvedEmptyTitle = searchQuery.trim()
       ? 'No matching transactions or commitments.'
       : `No transactions found for ${category} in ${periodLabel.toLowerCase()}.`;
-    return <EmptyState title={emptyTitle} variant="dashed" />;
+    return <EmptyState title={resolvedEmptyTitle} variant="dashed" />;
   }
 
   return (
@@ -158,7 +137,7 @@ const CategorySectionsBody: React.FC<CategorySectionsBodyProps> = ({
             <span className="font-medium text-slate-300">Transactions in Period ({filteredActual.length})</span>
             <span className="font-mono text-slate-300">{formatMoney(actualVolume, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD</span>
           </div>
-          <TransactionList transactions={filteredActual} loading={false} scrollable={false} {...sharedListProps} />
+          <TransactionList transactions={filteredActual} loading={false} scrollable={false} emptyTitle="" {...sharedListProps} />
         </div>
       )}
       {filteredAmortized.length > 0 && (
@@ -167,7 +146,7 @@ const CategorySectionsBody: React.FC<CategorySectionsBodyProps> = ({
             <span className="inline-flex items-center gap-1.5 font-medium"><Repeat className="w-3 h-3 text-sky-400" /><span>Amortized Recurring Commitments ({filteredAmortized.length})</span></span>
             <span className="font-mono">{formatMoney(amortizedVolume, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD/{cadenceUnit}</span>
           </div>
-          <TransactionList transactions={filteredAmortized} loading={false} scrollable={false} {...sharedListProps} />
+          <TransactionList transactions={filteredAmortized} loading={false} scrollable={false} emptyTitle="" {...sharedListProps} />
         </div>
       )}
       {filteredExcluded.length > 0 && (
@@ -175,150 +154,12 @@ const CategorySectionsBody: React.FC<CategorySectionsBodyProps> = ({
           <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
             <span className="font-medium">Excluded from Period Budget ({filteredExcluded.length})</span>
           </div>
-          <TransactionList transactions={filteredExcluded} loading={false} scrollable={false} {...sharedListProps} />
+          <TransactionList transactions={filteredExcluded} loading={false} scrollable={false} emptyTitle="" {...sharedListProps} />
         </div>
       )}
     </div>
   );
 };
-
-function useCategoryReconcileAction(opts: {
-  setError: (msg: string | null) => void;
-  setSuccessNote: (msg: string | null) => void;
-  loadTransactions: () => Promise<void>;
-  onCategoryChanged: () => void;
-}) {
-  const { setError, setSuccessNote, loadTransactions, onCategoryChanged } = opts;
-  const [reconciling, setReconciling] = useState(false);
-
-  const handleReconcileTransfers = useCallback(async () => {
-    setReconciling(true);
-    setError(null);
-    try {
-      const res = await triggerReconcileTransfers();
-      setSuccessNote(
-        res.matched_transfers > 0
-          ? `Successfully reconciled and paired ${res.matched_transfers} transfer legs!`
-          : 'All transfers are currently reconciled.'
-      );
-      void loadTransactions();
-      onCategoryChanged();
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to reconcile transfers');
-    } finally {
-      setReconciling(false);
-    }
-  }, [setError, setSuccessNote, loadTransactions, onCategoryChanged]);
-
-  return { reconciling, handleReconcileTransfers };
-}
-
-function useCategoryInspectionData(opts: {
-  isOpen: boolean;
-  category?: string;
-  period: PeriodType;
-  startDate?: string;
-  endDate?: string;
-  includeSubclasses: boolean;
-  shouldIncludeAmortized: boolean;
-  onCategoryChanged: () => void;
-}) {
-  const { isOpen, category, period, startDate, endDate, includeSubclasses, shouldIncludeAmortized, onCategoryChanged } = opts;
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loans, setLoans] = useState<LoanItem[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const mutationSucceededRef = useRef(false);
-
-  const handleTransactionUpdated = useCallback((txId: number, patch: Partial<Transaction>) => {
-    mutationSucceededRef.current = true;
-    setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...t, ...patch } : t)));
-  }, []);
-
-  const mutation = useTransactionCategoryMutation({
-    onTransactionUpdated: handleTransactionUpdated,
-    onChanged: onCategoryChanged,
-    onError: (msg) => setError(msg || null),
-  });
-
-  const loadTransactions = useCallback(async () => {
-    if (!category) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetchCategoryTransactions(
-        category, period, period === 'custom' ? startDate : undefined, period === 'custom' ? endDate : undefined, includeSubclasses, shouldIncludeAmortized
-      );
-      setTransactions(res);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Failed to load category transactions');
-    } finally {
-      setLoading(false);
-    }
-  }, [category, period, startDate, endDate, includeSubclasses, shouldIncludeAmortized]);
-
-  useEffect(() => {
-    if (!isOpen || !category) return;
-    mutation.setSuccessNote(null);
-    setSearchQuery('');
-    void loadTransactions();
-    fetchLoans().then((r) => setLoans(r.loans || [])).catch(() => setLoans([]));
-    fetchAccounts().then(setAccounts).catch(() => setAccounts([]));
-  }, [isOpen, category, loadTransactions]);
-
-  const { reconciling, handleReconcileTransfers } = useCategoryReconcileAction({
-    setError, setSuccessNote: mutation.setSuccessNote, loadTransactions, onCategoryChanged,
-  });
-
-  return {
-    transactions, loans, accounts, loading, error, setError, reconciling, searchQuery, setSearchQuery,
-    mutation, mutationSucceededRef, loadTransactions, handleTransactionUpdated, handleReconcileTransfers,
-  };
-}
-
-function buildCategoryListProps(opts: {
-  categoryNames: readonly string[];
-  emptyTitle: string;
-  data: ReturnType<typeof useCategoryInspectionData>;
-  onCategoryChanged: () => void;
-}): CategoryListSharedProps {
-  const { categoryNames, emptyTitle, data, onCategoryChanged } = opts;
-  const runAndReload = async (task: Promise<void>) => {
-    data.setError(null);
-    data.mutationSucceededRef.current = false;
-    await task;
-    if (data.mutationSucceededRef.current) void data.loadTransactions();
-  };
-  return {
-    categories: categoryNames,
-    emptyTitle,
-    updatingId: data.mutation.updatingId,
-    loans: data.loans,
-    accounts: data.accounts,
-    showAccountBadge: true,
-    onCategoryChange: (txId, cat) => void runAndReload(data.mutation.handleCategoryChange(txId, cat)),
-    onTagsChange: (txId, tags) => void data.mutation.handleTagsChange(txId, tags),
-    onRecurrenceChange: (txId, rec) => void runAndReload(data.mutation.handleRecurrenceChange(txId, rec ?? null)),
-    onLoanChange: (txId, loanId, amt) => {
-      const matched = data.loans.find((l) => l.id === loanId);
-      void runAndReload(data.mutation.handleLoanChange(txId, loanId, amt, matched?.name ?? null, matched?.loan_type ?? null));
-    },
-    onCounterpartChange: (txId, counterpartId) => {
-      const matched = data.accounts.find((a) => a.id === counterpartId) ?? null;
-      void runAndReload(data.mutation.handleCounterpartChange(txId, counterpartId, matched));
-    },
-    onCreateRule: data.mutation.handleCreateRuleFromTx,
-    onReceiptUpdated: () => { void data.loadTransactions(); onCategoryChanged(); },
-    onSplitsUpdated: (updatedTx) => {
-      data.handleTransactionUpdated(updatedTx.id, updatedTx);
-      data.mutation.setSuccessNote(updatedTx.is_split ? 'Saved transaction splits' : 'Cleared transaction splits');
-    },
-  };
-}
 
 const CategoryTransferNotice: React.FC<{ reconciling: boolean; onReconcile: () => void }> = ({
   reconciling,
@@ -336,6 +177,50 @@ const CategoryTransferNotice: React.FC<{ reconciling: boolean; onReconcile: () =
   </div>
 );
 
+function useCategoryInspectionViewState(opts: {
+  isOpen: boolean;
+  category?: string;
+  period: PeriodType;
+  startDate?: string;
+  endDate?: string;
+  isAnnualOverride: boolean;
+  includeSubclasses: boolean;
+  onCategoryChanged: () => Promise<void> | void;
+}) {
+  const { isOpen, category, period, startDate, endDate, isAnnualOverride, includeSubclasses, onCategoryChanged } = opts;
+  const { categoryNames } = useCategories();
+  const [searchQuery, setSearchQuery] = useState('');
+  const isTransferCategory = Boolean(category && checkTransferCategory(category));
+  const shouldIncludeAmortized = Boolean(
+    category && !isTransferCategory && !isAnnualOverride &&
+    (period === 'week' || period === 'last_week' || period === 'month' || period === 'last_month')
+  );
+  const activeEnabled = Boolean(isOpen && category);
+  const ctx = useInspectionContext({ enabled: activeEnabled });
+  const scope = useInspectionScope({
+    enabled: activeEnabled,
+    request: { kind: 'category', category: category || '', period, startDate, endDate, includeSubclasses, includeAmortized: shouldIncludeAmortized },
+  });
+  const mutation = useTransactionMutation({
+    onTransactionUpdated: scope.patchTransactionLocal,
+    reloadScope: scope.reload,
+    onRefreshParent: onCategoryChanged,
+    onError: scope.setError,
+  });
+
+  useEffect(() => {
+    if (!activeEnabled) return;
+    mutation.setSuccessNote(null);
+    setSearchQuery('');
+  }, [activeEnabled, category, period, startDate, endDate, includeSubclasses, shouldIncludeAmortized, mutation.setSuccessNote]);
+
+  const partition = useMemo(() => partitionCashflowTransactions(scope.transactions), [scope.transactions]);
+  const sharedListProps = buildInspectionListProps({
+    categories: categoryNames, loans: ctx.loans, accounts: ctx.accounts, mutation, showAccountBadge: true,
+  });
+  return { ctx, scope, mutation, searchQuery, setSearchQuery, isTransferCategory, partition, sharedListProps };
+}
+
 /**
  * Modal for inspecting transactions within a spending category, reconciling
  * inter-account transfers, surfacing amortized recurring commitments, and
@@ -343,62 +228,52 @@ const CategoryTransferNotice: React.FC<{ reconciling: boolean; onReconcile: () =
  */
 export const CategoryTransactionInspectionModal: React.FC<
   CategoryTransactionInspectionModalProps
-> = ({ isOpen, onClose, category, period, startDate, endDate, isAnnualOverride = false, includeSubclasses = false, onCategoryChanged }) => {
-  const { categoryNames } = useCategories();
-  const isTransferCategory = Boolean(category && checkTransferCategory(category));
-  const shouldIncludeAmortized = Boolean(
-    category && !isTransferCategory && !isAnnualOverride &&
-    (period === 'week' || period === 'last_week' || period === 'month' || period === 'last_month')
-  );
-  const data = useCategoryInspectionData({
-    isOpen, category, period, startDate, endDate, includeSubclasses, shouldIncludeAmortized, onCategoryChanged,
+> = ({
+  isOpen, onClose, category, period, startDate, endDate,
+  isAnnualOverride = false, includeSubclasses = false, onCategoryChanged,
+}) => {
+  const v = useCategoryInspectionViewState({
+    isOpen, category, period, startDate, endDate, isAnnualOverride, includeSubclasses, onCategoryChanged,
   });
-  const collapsed = useMemo(() => collapsePairedTransfers(data.transactions), [data.transactions]);
-  const { actualTransactions, amortizedCommitments, excludedTransactions } = useMemo(
-    () => partitionCategoryTransactions(collapsed),
-    [collapsed]
-  );
   if (!category) return null;
 
+  const { actualTransactions, amortizedCommitments, excludedTransactions } = v.partition;
   const periodLabel = formatPeriodLabel(period, startDate, endDate);
   const actualVolume = actualTransactions.reduce((sum, tx) => sum + getTransactionNzdAmount(tx), 0);
   const amortizedVolume = amortizedCommitments.reduce((sum, tx) => sum + Math.abs(Number(tx.amortized_period_amount_nzd ?? 0)), 0);
-  const sharedListProps = buildCategoryListProps({
-    categoryNames, emptyTitle: `No transactions found for ${category} in ${periodLabel.toLowerCase()}.`, data, onCategoryChanged,
-  });
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Inspect Category: ${category}`}
-      className="sm:max-w-2xl"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={`Inspect Category: ${category}`} className="sm:max-w-2xl">
       <div className="space-y-4" data-testid="category-inspection-modal">
-        <CategoryHeaderAndMetrics category={category} periodLabel={periodLabel} isAnnualOverride={isAnnualOverride} actualCount={actualTransactions.length} amortizedCount={amortizedCommitments.length} actualVolume={actualVolume} amortizedVolume={amortizedVolume} />
-        {isTransferCategory && <CategoryTransferNotice reconciling={data.reconciling} onReconcile={data.handleReconcileTransfers} />}
-        {Boolean(data.error) && <AlertBanner variant="error">{data.error}</AlertBanner>}
-        {Boolean(data.mutation.successNote) && <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>}
-        {data.transactions.length > 0 && (
-          <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant or account..." variant="brand" />
+        <CategoryHeaderAndMetrics
+          category={category} periodLabel={periodLabel} isAnnualOverride={isAnnualOverride}
+          actualCount={actualTransactions.length} amortizedCount={amortizedCommitments.length}
+          actualVolume={actualVolume} amortizedVolume={amortizedVolume}
+        />
+        {v.isTransferCategory && (
+          <CategoryTransferNotice reconciling={v.mutation.reconciling} onReconcile={() => void v.mutation.handleReconcileTransfers()} />
+        )}
+        <InspectionContextErrorBanner contextError={v.ctx.contextError} retrying={v.ctx.contextLoading} onRetry={() => void v.ctx.retryContext()} />
+        {Boolean(v.scope.error) && <AlertBanner variant="error">{v.scope.error}</AlertBanner>}
+        {Boolean(v.mutation.successNote) && <AlertBanner variant="success">{v.mutation.successNote}</AlertBanner>}
+        {v.scope.transactions.length > 0 && (
+          <SearchInput value={v.searchQuery} onChange={v.setSearchQuery} placeholder="Filter by merchant or account..." variant="brand" />
         )}
         <CategorySectionsBody
-          loading={data.loading}
+          loading={v.scope.loading}
           hasSupplementalSections={amortizedCommitments.length > 0 || excludedTransactions.length > 0}
-          filteredActual={actualTransactions.filter((tx) => matchesTransactionSearch(tx, data.searchQuery))}
-          filteredAmortized={amortizedCommitments.filter((tx) => matchesTransactionSearch(tx, data.searchQuery))}
-          filteredExcluded={excludedTransactions.filter((tx) => matchesTransactionSearch(tx, data.searchQuery))}
-          actualVolume={actualVolume}
-          amortizedVolume={amortizedVolume}
+          filteredActual={actualTransactions.filter((tx) => matchesInspectionSearch(tx, v.searchQuery))}
+          filteredAmortized={amortizedCommitments.filter((tx) => matchesInspectionSearch(tx, v.searchQuery))}
+          filteredExcluded={excludedTransactions.filter((tx) => matchesInspectionSearch(tx, v.searchQuery))}
+          actualVolume={actualVolume} amortizedVolume={amortizedVolume}
           cadenceUnit={period === 'week' || period === 'last_week' ? 'wk' : 'mo'}
-          searchQuery={data.searchQuery}
-          category={category}
-          periodLabel={periodLabel}
-          sharedListProps={sharedListProps}
+          searchQuery={v.searchQuery} category={category} periodLabel={periodLabel}
+          emptyTitle={`No transactions found for ${category} in ${periodLabel.toLowerCase()}.`}
+          sharedListProps={v.sharedListProps}
         />
         <div className="pt-2 flex justify-end"><Button variant="outline" size="sm" onClick={onClose}>Done</Button></div>
       </div>
-      <RulesManagerModal isOpen={data.mutation.isRulesModalOpen} onClose={data.mutation.closeRulesModal} prefillRule={data.mutation.rulePrefill} onRulesApplied={() => { void data.loadTransactions(); onCategoryChanged(); }} />
+      <RulesManagerModal isOpen={v.mutation.isRulesModalOpen} onClose={v.mutation.closeRulesModal} prefillRule={v.mutation.rulePrefill} onRulesApplied={() => void v.mutation.handleRulesApplied()} />
     </Modal>
   );
 };

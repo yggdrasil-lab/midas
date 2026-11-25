@@ -17,8 +17,23 @@ import {
 import { formatPeriodLabel } from '../constants/categories';
 import { getCategoryIcon } from '../constants/categoryIcons';
 import { useCategories } from '../hooks/useCategories';
-import { useCashflowInspection } from '../hooks/useCashflowInspection';
-import { SharedCashflowListProps, useCashflowListBindings } from '../hooks/useCashflowListBindings';
+import {
+  buildInspectionListProps,
+  CashflowSummaryMetrics,
+  computeCashflowSummary,
+  deriveAnnualizedCategories,
+  deriveOutflowCategoryChips,
+  getAnnualizedPeriodShare,
+  InspectionContextErrorBanner,
+  isBudgetCadencePeriod,
+  isWeeklyBudgetPeriod,
+  matchesInspectionSearch,
+  partitionCashflowTransactions,
+  SharedInspectionListProps,
+  useCashflowInspectionScope,
+  useInspectionContext,
+  useTransactionMutation,
+} from '../inspection';
 import {
   CashflowDirection,
   CategorizationRuleCreate,
@@ -27,17 +42,6 @@ import {
   SpendingBreakdownResponse,
   Transaction,
 } from '../types';
-import {
-  CashflowSummaryMetrics,
-  computeCashflowSummary,
-  deriveAnnualizedCategories,
-  deriveOutflowCategoryChips,
-  getAnnualizedPeriodShare,
-  isBudgetCadencePeriod,
-  isWeeklyBudgetPeriod,
-  matchesCashflowSearch,
-  partitionCashflowTransactions,
-} from '../utils/cashflow';
 import { formatMoney, getTransactionNzdAmount } from '../utils/format';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
@@ -51,7 +55,7 @@ export interface CashflowTransactionInspectionModalProps {
   endDate?: string;
   includeSubclasses?: boolean;
   breakdown: SpendingBreakdownResponse | null;
-  onDataChanged: () => void;
+  onDataChanged: () => Promise<void> | void;
   onInspectCategory?: (category: string) => void;
 }
 
@@ -227,7 +231,7 @@ interface CashflowListSectionProps {
   rowPrefix: string;
   selectPrefix: string;
   rulePrefix?: string;
-  listProps: SharedCashflowListProps;
+  listProps: SharedInspectionListProps;
 }
 
 const CashflowListSection: React.FC<CashflowListSectionProps> = ({
@@ -258,7 +262,7 @@ const CashflowListSection: React.FC<CashflowListSectionProps> = ({
 
 interface CashflowExcludedSectionProps {
   transactions: Transaction[];
-  listProps: SharedCashflowListProps;
+  listProps: SharedInspectionListProps;
 }
 
 const CashflowExcludedSection: React.FC<CashflowExcludedSectionProps> = ({ transactions, listProps }) => {
@@ -300,7 +304,7 @@ interface CashflowSectionsBodyProps {
   actualVolume: number;
   amortizedVolume: number;
   annualizedShareTotal: number;
-  listProps: SharedCashflowListProps;
+  listProps: SharedInspectionListProps;
   onInspectCategory?: (category: string) => void;
 }
 
@@ -359,6 +363,9 @@ const CashflowSectionsBody: React.FC<CashflowSectionsBodyProps> = (props) => {
 };
 
 interface CashflowStatusAndSearchProps {
+  contextError: string | null;
+  contextLoading: boolean;
+  onRetryContext: () => void;
   error: string | null;
   successNote: string | null;
   hasTransactions: boolean;
@@ -367,9 +374,10 @@ interface CashflowStatusAndSearchProps {
 }
 
 const CashflowStatusAndSearch: React.FC<CashflowStatusAndSearchProps> = ({
-  error, successNote, hasTransactions, searchQuery, onSearchChange,
+  contextError, contextLoading, onRetryContext, error, successNote, hasTransactions, searchQuery, onSearchChange,
 }) => (
   <>
+    <InspectionContextErrorBanner contextError={contextError} retrying={contextLoading} onRetry={onRetryContext} />
     {Boolean(error) && <AlertBanner variant="error">{error}</AlertBanner>}
     {Boolean(successNote) && <AlertBanner variant="success">{successNote}</AlertBanner>}
     {(hasTransactions || Boolean(searchQuery)) && (
@@ -426,9 +434,9 @@ function useCashflowViewProjection(params: {
     [activeFlow, period, selectedCategory, totalCount, breakdown, partition, allAnnualized]
   );
   const chipCategories = activeFlow === 'outflow' ? deriveOutflowCategoryChips(breakdown) : inflowCategories;
-  const filteredActual = partition.actualTransactions.filter((tx) => matchesCashflowSearch(tx, searchQuery));
-  const filteredAmortized = partition.amortizedCommitments.filter((tx) => matchesCashflowSearch(tx, searchQuery));
-  const filteredExcluded = partition.excludedTransactions.filter((tx) => matchesCashflowSearch(tx, searchQuery));
+  const filteredActual = partition.actualTransactions.filter((tx) => matchesInspectionSearch(tx, searchQuery));
+  const filteredAmortized = partition.amortizedCommitments.filter((tx) => matchesInspectionSearch(tx, searchQuery));
+  const filteredExcluded = partition.excludedTransactions.filter((tx) => matchesInspectionSearch(tx, searchQuery));
   const showAnnual = activeFlow === 'outflow' && isBudgetCadencePeriod(period) && selectedCategory === 'ALL';
   const q = searchQuery.trim().toLowerCase();
   const visibleAnnualized = showAnnual ? (q ? allAnnualized.filter((c) => c.category.toLowerCase().includes(q)) : allAnnualized) : [];
@@ -442,7 +450,7 @@ interface CashflowInspectionBodyProps {
   endDate?: string;
   includeSubclasses: boolean;
   breakdown: SpendingBreakdownResponse | null;
-  onDataChanged: () => void;
+  onDataChanged: () => Promise<void> | void;
   onInspectCategory?: (category: string) => void;
   onClose: () => void;
 }
@@ -451,10 +459,20 @@ const CashflowInspectionBody: React.FC<CashflowInspectionBodyProps> = ({
   initialFlow, period, startDate, endDate, includeSubclasses, breakdown, onDataChanged, onInspectCategory, onClose,
 }) => {
   const { categoryNames } = useCategories();
-  const { state, actions } = useCashflowInspection({ initialFlow, period, startDate, endDate, includeSubclasses });
-  const { mutation, listProps } = useCashflowListBindings({
-    categoryNames, loans: state.loans, accounts: state.accounts, reload: actions.reload, onDataChanged,
-    patchTransactionLocal: actions.patchTransactionLocal, setError: actions.setError,
+  const ctx = useInspectionContext({ enabled: true });
+  const { state, actions } = useCashflowInspectionScope({ initialFlow, period, startDate, endDate, includeSubclasses });
+  const mutation = useTransactionMutation({
+    onTransactionUpdated: actions.patchTransactionLocal,
+    reloadScope: actions.reload,
+    onRefreshParent: onDataChanged,
+    onError: actions.setError,
+  });
+  const listProps = buildInspectionListProps({
+    categories: categoryNames,
+    loans: ctx.loans,
+    accounts: ctx.accounts,
+    mutation,
+    showAccountBadge: true,
   });
   const view = useCashflowViewProjection({ ...state, period, breakdown });
   const periodLabel = formatPeriodLabel(period, startDate, endDate);
@@ -464,7 +482,16 @@ const CashflowInspectionBody: React.FC<CashflowInspectionBodyProps> = ({
       <CashflowHeaderBanner activeFlow={state.activeFlow} periodLabel={periodLabel} onSwitchFlow={(f) => { mutation.setSuccessNote(null); actions.switchFlow(f); }} />
       <SummaryMetricGrid columns={3} items={buildSummaryGridItems(state.activeFlow, state.selectedCategory, view.summary)} />
       <CashflowCategoryChips categories={view.chipCategories} selectedCategory={state.selectedCategory} onSelect={actions.selectCategory} />
-      <CashflowStatusAndSearch error={state.error} successNote={mutation.successNote} hasTransactions={state.transactions.length > 0} searchQuery={state.searchQuery} onSearchChange={actions.setSearchQuery} />
+      <CashflowStatusAndSearch
+        contextError={ctx.contextError}
+        contextLoading={ctx.contextLoading}
+        onRetryContext={() => void ctx.retryContext()}
+        error={state.error}
+        successNote={mutation.successNote}
+        hasTransactions={state.transactions.length > 0}
+        searchQuery={state.searchQuery}
+        onSearchChange={actions.setSearchQuery}
+      />
       <CashflowSectionsBody
         activeFlow={state.activeFlow} periodLabel={periodLabel} isWeekly={isWeeklyBudgetPeriod(period)} loading={state.loading} searchQuery={state.searchQuery}
         actualTransactions={view.filteredActual} amortizedCommitments={view.filteredAmortized} annualizedCategories={view.visibleAnnualized} excludedTransactions={view.filteredExcluded}
@@ -474,7 +501,7 @@ const CashflowInspectionBody: React.FC<CashflowInspectionBodyProps> = ({
       <CashflowFooterBar
         loadedRegularCount={state.loadedRegularCount} totalCount={state.totalCount} loadingMore={state.loadingMore}
         onLoadMore={actions.loadMore} onClose={onClose} isRulesModalOpen={mutation.isRulesModalOpen} closeRulesModal={mutation.closeRulesModal}
-        rulePrefill={mutation.rulePrefill} onRulesApplied={() => { actions.reload(); onDataChanged(); }}
+        rulePrefill={mutation.rulePrefill} onRulesApplied={() => void mutation.handleRulesApplied()}
       />
     </div>
   );

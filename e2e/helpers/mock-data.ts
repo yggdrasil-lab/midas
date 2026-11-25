@@ -570,6 +570,21 @@ export async function setupMockApi(page: Page) {
     });
   });
 
+  await page.route(/\/api\/institutions(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { name: 'ASB', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+        { name: 'ANZ', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+        { name: 'Sharesies', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+        { name: 'Simplicity', default_tier: 'locked', default_type: 'kiwisaver', currency: 'NZD' },
+        { name: 'DBS Bank', default_tier: 'cash', default_type: 'savings', currency: 'SGD' },
+        { name: 'Manulife', default_tier: 'growth', default_type: 'brokerage', currency: 'SGD' },
+      ]),
+    });
+  });
+
   await page.route(/\/api\/accounts(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
