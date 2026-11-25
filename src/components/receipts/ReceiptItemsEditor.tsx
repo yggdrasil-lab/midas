@@ -2,7 +2,7 @@ import React from 'react';
 import { ExternalLink, FileText, RefreshCw } from 'lucide-react';
 import { TagPillList } from '@yggdrasil-lab/ui';
 import { useCategories } from '../../hooks/useCategories';
-import { getReceiptImageUrl } from '../../services/api';
+import { getReceiptImageUrl } from '../../transport';
 import { Receipt, ReceiptItem } from '../../types';
 import { formatReceiptAmount, isPayslipDocument } from '../../utils/receipts';
 

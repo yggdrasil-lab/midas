@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOffsetPagination } from '@yggdrasil-lab/ui';
-import { fetchAccounts, fetchFlowTransactions, fetchLoans } from '../services/api';
+import { fetchAccounts, fetchFlowTransactions, fetchLoans } from '../transport';
 import {
   Account,
   CashflowDirection,

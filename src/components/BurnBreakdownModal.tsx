@@ -14,7 +14,7 @@ import {
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
-import { fetchAverageBurn, fetchLoans, upsertBudgetRule } from '../services/api';
+import { fetchAverageBurn, fetchLoans, upsertBudgetRule } from '../transport';
 import {
   AverageBurnReportResponse,
   BudgetPeriod,

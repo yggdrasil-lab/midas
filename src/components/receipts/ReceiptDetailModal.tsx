@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertBanner, Button, LoadingState, Modal, StatusBadge } from '@yggdrasil-lab/ui';
-import { fetchReceipt, updateReceiptItem } from '../../services/api';
+import { fetchReceipt, updateReceiptItem } from '../../transport';
 import { Receipt, ReceiptDocumentType } from '../../types';
 import {
   formatReceiptAmount,

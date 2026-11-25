@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Sliders, RefreshCw, Zap, Sparkles } from 'lucide-react';
 import { Button, RangeSlider, AlertBanner, GlassCard, CollapsibleSection, AiSynthesizerModal, SectionHeader } from '@yggdrasil-lab/ui';
 import { RunwayAiSynthesisResult, RunwayScenarioResult } from '../types';
-import { simulateScenario, synthesizeRunway } from '../services/api';
+import { simulateScenario, synthesizeRunway } from '../transport';
 
 interface ScenarioSimulatorProps {
   baselineBurn: number;

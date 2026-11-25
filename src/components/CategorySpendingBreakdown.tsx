@@ -13,7 +13,7 @@ import {
   SummaryMetricItem,
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
-import { fetchSpendingBreakdown } from '../services/api';
+import { fetchSpendingBreakdown } from '../transport';
 import {
   CashflowDirection,
   CategorySpendingReport,

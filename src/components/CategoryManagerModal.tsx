@@ -16,7 +16,7 @@ import {
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
 import { useCategories } from '../hooks/useCategories';
-import { createCategory, deleteCategory, fetchCategories, updateCategory } from '../services/api';
+import { createCategory, deleteCategory, fetchCategories, updateCategory } from '../transport';
 import { AmortizePeriod, CategoryItem } from '../types';
 
 interface CategoryManagerModalProps {

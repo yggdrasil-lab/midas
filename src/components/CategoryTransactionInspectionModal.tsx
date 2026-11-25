@@ -20,7 +20,7 @@ import {
   fetchCategoryTransactions,
   fetchLoans,
   triggerReconcileTransfers,
-} from '../services/api';
+} from '../transport';
 import { Account, LoanItem, PeriodType, Transaction } from '../types';
 import { formatMoney, getTransactionNzdAmount } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';

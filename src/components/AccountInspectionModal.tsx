@@ -13,7 +13,7 @@ import {
 import { isTransferCategory } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchAccounts, fetchAccountTransactions, fetchLoans } from '../services/api';
+import { fetchAccounts, fetchAccountTransactions, fetchLoans } from '../transport';
 import { Account, LoanItem, PeriodType, Transaction } from '../types';
 import {
   formatAccountSubtitle,
@@ -22,7 +22,7 @@ import {
   formatPrincipalRecoveredPct,
   formatSignedTransactionAmount,
 } from '../utils/format';
-import { collapsePairedTransfers } from '../utils/transfers';
+import { collapsePairedTransfers, filterCounterpartAccountTransactions } from '../utils/transfers';
 import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
@@ -282,14 +282,14 @@ function useAccountModalData(opts: {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchAccountTransactions({
+      const raw = await fetchAccountTransactions({
         accountId,
         period,
         startDate: period === 'custom' ? startDate : undefined,
         endDate: period === 'custom' ? endDate : undefined,
         limit: 500,
       });
-      setTransactions(res);
+      setTransactions(filterCounterpartAccountTransactions(raw, accountId));
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load account transactions');

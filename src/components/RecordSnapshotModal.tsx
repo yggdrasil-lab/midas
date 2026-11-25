@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, FormField, Modal, SelectInput, TextInput } from '@yggdrasil-lab/ui';
-import { fetchAccountSnapshots, recordAccountSnapshot } from '../services/api';
+import { fetchAccountSnapshots, recordAccountSnapshot } from '../transport';
 import { Account, AssetSnapshot } from '../types';
 
 interface RecordSnapshotModalProps {

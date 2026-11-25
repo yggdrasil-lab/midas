@@ -5,7 +5,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { AlertBanner, Button, Modal } from '@yggdrasil-lab/ui';
-import { triggerReconcileTransfers } from '../services/api';
+import { triggerReconcileTransfers } from '../transport';
 
 interface DataManagementModalProps {
   isOpen: boolean;

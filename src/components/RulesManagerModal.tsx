@@ -9,7 +9,7 @@ import {
   fetchLoans,
   fetchRules,
   updateRule,
-} from '../services/api';
+} from '../transport';
 import { Account, CategorizationRule, CategorizationRuleCreate, LoanItem } from '../types';
 import { DEFAULT_RULE_DRAFT, RuleEditorForm, RuleFormDraft } from './rules/RuleEditorForm';
 import { RulesList } from './rules/RulesList';

@@ -11,7 +11,7 @@ import {
   CATEGORY_CHOICES,
   CATEGORY_PARENTS,
 } from '../constants/categories';
-import { fetchCategories } from '../services/api';
+import { fetchCategories } from '../transport';
 import { CategoryItem } from '../types';
 
 interface CategoriesContextValue {

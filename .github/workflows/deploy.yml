@@ -15,6 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify Zero Em/En Dashes
+        run: |
+          python3 -c "import subprocess, sys; files = subprocess.check_output(['git', 'ls-files'], text=True).splitlines(); hits = [f'{f}:{i}' for f in files if f.endswith(('.py', '.ts', '.tsx', '.yml', '.yaml', '.md', '.txt', '.json', '.css', '.html')) and f != 'package-lock.json' for i, line in enumerate(open(f, encoding='utf-8', errors='ignore'), 1) if '\u2014' in line or '\u2013' in line]; print('\n'.join(hits)) if hits else print('OK: zero em/en dashes'); sys.exit(1 if hits else 0)"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -22,8 +26,8 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install & Build
-        run: npm ci && npm run build
+      - name: Install, Test & Build
+        run: npm ci && npm test && npm run build
 
   deploy:
     needs: verify
