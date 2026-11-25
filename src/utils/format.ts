@@ -1,23 +1,11 @@
-import { formatCurrency, FormatCurrencyOptions } from '@yggdrasil-lab/ui';
+import { formatCurrency } from '@yggdrasil-lab/ui';
 import { formatAccountTypeLabel } from '../constants/categories';
 import { Account } from '../types';
 
 /**
- * Formats an amount as localized currency while guarding against Intl RangeError
- * when minimumFractionDigits exceeds the default maximumFractionDigits (0).
+ * Re-exports shared clamped currency formatter under Midas's legacy `formatMoney` name.
  */
-export function formatMoney(
-  amount: number,
-  options: FormatCurrencyOptions = {}
-): string {
-  const minDigits = options.minimumFractionDigits ?? 0;
-  const maxDigits = Math.max(minDigits, options.maximumFractionDigits ?? minDigits);
-  return formatCurrency(amount, {
-    ...options,
-    minimumFractionDigits: minDigits,
-    maximumFractionDigits: maxDigits,
-  });
-}
+export const formatMoney = formatCurrency;
 
 const CRYPTO_CURRENCIES = new Set(['BTC', 'ETH', 'SOL', 'USDC', 'USDT']);
 

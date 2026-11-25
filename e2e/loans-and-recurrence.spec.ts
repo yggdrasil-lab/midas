@@ -61,7 +61,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(lentCard).not.toContainText('Net Worth Effect');
       await expect(page.getByTestId('loan-due-badge-2')).toHaveCount(0);
 
-      const paymentsToggle = page.getByTestId('loan-payments-toggle-1');
+      const paymentsToggle = loanCard.getByRole('button', { name: /Linked Payments/i });
       await expect(paymentsToggle).toContainText('Linked Payments (0)');
       await paymentsToggle.scrollIntoViewIfNeeded();
       await paymentsToggle.click();
@@ -224,7 +224,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
       await expect(lentCard).toContainText('70% repaid');
       await expect(lentCard).toContainText('$3,000.00 NZD');
       await expect(lentCard).toContainText('$7,000.00 / $10,000.00 NZD');
-      const lentToggle = page.getByTestId('loan-payments-toggle-2');
+      const lentToggle = lentCard.getByRole('button', { name: /Linked Repayments/i });
       await expect(lentToggle).toContainText('Linked Repayments (3)');
       await lentToggle.click();
       const lentPaymentsList = page.getByTestId('loan-payments-list-2');

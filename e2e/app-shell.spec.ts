@@ -409,7 +409,7 @@ test.describe('Midas App Shell & Navigation', () => {
     await page.getByTestId('delete-category-coffee').click();
     await expect(page.getByTestId('delete-category-confirm')).toBeVisible();
     await expect(page.getByTestId('delete-reassign-select')).toHaveValue('Food');
-    await page.getByTestId('confirm-delete-category-btn').click();
+    await page.getByTestId('delete-category-confirm').getByRole('button', { name: 'Confirm Delete' }).click();
 
     await expect(page.getByTestId('category-row-coffee')).toHaveCount(0);
   });

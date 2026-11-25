@@ -8,6 +8,7 @@ import {
   Modal,
   MultiSegmentBar,
   MultiSegmentItem,
+  ProgressBar,
   SegmentedControl,
   StatusBadge,
   SummaryMetricGrid,
@@ -235,6 +236,91 @@ const RecurringCommitmentsSection: React.FC<{
   );
 };
 
+interface VariableCategoryRowProps {
+  cat: CategoryBurnEstimate;
+  totalVariableBurn: number;
+  totalWeeklyCategorySum: number;
+  isToggling: boolean;
+  onTogglePeriod: (cat: CategoryBurnEstimate) => void;
+}
+
+const VariableCategoryRow: React.FC<VariableCategoryRowProps> = ({
+  cat,
+  totalVariableBurn,
+  totalWeeklyCategorySum,
+  isToggling,
+  onTogglePeriod,
+}) => {
+  const varPct = resolveVariablePct(cat, totalVariableBurn);
+  const totalPct = resolveTotalPct(cat, totalWeeklyCategorySum);
+  const isAnnual = cat.budget_period === 'annual';
+  const annualEst =
+    cat.suggested_annual_limit ?? Math.round(cat.average_weekly_burn * 52 * 100) / 100;
+
+  return (
+    <div
+      data-testid="variable-category-row"
+      className="p-3 rounded-xl bg-card/70 border border-border/80 space-y-2"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <div className="p-1.5 rounded-lg bg-background border border-border/70 shrink-0">
+            {getCategoryIcon(cat.category)}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-semibold text-slate-100 truncate">
+                {cat.category}
+              </span>
+              {isAnnual && <StatusBadge variant="info" size="xs" showDot={false} label="52w Annual" className="shrink-0" />}
+            </div>
+            <div className="text-[10px] text-slate-400 font-mono">
+              {totalPct.toFixed(1)}% of total burn
+              {cat.recurring_weekly_burn > 0 ? ` | +${formatMoney(cat.recurring_weekly_burn)}/wk fixed` : ''}
+            </div>
+          </div>
+        </div>
+        <div className="text-right shrink-0 space-y-0.5">
+          <div className="flex items-center justify-end gap-1.5">
+            <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold font-mono text-amber-300">
+              {varPct.toFixed(1)}%
+            </span>
+            <span className="text-xs font-bold font-mono text-slate-100">
+              {formatMoney(cat.variable_weekly_burn)}/wk
+            </span>
+          </div>
+          <div className="text-[10px] font-mono text-slate-400">
+            {isAnnual ? `Est. ${formatMoney(annualEst)}/yr spread` : `Est. ${formatMoney(cat.suggested_monthly_limit)}/mo total`}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <ProgressBar
+          value={varPct}
+          tone={isAnnual ? 'blue' : 'amber'}
+          size="sm"
+          className="flex-1 h-1.5"
+          label={`${cat.category} variable share`}
+        />
+        <button
+          type="button"
+          disabled={isToggling}
+          data-testid={`toggle-annual-${cat.category.toLowerCase().replace(/\s+/g, '-')}`}
+          onClick={() => onTogglePeriod(cat)}
+          className={`px-2 py-0.5 rounded border text-[10px] font-medium transition-colors shrink-0 cursor-pointer disabled:opacity-50 ${
+            isAnnual
+              ? 'bg-sky-500/15 border-sky-500/30 text-sky-300 hover:bg-sky-500/25'
+              : 'bg-background/60 border-border/70 text-slate-400 hover:text-amber-300 hover:border-amber-500/40'
+          }`}
+        >
+          {isToggling ? 'Saving...' : isAnnual ? 'Spread 52w On' : 'Spread over 52w'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const VariableCategorySection: React.FC<{
   categories: CategoryBurnEstimate[];
   lookbackWeeks: number;
@@ -300,104 +386,26 @@ const VariableCategorySection: React.FC<{
       )}
 
       <div className="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
-        {variableCategories.map((cat) => {
-          const varPct = resolveVariablePct(cat, totalVariableBurn);
-          const totalPct = resolveTotalPct(cat, totalWeeklyCategorySum);
-          const barWidth = Math.min(100, Math.max(0, varPct));
-          const isAnnual = cat.budget_period === 'annual';
-          const annualEst =
-            cat.suggested_annual_limit ?? Math.round(cat.average_weekly_burn * 52 * 100) / 100;
-          const isToggling = togglingCategory === cat.category;
-
-          return (
-            <div
-              key={cat.category}
-              data-testid="variable-category-row"
-              className="p-3 rounded-xl bg-card/70 border border-border/80 space-y-2"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-background border border-border/70 shrink-0">
-                    {getCategoryIcon(cat.category)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-semibold text-slate-100 truncate">
-                        {cat.category}
-                      </span>
-                      {isAnnual && (
-                        <span className="px-1.5 py-0.2 rounded bg-sky-500/15 border border-sky-500/30 text-[9px] font-medium text-sky-300 shrink-0">
-                          52w Annual
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-mono">
-                      {totalPct.toFixed(1)}% of total burn
-                      {cat.recurring_weekly_burn > 0
-                        ? ` | +${formatMoney(cat.recurring_weekly_burn)}/wk fixed`
-                        : ''}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0 space-y-0.5">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] font-bold font-mono text-amber-300">
-                      {varPct.toFixed(1)}%
-                    </span>
-                    <span className="text-xs font-bold font-mono text-slate-100">
-                      {formatMoney(cat.variable_weekly_burn)}/wk
-                    </span>
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400">
-                    {isAnnual
-                      ? `Est. ${formatMoney(annualEst)}/yr spread`
-                      : `Est. ${formatMoney(cat.suggested_monthly_limit)}/mo total`}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 h-1.5 rounded-full bg-slate-800/90 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      isAnnual ? 'bg-sky-400' : 'bg-amber-500'
-                    }`}
-                    style={{ width: `${barWidth}%` }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={isToggling}
-                  data-testid={`toggle-annual-${cat.category.toLowerCase().replace(/\s+/g, '-')}`}
-                  onClick={() => onTogglePeriod(cat)}
-                  className={`px-2 py-0.5 rounded border text-[10px] font-medium transition-colors shrink-0 cursor-pointer disabled:opacity-50 ${
-                    isAnnual
-                      ? 'bg-sky-500/15 border-sky-500/30 text-sky-300 hover:bg-sky-500/25'
-                      : 'bg-background/60 border-border/70 text-slate-400 hover:text-amber-300 hover:border-amber-500/40'
-                  }`}
-                >
-                  {isToggling ? 'Saving...' : isAnnual ? 'Spread 52w On' : 'Spread over 52w'}
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        {variableCategories.map((cat) => (
+          <VariableCategoryRow
+            key={cat.category}
+            cat={cat}
+            totalVariableBurn={totalVariableBurn}
+            totalWeeklyCategorySum={totalWeeklyCategorySum}
+            isToggling={togglingCategory === cat.category}
+            onTogglePeriod={onTogglePeriod}
+          />
+        ))}
       </div>
     </div>
   );
 };
 
-/**
- * Inspects itemized active recurring fixed commitments and per-category estimated
- * variable burn percentages across configurable 4w / 12w / 26w trailing windows.
- */
-export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
-  isOpen,
-  onClose,
-  initialTab = 'recurring',
-  onBudgetChanged,
-}) => {
+function useBurnBreakdownState(
+  isOpen: boolean,
+  initialTab: BurnBreakdownTab,
+  onBudgetChanged?: () => void
+) {
   const [activeTab, setActiveTab] = useState<BurnBreakdownTab>(initialTab);
   const [lookback, setLookback] = useState<LookbackOption>('12');
   const [report, setReport] = useState<AverageBurnReportResponse | null>(null);
@@ -407,9 +415,7 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-    }
+    if (isOpen) setActiveTab(initialTab);
   }, [isOpen, initialTab]);
 
   const loadReport = async (weeks: number) => {
@@ -433,6 +439,10 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen) void loadReport(Number(lookback));
+  }, [isOpen, lookback]);
 
   const handleToggleCategoryPeriod = async (cat: CategoryBurnEstimate) => {
     const nextPeriod: BudgetPeriod = cat.budget_period === 'annual' ? 'monthly' : 'annual';
@@ -458,12 +468,51 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      void loadReport(Number(lookback));
-    }
-  }, [isOpen, lookback]);
+  return {
+    activeTab, setActiveTab, lookback, setLookback, report, loans,
+    togglingCategory, loading, error, loadReport, handleToggleCategoryPeriod,
+  };
+}
 
+const BurnBreakdownContent: React.FC<{
+  report: AverageBurnReportResponse | null;
+  loading: boolean;
+  activeTab: BurnBreakdownTab;
+  loans: LoanItem[];
+  togglingCategory: string | null;
+  onTogglePeriod: (cat: CategoryBurnEstimate) => void;
+}> = ({ report, loading, activeTab, loans, togglingCategory, onTogglePeriod }) => {
+  if (loading && !report) {
+    return <LoadingState label="Calculating burn anatomy..." variant="amber" className="py-10" />;
+  }
+  if (!report) return null;
+  if (activeTab === 'recurring') {
+    return <RecurringCommitmentsSection commitments={report.recurring_commitments ?? []} loans={loans} />;
+  }
+  return (
+    <VariableCategorySection
+      categories={report.categories}
+      lookbackWeeks={report.lookback_weeks}
+      totalVariableBurn={report.variable_weekly_burn ?? 0}
+      totalEffectiveBurn={report.effective_weekly_burn ?? 0}
+      togglingCategory={togglingCategory}
+      onTogglePeriod={onTogglePeriod}
+    />
+  );
+};
+
+/**
+ * Inspects itemized active recurring fixed commitments and per-category estimated
+ * variable burn percentages across configurable 4w / 12w / 26w trailing windows.
+ */
+export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
+  isOpen,
+  onClose,
+  initialTab = 'recurring',
+  onBudgetChanged,
+}) => {
+  const state = useBurnBreakdownState(isOpen, initialTab, onBudgetChanged);
+  const { report, lookback, loans } = state;
   const totalWeekly = report?.effective_weekly_burn ?? 0;
   const recurringWeekly = report?.recurring_weekly_burn ?? 0;
   const variableWeekly = report?.variable_weekly_burn ?? 0;
@@ -478,40 +527,17 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
       subtitle="Fixed recurring commitments and estimated variable category shares"
       headerIcon={<Flame className="w-4 h-4 text-amber-400" />}
       className="sm:max-w-xl"
+      footer={<div className="flex justify-end"><Button variant="ghost" size="sm" onClick={onClose}>Close</Button></div>}
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <SegmentedControl<LookbackOption>
-            idPrefix="burn-lookback"
-            options={LOOKBACK_OPTIONS}
-            value={lookback}
-            onChange={setLookback}
-            variant="amber"
-            size="xs"
-          />
-          {report && (
-            <StatusBadge
-              variant="info"
-              label={`As of ${report.as_of_date}`}
-            />
-          )}
+          <SegmentedControl<LookbackOption> idPrefix="burn-lookback" options={LOOKBACK_OPTIONS} value={lookback} onChange={state.setLookback} variant="amber" size="xs" />
+          {report && <StatusBadge variant="info" label={`As of ${report.as_of_date}`} />}
         </div>
 
-        {error && (
-          <AlertBanner
-            variant="error"
-            action={
-              <Button
-                variant="rose"
-                size="xs"
-                icon={<RefreshCw className="w-3 h-3" />}
-                onClick={() => void loadReport(Number(lookback))}
-              >
-                Retry
-              </Button>
-            }
-          >
-            {error}
+        {state.error && (
+          <AlertBanner variant="error" action={<Button variant="rose" size="xs" icon={<RefreshCw className="w-3 h-3" />} onClick={() => void state.loadReport(Number(lookback))}>Retry</Button>}>
+            {state.error}
           </AlertBanner>
         )}
 
@@ -519,27 +545,9 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
           <SummaryMetricGrid
             columns={3}
             items={[
-              {
-                id: 'modal-avg-total',
-                label: 'Total Avg/wk',
-                value: <span className="font-mono">{formatMoney(totalWeekly)}</span>,
-                subvalue: `${lookback}w combined`,
-                valueClassName: 'text-amber-300',
-              },
-              {
-                id: 'modal-fixed',
-                label: 'Fixed',
-                value: <span className="font-mono">{formatMoney(recurringWeekly)}</span>,
-                subvalue: `${recurringSharePct}% of total`,
-                valueClassName: 'text-sky-300',
-              },
-              {
-                id: 'modal-variable',
-                label: 'Variable',
-                value: <span className="font-mono">{formatMoney(variableWeekly)}</span>,
-                subvalue: `${variableSharePct}% of total`,
-                valueClassName: 'text-slate-100',
-              },
+              { id: 'modal-avg-total', label: 'Total Avg/wk', value: <span className="font-mono">{formatMoney(totalWeekly)}</span>, subvalue: `${lookback}w combined`, valueClassName: 'text-amber-300' },
+              { id: 'modal-fixed', label: 'Fixed', value: <span className="font-mono">{formatMoney(recurringWeekly)}</span>, subvalue: `${recurringSharePct}% of total`, valueClassName: 'text-sky-300' },
+              { id: 'modal-variable', label: 'Variable', value: <span className="font-mono">{formatMoney(variableWeekly)}</span>, subvalue: `${variableSharePct}% of total`, valueClassName: 'text-slate-100' },
             ]}
           />
         )}
@@ -549,52 +557,22 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
           fullWidth
           variant="amber"
           size="sm"
-          value={activeTab}
-          onChange={setActiveTab}
+          value={state.activeTab}
+          onChange={state.setActiveTab}
           options={[
-            {
-              id: 'recurring',
-              label: 'Fixed',
-              icon: <Repeat className="w-3.5 h-3.5" />,
-              badge:
-                report !== null
-                  ? (report.recurring_commitments?.length ?? 0) + loans.length
-                  : undefined,
-            },
-            {
-              id: 'variable',
-              label: 'Variable %',
-              icon: <Percent className="w-3.5 h-3.5" />,
-              badge: report?.categories.filter((c) => c.variable_weekly_burn > 0).length,
-            },
+            { id: 'recurring', label: 'Fixed', icon: <Repeat className="w-3.5 h-3.5" />, badge: report !== null ? (report.recurring_commitments?.length ?? 0) + loans.length : undefined },
+            { id: 'variable', label: 'Variable %', icon: <Percent className="w-3.5 h-3.5" />, badge: report?.categories.filter((c) => c.variable_weekly_burn > 0).length },
           ]}
         />
 
-        {loading && !report ? (
-          <LoadingState label="Calculating burn anatomy..." variant="amber" className="py-10" />
-        ) : report ? (
-          activeTab === 'recurring' ? (
-            <RecurringCommitmentsSection
-              commitments={report.recurring_commitments ?? []}
-              loans={loans}
-            />
-          ) : (
-            <VariableCategorySection
-              categories={report.categories}
-              lookbackWeeks={report.lookback_weeks}
-              totalVariableBurn={variableWeekly}
-              totalEffectiveBurn={totalWeekly}
-              togglingCategory={togglingCategory}
-              onTogglePeriod={(cat) => void handleToggleCategoryPeriod(cat)}
-            />
-          )
-        ) : null}
-
-        <div className="flex justify-end pt-2 border-t border-border">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        </div>
+        <BurnBreakdownContent
+          report={report}
+          loading={state.loading}
+          activeTab={state.activeTab}
+          loans={loans}
+          togglingCategory={state.togglingCategory}
+          onTogglePeriod={(cat) => void state.handleToggleCategoryPeriod(cat)}
+        />
       </div>
     </Modal>
   );

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, RefreshCw, Trash2 } from 'lucide-react';
-import { Button, EmptyState, FileDropzone, LoadingState, StatusBadge } from '@yggdrasil-lab/ui';
+import { AlertBanner, Button, EmptyState, FileDropzone, LoadingState, StatusBadge } from '@yggdrasil-lab/ui';
 import { Receipt } from '../../types';
 import {
   computeReceiptFeedCounts,
@@ -418,18 +418,22 @@ function ReceiptRetryParseBanner({
   onReprocessReceipt: (id: number) => Promise<void>;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
-      <span>Original photo saved; vision parsing pending.</span>
-      <Button
-        variant="outline"
-        size="xs"
-        onClick={() => void onReprocessReceipt(receiptId)}
-        disabled={isParsing}
-        icon={<RefreshCw className={`w-3 h-3 text-amber-400 ${isParsing ? 'animate-spin' : ''}`} />}
-      >
-        {isParsing ? 'Parsing...' : 'Retry Parse'}
-      </Button>
-    </div>
+    <AlertBanner
+      variant="warning"
+      action={
+        <Button
+          variant="outline"
+          size="xs"
+          onClick={() => void onReprocessReceipt(receiptId)}
+          disabled={isParsing}
+          icon={<RefreshCw className={`w-3 h-3 text-amber-400 ${isParsing ? 'animate-spin' : ''}`} />}
+        >
+          {isParsing ? 'Parsing...' : 'Retry Parse'}
+        </Button>
+      }
+    >
+      Original photo saved; vision parsing pending.
+    </AlertBanner>
   );
 }
 
