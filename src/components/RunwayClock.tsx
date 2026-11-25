@@ -57,7 +57,7 @@ export const RunwayClock: React.FC<RunwayClockProps> = ({ data }) => {
       secondaryUnit="Years"
       toggleHint="Tap to toggle Weeks / Years"
       badge={getBadge()}
-      variant="amber"
+      variant="brand"
     >
       <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-4 border-t border-border">
         <StatCard

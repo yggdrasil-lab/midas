@@ -86,6 +86,7 @@ export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({
         title="Weekly Burn & Budget"
         subtitle="Resets Monday 00:00 NZDT"
         icon={<Flame className="w-4 h-4" />}
+        variant="brand"
         currentValue={weekly_spend_this_week}
         targetValue={weekly_budget_target}
         currencyPrefix="$"
@@ -95,7 +96,7 @@ export const WeeklyBurnTracker: React.FC<WeeklyBurnTrackerProps> = ({
           isPositive: isBankedPositive,
         }}
         action={
-          <Button variant="amber" size="sm" icon={<PlusCircle className="w-3.5 h-3.5" />} onClick={onQuickLogClick}>
+          <Button variant="brand" size="sm" icon={<PlusCircle className="w-3.5 h-3.5" />} onClick={onQuickLogClick}>
             Quick Log
           </Button>
         }

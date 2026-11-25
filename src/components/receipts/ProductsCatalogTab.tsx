@@ -53,7 +53,7 @@ const ProductsCatalogFilters: React.FC<ProductsCatalogFiltersProps> = ({
         value={searchQuery}
         onChange={onChangeSearch}
         placeholder="Search products, brands, tags, or notes..."
-        variant="amber"
+        variant="brand"
         rightSlot={
           <Button
             type="button"
@@ -68,14 +68,14 @@ const ProductsCatalogFilters: React.FC<ProductsCatalogFiltersProps> = ({
         }
       />
     </form>
-    <FilterChipBar options={DOMAIN_FILTERS} selectedId={selectedDomain} onSelect={onChangeDomain} variant="amber" size="xs" />
+    <FilterChipBar options={DOMAIN_FILTERS} selectedId={selectedDomain} onSelect={onChangeDomain} variant="brand" size="xs" />
     {allTags.length > 0 && (
       <FilterChipBar
         options={[{ id: 'all', label: '#all' }, ...allTags.map((tag) => ({ id: tag, label: `#${tag}` }))]}
         selectedId={selectedTag}
         onSelect={onChangeTag}
         toggleDeselectId="all"
-        variant="amber"
+        variant="brand"
         tone="solid"
         size="xs"
         scrollable
@@ -101,7 +101,7 @@ export const ProductsCatalogTab: React.FC<ProductsCatalogTabProps> = ({
       onSearchSubmit={onSearchSubmit}
     />
     {loading ? (
-      <LoadingState label="Loading product inventory and price telemetry..." variant="amber" />
+      <LoadingState label="Loading product inventory and price telemetry..." variant="brand" />
     ) : products.length === 0 ? (
       <EmptyState title="No products match the selected criteria" description="Upload receipts or adjust tags to see cataloged items." variant="dashed" />
     ) : (

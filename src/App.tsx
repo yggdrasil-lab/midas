@@ -203,7 +203,7 @@ export const App: React.FC = () => {
       header={
         <AppHeader
           className="!bg-card !border-border/80 shadow-md"
-          variant="amber"
+          variant="brand"
           brandIcon={
             <img
               src="/favicon.svg"
@@ -211,7 +211,7 @@ export const App: React.FC = () => {
               className="w-full h-full object-contain rounded-xl"
             />
           }
-          brandColor="overflow-hidden p-0 border border-amber-500/30"
+          brandColor="overflow-hidden p-0 border border-accent/30"
           title="MIDAS"
           subtitle="Freedom Clock"
           tabs={DESKTOP_TABS}
@@ -221,7 +221,7 @@ export const App: React.FC = () => {
           isRefreshing={loading}
           actions={
             <Button
-              variant="amber"
+              variant="brand"
               size="sm"
               icon={<PlusCircle className="w-3.5 h-3.5" />}
               onClick={() => setIsQuickLogOpen(true)}
@@ -234,7 +234,7 @@ export const App: React.FC = () => {
       }
       bottomNav={
         <BottomNav
-          variant="amber"
+          variant="brand"
           hideOnDesktop
           tabs={MOBILE_NAV_TABS}
           activeTab={activeTab}
@@ -273,7 +273,7 @@ export const App: React.FC = () => {
       )}
 
       {loading && !data && (
-        <LoadingState label="Loading runway metrics..." variant="amber" className="py-24" />
+        <LoadingState label="Loading runway metrics..." variant="brand" className="py-24" />
       )}
 
       {data && (
@@ -285,7 +285,7 @@ export const App: React.FC = () => {
               className="mb-6 p-4 rounded-2xl shadow"
               action={
                 <Button
-                  variant="amber"
+                  variant="brand"
                   size="sm"
                   onClick={() => setActiveTab('tools')}
                   className="shrink-0"

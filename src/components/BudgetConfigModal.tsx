@@ -115,7 +115,7 @@ const AvgBurnSummaryCard: React.FC<{
             {formatMoney(avgBurnReport.variable_weekly_burn)}/wk variable
           </div>
         </div>
-        <Button variant="amber" size="xs" loading={loading} icon={<Calculator className="w-3.5 h-3.5" />} onClick={onSyncFromBurn} data-testid="sync-from-burn-btn">
+        <Button variant="brand" size="xs" loading={loading} icon={<Calculator className="w-3.5 h-3.5" />} onClick={onSyncFromBurn} data-testid="sync-from-burn-btn">
           Use Avg Burn
         </Button>
       </div>
@@ -180,7 +180,7 @@ const BudgetTargetForm: React.FC<{
           onChange={(e) => props.onCategoryChange(e.target.value)}
           placeholder="Category"
           list="budget-categories"
-          variant="amber"
+          variant="brand"
         />
         <datalist id="budget-categories">
           {props.budgetCategoryNames.map((cat) => (
@@ -194,7 +194,7 @@ const BudgetTargetForm: React.FC<{
           idPrefix="budget-period-mode"
           fullWidth
           size="xs"
-          variant="amber"
+          variant="brand"
           value={props.budgetPeriod}
           onChange={props.onBudgetPeriodChange}
           options={[
@@ -215,7 +215,7 @@ const BudgetTargetForm: React.FC<{
           value={props.weeklyLimit}
           onChange={(e) => props.onWeeklyChange(e.target.value)}
           leftIcon={<span className="text-xs">$</span>}
-          variant="amber"
+          variant="brand"
           className="font-mono"
         />
       </FormField>
@@ -228,7 +228,7 @@ const BudgetTargetForm: React.FC<{
           value={props.monthlyLimit}
           onChange={(e) => props.onMonthlyChange(e.target.value)}
           leftIcon={<span className="text-xs">$</span>}
-          variant="amber"
+          variant="brand"
           className="font-mono"
         />
       </FormField>
@@ -242,14 +242,14 @@ const BudgetTargetForm: React.FC<{
           onChange={(e) => props.onAnnualChange(e.target.value)}
           data-testid="budget-annual-limit-input"
           leftIcon={<span className="text-xs">$</span>}
-          variant="amber"
+          variant="brand"
           className="font-mono"
         />
       </FormField>
     </div>
 
     <div className="flex justify-end gap-2 pt-1">
-      <Button type="submit" variant="amber" size="sm" loading={props.loading} icon={<Plus className="w-3.5 h-3.5" />}>
+      <Button type="submit" variant="brand" size="sm" loading={props.loading} icon={<Plus className="w-3.5 h-3.5" />}>
         Save Budget
       </Button>
     </div>

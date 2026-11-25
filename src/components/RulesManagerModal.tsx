@@ -298,7 +298,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({ isOpen, on
           />
         )}
         {s.rules.length > 0 && !s.isFormOpen && (
-          <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search rules by pattern, category, or merchant..." variant="amber" />
+          <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search rules by pattern, category, or merchant..." variant="brand" />
         )}
         <RulesList
           rules={filteredRules} loading={s.loading} hasRules={s.rules.length > 0} isFormOpen={s.isFormOpen} hasSearchQuery={Boolean(s.searchQuery.trim())}

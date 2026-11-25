@@ -68,7 +68,7 @@ export const RulesList: React.FC<RulesListProps> = ({
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   if (loading && !hasRules) {
-    return <LoadingState label="Loading rules..." variant="amber" />;
+    return <LoadingState label="Loading rules..." variant="brand" />;
   }
 
   if (rules.length === 0) {

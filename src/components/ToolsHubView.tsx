@@ -61,7 +61,7 @@ const ToolsActionGrid: React.FC<{
       <ActionTile
         data-testid="receipts-hub-btn"
         onClick={onOpenReceiptsClick}
-        variant="amber"
+        variant="brand"
         icon={<ReceiptIcon className="w-4 h-4" />}
         title="Receipts & Longevity"
         subtitle={receiptsSubtitle}
@@ -118,7 +118,7 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
           title="Tools & Power Utilities"
           subtitle="Scenario modeling, statement ingestion, receipts longevity, category hierarchy, rules, and data controls"
           icon={<Wrench className="w-4 h-4" />}
-          variant="amber"
+          variant="brand"
         />
 
         <ToolsActionGrid
@@ -133,7 +133,7 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
         <SegmentedControl<ToolsWorkspace>
           idPrefix="tools-workspace"
           fullWidth
-          variant="amber"
+          variant="brand"
           size="sm"
           value={workspace}
           onChange={setWorkspace}

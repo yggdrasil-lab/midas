@@ -491,7 +491,7 @@ const BurnBreakdownContent: React.FC<{
   onTogglePeriod: (cat: CategoryBurnEstimate) => void;
 }> = ({ report, loading, activeTab, loans, togglingCategory, onTogglePeriod }) => {
   if (loading && !report) {
-    return <LoadingState label="Calculating burn anatomy..." variant="amber" className="py-10" />;
+    return <LoadingState label="Calculating burn anatomy..." variant="brand" className="py-10" />;
   }
   if (!report) return null;
   if (activeTab === 'recurring') {
@@ -539,7 +539,7 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <SegmentedControl<LookbackOption> idPrefix="burn-lookback" options={LOOKBACK_OPTIONS} value={lookback} onChange={state.setLookback} variant="amber" size="xs" />
+          <SegmentedControl<LookbackOption> idPrefix="burn-lookback" options={LOOKBACK_OPTIONS} value={lookback} onChange={state.setLookback} variant="brand" size="xs" />
           {report && <StatusBadge variant="info" label={`As of ${report.as_of_date}`} />}
         </div>
 
@@ -563,7 +563,7 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
         <SegmentedControl<BurnBreakdownTab>
           idPrefix="burn-tab"
           fullWidth
-          variant="amber"
+          variant="brand"
           size="sm"
           value={state.activeTab}
           onChange={state.setActiveTab}

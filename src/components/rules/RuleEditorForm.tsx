@@ -67,7 +67,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
         value={draft.name}
         onChange={(e) => updateField('name', e.target.value)}
         data-testid="rule-name-input"
-        variant="amber"
+        variant="brand"
       />
     </FormField>
 
@@ -78,7 +78,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
         max="100"
         value={draft.priority}
         onChange={(e) => updateField('priority', parseInt(e.target.value, 10) || 10)}
-        variant="amber"
+        variant="brand"
       />
     </FormField>
 
@@ -90,7 +90,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
         value={draft.descriptionPattern}
         onChange={(e) => updateField('descriptionPattern', e.target.value)}
         data-testid="rule-pattern-input"
-        variant="amber"
+        variant="brand"
         className="font-mono"
       />
     </FormField>
@@ -99,7 +99,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
       <SelectInput
         value={draft.matchType}
         onChange={(e) => updateField('matchType', e.target.value as RuleFormDraft['matchType'])}
-        variant="amber"
+        variant="brand"
         options={[
           { value: 'contains', label: 'Contains' },
           { value: 'starts_with', label: 'Starts with' },
@@ -118,7 +118,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
         onChange={(e) => updateField('amountEquals', e.target.value)}
         data-testid="rule-amount-equals-input"
         leftIcon={<span className="text-xs">$</span>}
-        variant="amber"
+        variant="brand"
         className="font-mono"
       />
     </FormField>
@@ -129,7 +129,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
         value={draft.direction}
         onChange={(e) => updateField('direction', e.target.value as RuleFormDraft['direction'])}
         data-testid="rule-direction-select"
-        variant="amber"
+        variant="brand"
         options={[
           { value: '', label: 'Any' },
           { value: 'outflow', label: 'Outflow' },
@@ -150,7 +150,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
           onChange={(e) => updateField('minAmount', e.target.value)}
           data-testid="rule-min-amount-input"
           leftIcon={<span className="text-xs">$</span>}
-          variant="amber"
+          variant="brand"
           className="font-mono"
         />
       </FormField>
@@ -166,7 +166,7 @@ const RuleMatcherFields: React.FC<{ draft: RuleFormDraft; updateField: UpdateFie
           onChange={(e) => updateField('maxAmount', e.target.value)}
           data-testid="rule-max-amount-input"
           leftIcon={<span className="text-xs">$</span>}
-          variant="amber"
+          variant="brand"
           className="font-mono"
         />
       </FormField>
@@ -186,7 +186,7 @@ const RuleActionFields: React.FC<{
         value={draft.targetCategory}
         onChange={(e) => onCategoryChange(e.target.value)}
         data-testid="rule-category-select"
-        variant="amber"
+        variant="brand"
       >
         {selectableCategories.map((cat) => (
           <option key={cat} value={cat}>
@@ -202,7 +202,7 @@ const RuleActionFields: React.FC<{
         placeholder="e.g. Power/Water Utilities"
         value={draft.renameMerchant}
         onChange={(e) => updateField('renameMerchant', e.target.value)}
-        variant="amber"
+        variant="brand"
       />
     </FormField>
 
@@ -213,7 +213,7 @@ const RuleActionFields: React.FC<{
         value={draft.targetTags}
         onChange={(e) => updateField('targetTags', e.target.value)}
         data-testid="rule-tags-input"
-        variant="amber"
+        variant="brand"
         className="font-mono"
       />
     </FormField>
@@ -222,7 +222,7 @@ const RuleActionFields: React.FC<{
       <SelectInput
         value={draft.targetRecurrence}
         onChange={(e) => updateField('targetRecurrence', e.target.value as RecurrenceType | '')}
-        variant="amber"
+        variant="brand"
       >
         {RECURRENCE_OPTIONS.map((opt) => (
           <option key={opt.label} value={opt.value}>
@@ -259,7 +259,7 @@ const RuleTargetAccountFields: React.FC<{
           value={draft.counterpartAccountId}
           onChange={(e) => updateField('counterpartAccountId', e.target.value)}
           data-testid="rule-counterpart-account-select"
-          variant="amber"
+          variant="brand"
         >
           <option value="">None (No counterpart account)</option>
           {selectableAccounts.map((acc) => (
@@ -288,7 +288,7 @@ const RuleTargetAccountFields: React.FC<{
             value={draft.loanId}
             onChange={(e) => updateField('loanId', e.target.value)}
             data-testid="rule-loan-select"
-            variant="amber"
+            variant="brand"
           >
             <option value="">None (No financing loan)</option>
             {selectableLoans.map((loan) => (

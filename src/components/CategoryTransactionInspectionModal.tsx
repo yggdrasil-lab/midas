@@ -142,7 +142,7 @@ const CategorySectionsBody: React.FC<CategorySectionsBodyProps> = ({
   if (!hasSupplementalSections) {
     return <TransactionList transactions={filteredActual} loading={loading} loadingLabel="Loading transactions..." {...sharedListProps} />;
   }
-  if (loading) return <LoadingState label="Loading transactions..." variant="amber" />;
+  if (loading) return <LoadingState label="Loading transactions..." variant="brand" />;
   if (filteredActual.length === 0 && filteredAmortized.length === 0 && filteredExcluded.length === 0) {
     const emptyTitle = searchQuery.trim()
       ? 'No matching transactions or commitments.'
@@ -380,7 +380,7 @@ export const CategoryTransactionInspectionModal: React.FC<
         {Boolean(data.error) && <AlertBanner variant="error">{data.error}</AlertBanner>}
         {Boolean(data.mutation.successNote) && <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>}
         {data.transactions.length > 0 && (
-          <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant or account..." variant="amber" />
+          <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant or account..." variant="brand" />
         )}
         <CategorySectionsBody
           loading={data.loading}

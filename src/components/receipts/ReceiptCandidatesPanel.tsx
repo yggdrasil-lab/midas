@@ -123,7 +123,7 @@ export const ReceiptCandidatesPanel: React.FC<ReceiptCandidatesPanelProps> = ({
       {linkError && <AlertBanner variant="error">{linkError}</AlertBanner>}
 
       {loading ? (
-        <LoadingState label="Finding suggested matches..." variant="amber" />
+        <LoadingState label="Finding suggested matches..." variant="brand" />
       ) : loadError ? (
         <AlertBanner
           variant="error"
@@ -226,7 +226,7 @@ export const ReceiptCandidatesPanel: React.FC<ReceiptCandidatesPanelProps> = ({
                 </div>
 
                 <Button
-                  variant="amber"
+                  variant="brand"
                   size="sm"
                   icon={<Link2 className="w-3.5 h-3.5" />}
                   loading={linkingTxId === c.transaction_id}

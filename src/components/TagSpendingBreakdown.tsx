@@ -89,13 +89,13 @@ export const TagSpendingBreakdown: React.FC<TagSpendingBreakdownProps> = ({
         title="Spending by Tag & Trips"
         subtitle="Track trips, events, or projects across all categories using #tags"
         icon={<Tag className="w-4 h-4" />}
-        variant="amber"
+        variant="brand"
         actions={
           <SegmentedControl<PeriodType>
             options={TAG_PERIOD_OPTIONS}
             value={period}
             onChange={setPeriod}
-            variant="amber"
+            variant="brand"
             size="xs"
             idPrefix="tag-period"
           />
@@ -105,7 +105,7 @@ export const TagSpendingBreakdown: React.FC<TagSpendingBreakdownProps> = ({
       {error && <AlertBanner variant="error">{error}</AlertBanner>}
 
       {loading && !data ? (
-        <LoadingState label="Loading tagged spending..." variant="amber" />
+        <LoadingState label="Loading tagged spending..." variant="brand" />
       ) : !data || data.tags.length === 0 ? (
         <EmptyState
           title="No tagged expenses found for this period."
@@ -150,7 +150,7 @@ export const TagSpendingBreakdown: React.FC<TagSpendingBreakdownProps> = ({
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Filter #tags or categories (e.g. trip, hotel, food)..."
-            variant="amber"
+            variant="brand"
             data-testid="tag-search-input"
           />
 

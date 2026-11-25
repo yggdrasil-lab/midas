@@ -192,7 +192,7 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
         )}
         {account && onRecordSnapshotClick && (
           <Button
-            variant="amber"
+            variant="brand"
             size="xs"
             icon={<PlusCircle className="w-3 h-3" />}
             onClick={onRecordSnapshotClick}
@@ -405,7 +405,7 @@ const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
           <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>
         )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
-          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search merchant or category..." variant="amber" className="flex-1" data-testid="modal-tx-search" />
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search merchant or category..." variant="brand" className="flex-1" data-testid="modal-tx-search" />
           <div className="flex items-center gap-2">
             <SelectInput
               value={categoryFilter || ''}

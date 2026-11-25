@@ -121,7 +121,7 @@ export const PortfolioNetWorthHero: React.FC<PortfolioNetWorthHeroProps> = ({
       title="Accounts & Per-Account Ledger"
       subtitle="Portfolio Allocation across 3 Freedom Tiers - Tap any account to inspect its ledger"
       icon={<Landmark className="w-5 h-5" />}
-      variant="amber"
+      variant="brand"
       size="md"
       titleAs="h2"
       uppercaseTitle
@@ -139,7 +139,7 @@ export const PortfolioNetWorthHero: React.FC<PortfolioNetWorthHeroProps> = ({
           <Button variant="secondary" size="xs" loading={syncing} loadingText="Syncing..." icon={<RefreshCw className="w-3.5 h-3.5" />} onClick={onSyncNow} data-testid="sync-now-btn">
             Sync Now
           </Button>
-          <Button variant="amber" size="xs" icon={<PlusCircle className="w-3.5 h-3.5" />} onClick={onRecordSnapshot} data-testid="record-snapshot-btn">
+          <Button variant="brand" size="xs" icon={<PlusCircle className="w-3.5 h-3.5" />} onClick={onRecordSnapshot} data-testid="record-snapshot-btn">
             Record Valuation Snapshot
           </Button>
         </>
@@ -177,14 +177,14 @@ export const PortfolioNetWorthHero: React.FC<PortfolioNetWorthHeroProps> = ({
         onClick={onInspectAllAccounts}
         isSelected={false}
         title="All Accounts Combined Ledger"
-        icon={<Building2 className="w-4 h-4 text-amber-400" />}
+        icon={<Building2 className="w-4 h-4 text-accent" />}
         badge={<StatusBadge label={`${accountCount} active`} variant="idle" />}
         value={formatMoney(totalPortfolioBalance)}
         valueSuffix="NZD"
         subtitle="All connected institutions"
         subvalue="Inspect Ledger ->"
         subvalueTrend="positive"
-        variant="amber"
+        variant="brand"
       />
     </div>
   </GlassCard>

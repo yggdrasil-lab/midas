@@ -60,7 +60,7 @@ const CategoryDeleteConfirmBox: React.FC<{
               data-testid="delete-reassign-select"
               value={reassignTarget}
               onChange={(e) => onReassignChange(e.target.value)}
-              variant="amber"
+              variant="brand"
             >
               {reassignChoices.map((choice) => (
                 <option key={choice.id} value={choice.name}>
@@ -218,7 +218,7 @@ const CategoryEditorForm: React.FC<{
           placeholder="e.g. Coffee, Pet Care, Subscriptions"
           value={draftName}
           onChange={(e) => onNameChange(e.target.value)}
-          variant="amber"
+          variant="brand"
         />
       </FormField>
 
@@ -235,7 +235,7 @@ const CategoryEditorForm: React.FC<{
           value={draftParentId}
           disabled={Boolean(editingCategory && editingCategory.child_count > 0)}
           onChange={(e) => onParentChange(e.target.value)}
-          variant="amber"
+          variant="brand"
         >
           <option value="">Top-Level Base Category</option>
           {rootBaseOptions.map((root) => (
@@ -255,7 +255,7 @@ const CategoryEditorForm: React.FC<{
         idPrefix="category-amortize-mode"
         fullWidth
         size="xs"
-        variant="amber"
+        variant="brand"
         value={draftAmortize}
         onChange={onAmortizeChange}
         options={[
@@ -532,7 +532,7 @@ const CategoryTreeList: React.FC<{
     />
   );
 
-  if (s.loading && s.items.length === 0) return <LoadingState label="Loading categories..." variant="amber" />;
+  if (s.loading && s.items.length === 0) return <LoadingState label="Loading categories..." variant="brand" />;
   if (filteredGroups.length === 0 && systemCats.length === 0) return <EmptyState title="No categories match your search." variant="dashed" />;
 
   return (
@@ -599,7 +599,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
           />
         ) : (
           <>
-            {s.activeItems.length > 0 && <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search base pillars or sub-categories..." variant="amber" />}
+            {s.activeItems.length > 0 && <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search base pillars or sub-categories..." variant="brand" />}
             <CategoryTreeList state={s} filteredGroups={filteredGroups} systemCats={systemCats} />
           </>
         )}

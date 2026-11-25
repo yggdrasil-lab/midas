@@ -240,7 +240,7 @@ const ScenarioControls: React.FC<{
       >
         Recalculate Freedom Horizon
       </Button>
-      <Button variant="amber" size="md" fullWidth icon={<Sparkles className="w-3.5 h-3.5" />} onClick={p.onOpenAi}>
+      <Button variant="brand" size="md" fullWidth icon={<Sparkles className="w-3.5 h-3.5" />} onClick={p.onOpenAi}>
         AI Freedom Advisor
       </Button>
     </div>
@@ -289,7 +289,7 @@ export const ScenarioSimulator: React.FC<ScenarioSimulatorProps> = ({ baselineBu
         title="AI Freedom Runway Advisor"
         subtitle="Trinity Study, Safe Withdrawal & Kitces Dynamic Burn Titration"
         citationTitle="Trinity Study (Safe Withdrawal) & Kitces (Dynamic Burn Titration)"
-        variant="amber"
+        variant="brand"
         pillars={RUNWAY_PILLARS}
         inputLabel="Lifestyle Adjustments, Goals, or Sabbatical Notes (Optional)"
         inputPlaceholder="e.g. Planning a 4-month sabbatical; moving to lower-cost housing in Takapuna; receiving a $10,000 bonus"

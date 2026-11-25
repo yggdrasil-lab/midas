@@ -68,7 +68,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({
       submitDisabled={!amountStr || parseFloat(amountStr) <= 0 || !merchant.trim()}
       allowDecimals
       maxDecimalPlaces={2}
-      variant="amber"
+      variant="brand"
       error={error}
     >
       <TextInput
@@ -76,7 +76,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({
         placeholder="Merchant / Note (e.g. Cafe, BP, Pak n Save)"
         value={merchant}
         onChange={(e) => setMerchant(e.target.value)}
-        variant="amber"
+        variant="brand"
         required
       />
 
@@ -84,7 +84,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({
         options={activeCategories}
         selected={category}
         onChange={setCategory}
-        variant="amber"
+        variant="brand"
       />
     </NumericKeypadModal>
   );

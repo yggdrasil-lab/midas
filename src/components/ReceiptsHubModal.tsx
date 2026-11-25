@@ -241,7 +241,7 @@ const ReceiptsHubHeaderBar: React.FC<{
   <div className="flex items-center justify-between border-b border-border pb-2 gap-2 flex-wrap">
     <SegmentedControl<ReceiptsTab>
       options={[{ id: 'receipts', label: 'Receipts Feed', badge: receiptCount }, { id: 'products', label: 'Products & Price History', badge: productCount }]}
-      value={activeTab} onChange={onChangeTab} variant="amber" size="sm" idPrefix="receipts-hub-tab"
+      value={activeTab} onChange={onChangeTab} variant="brand" size="sm" idPrefix="receipts-hub-tab"
     />
     <div className="flex items-center gap-2 flex-wrap">
       {needsReviewCount > 0 ? (

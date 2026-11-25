@@ -84,7 +84,7 @@ const CashflowHeaderBanner: React.FC<CashflowHeaderBannerProps> = ({
       options={[{ id: 'inflow', label: 'Inflow' }, { id: 'outflow', label: 'Outflow' }]}
       value={activeFlow}
       onChange={onSwitchFlow}
-      variant="amber"
+      variant="brand"
       size="sm"
       idPrefix="cashflow-modal-flow"
     />
@@ -147,7 +147,7 @@ const CashflowCategoryChips: React.FC<CashflowCategoryChipsProps> = ({
       selectedId={selectedCategory}
       onSelect={onSelect}
       toggleDeselectId="ALL"
-      variant="amber"
+      variant="brand"
       size="sm"
     />
   );
@@ -342,7 +342,7 @@ const CashflowScrollableSections: React.FC<Omit<CashflowSectionsBodyProps, 'load
 
 const CashflowSectionsBody: React.FC<CashflowSectionsBodyProps> = (props) => {
   if (props.loading) {
-    return <LoadingState label={`Loading ${props.activeFlow} transactions...`} variant="amber" />;
+    return <LoadingState label={`Loading ${props.activeFlow} transactions...`} variant="brand" />;
   }
   const hasAny =
     props.actualTransactions.length > 0 ||
@@ -373,7 +373,7 @@ const CashflowStatusAndSearch: React.FC<CashflowStatusAndSearchProps> = ({
     {Boolean(error) && <AlertBanner variant="error">{error}</AlertBanner>}
     {Boolean(successNote) && <AlertBanner variant="success">{successNote}</AlertBanner>}
     {(hasTransactions || Boolean(searchQuery)) && (
-      <SearchInput value={searchQuery} onChange={onSearchChange} placeholder="Filter merchant, category, account..." variant="amber" data-testid="cashflow-search-input" />
+      <SearchInput value={searchQuery} onChange={onSearchChange} placeholder="Filter merchant, category, account..." variant="brand" data-testid="cashflow-search-input" />
     )}
   </>
 );

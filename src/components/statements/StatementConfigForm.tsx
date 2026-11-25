@@ -42,19 +42,19 @@ const StatementConfigFields: React.FC<{
 }) => (
   <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
     <FormField label="Institution">
-      <TextInput type="text" value={institution} onChange={(e) => onInstitutionChange(e.target.value)} placeholder="e.g. ANZ, ASB, Sharesies" list="known-institutions" variant="amber" />
+      <TextInput type="text" value={institution} onChange={(e) => onInstitutionChange(e.target.value)} placeholder="e.g. ANZ, ASB, Sharesies" list="known-institutions" variant="brand" />
       <datalist id="known-institutions">
         {combinedInstitutions.map((inst) => <option key={inst} value={inst} />)}
       </datalist>
     </FormField>
     <FormField label="Account Display Name">
-      <TextInput type="text" value={accountName} onChange={(e) => onAccountNameChange(e.target.value)} placeholder="e.g. ANZ Freedom" variant="amber" />
+      <TextInput type="text" value={accountName} onChange={(e) => onAccountNameChange(e.target.value)} placeholder="e.g. ANZ Freedom" variant="brand" />
     </FormField>
     <FormField label="Account Type">
-      <SelectInput value={accountType} onChange={(e) => onAccountTypeChange(e.target.value)} options={ACCOUNT_TYPE_OPTIONS} variant="amber" />
+      <SelectInput value={accountType} onChange={(e) => onAccountTypeChange(e.target.value)} options={ACCOUNT_TYPE_OPTIONS} variant="brand" />
     </FormField>
     <FormField label="Currency">
-      <TextInput type="text" maxLength={3} value={currency} onChange={(e) => onCurrencyChange(e.target.value.toUpperCase())} placeholder="NZD, SGD, USD" list="common-currencies" variant="amber" className="font-mono uppercase" />
+      <TextInput type="text" maxLength={3} value={currency} onChange={(e) => onCurrencyChange(e.target.value.toUpperCase())} placeholder="NZD, SGD, USD" list="common-currencies" variant="brand" className="font-mono uppercase" />
       <datalist id="common-currencies">
         {COMMON_CURRENCIES.map((code) => <option key={code} value={code} />)}
       </datalist>
@@ -91,7 +91,7 @@ export const StatementConfigForm: React.FC<StatementConfigFormProps> = ({
         onAccountTypeChange={onAccountTypeChange} onCurrencyChange={onCurrencyChange}
       />
       <FormField label="Asset Tier (Telemetry Placement)">
-        <SegmentedControl<Account['tier']> idPrefix="statement-tier" fullWidth size="sm" variant="amber" value={tier} onChange={onTierChange} options={TIER_SEGMENT_OPTIONS} />
+        <SegmentedControl<Account['tier']> idPrefix="statement-tier" fullWidth size="sm" variant="brand" value={tier} onChange={onTierChange} options={TIER_SEGMENT_OPTIONS} />
       </FormField>
     </GlassCard>
   );
