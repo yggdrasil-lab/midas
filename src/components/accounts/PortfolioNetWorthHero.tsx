@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Check, Landmark, PieChart, PlusCircle, RefreshCw } from 'lucide-react';
+import { Building2, Landmark, PieChart, PlusCircle, RefreshCw } from 'lucide-react';
 import {
   AlertBanner,
   Button,
@@ -116,10 +116,7 @@ export const PortfolioNetWorthHero: React.FC<PortfolioNetWorthHeroProps> = ({
 
       {successNote && (
         <div className="space-y-2 animate-in fade-in" data-testid="account-success-banner">
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2">
-            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-            <span>{successNote}</span>
-          </div>
+          <AlertBanner variant="success">{successNote}</AlertBanner>
           {syncSummary && syncSummary.accounts.length > 0 && (
             <div className="flex flex-wrap gap-1.5" data-testid="sync-summary-accounts">
               {syncSummary.accounts.map((acc) => (

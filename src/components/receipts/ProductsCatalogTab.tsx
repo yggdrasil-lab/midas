@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Star, Tag } from 'lucide-react';
 import { Button, EmptyState, LoadingState, SearchInput } from '@yggdrasil-lab/ui';
 import { Product } from '../../types';
@@ -51,8 +51,6 @@ export const ProductsCatalogTab: React.FC<ProductsCatalogTabProps> = ({
   onAddTag,
   onRemoveTag,
 }) => {
-  const [expandedPriceHistoryId, setExpandedPriceHistoryId] = useState<number | null>(null);
-
   return (
     <div className="space-y-3">
       <form onSubmit={onSearchSubmit}>
@@ -148,10 +146,6 @@ export const ProductsCatalogTab: React.FC<ProductsCatalogTabProps> = ({
             <ProductCard
               key={p.id}
               product={p}
-              isExpanded={expandedPriceHistoryId === p.id}
-              onToggleExpand={() =>
-                setExpandedPriceHistoryId((prev) => (prev === p.id ? null : p.id))
-              }
               onToggleFavorite={onToggleFavorite}
               onSaveNote={onSaveNote}
               onAddTag={onAddTag}

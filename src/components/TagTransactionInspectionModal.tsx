@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Tag } from 'lucide-react';
+import { Tag } from 'lucide-react';
 import { AlertBanner, Button, Modal, SearchInput, SummaryMetricGrid } from '@yggdrasil-lab/ui';
 import { formatPeriodLabel, isTransferCategory as checkTransferCategory } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
@@ -249,10 +249,7 @@ export const TagTransactionInspectionModal: React.FC<TagTransactionInspectionMod
         <TagBreakdownPills categories={computedStats.categories} txCount={computedStats.txCount} selectedCategory={data.selectedCategory} onSelectCategory={data.setSelectedCategory} />
         {Boolean(data.error) && <AlertBanner variant="error">{data.error}</AlertBanner>}
         {Boolean(data.mutation.successNote) && (
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
-            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-            <span>{data.mutation.successNote}</span>
-          </div>
+          <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>
         )}
         {data.transactions.length > 0 && (
           <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant, category, or account..." variant="amber" />

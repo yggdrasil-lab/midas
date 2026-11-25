@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ArrowDownLeft, ArrowUpRight, CalendarClock, Check, Repeat } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, CalendarClock, Repeat } from 'lucide-react';
 import {
   AlertBanner,
   Button,
@@ -371,12 +371,7 @@ const CashflowStatusAndSearch: React.FC<CashflowStatusAndSearchProps> = ({
 }) => (
   <>
     {Boolean(error) && <AlertBanner variant="error">{error}</AlertBanner>}
-    {Boolean(successNote) && (
-      <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
-        <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-        <span>{successNote}</span>
-      </div>
-    )}
+    {Boolean(successNote) && <AlertBanner variant="success">{successNote}</AlertBanner>}
     {(hasTransactions || Boolean(searchQuery)) && (
       <SearchInput value={searchQuery} onChange={onSearchChange} placeholder="Filter merchant, category, account..." variant="amber" data-testid="cashflow-search-input" />
     )}

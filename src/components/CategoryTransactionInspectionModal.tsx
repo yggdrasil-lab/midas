@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRightLeft, Check, Layers, Repeat } from 'lucide-react';
+import { ArrowRightLeft, Layers, Repeat } from 'lucide-react';
 import {
   AlertBanner,
   Button,
@@ -320,6 +320,22 @@ function buildCategoryListProps(opts: {
   };
 }
 
+const CategoryTransferNotice: React.FC<{ reconciling: boolean; onReconcile: () => void }> = ({
+  reconciling,
+  onReconcile,
+}) => (
+  <div className="space-y-2">
+    <AlertBanner variant="info" title="Inter-Account Transfers & Foreign Exchange">
+      Transactions classified under Transfers represent money moving between your own accounts (such as ASB, DBS Singapore, Philippine banks, Bitcoin/crypto wallets, or Wise). They are excluded from your operational spending and weekly burn calculations.
+    </AlertBanner>
+    <div className="flex justify-end">
+      <Button variant="secondary" size="xs" loading={reconciling} loadingText="Pairing..." icon={<ArrowRightLeft className="w-3.5 h-3.5 text-sky-400" />} onClick={onReconcile}>
+        Reconcile Transfers Now
+      </Button>
+    </div>
+  </div>
+);
+
 /**
  * Modal for inspecting transactions within a spending category, reconciling
  * inter-account transfers, surfacing amortized recurring commitments, and
@@ -352,28 +368,17 @@ export const CategoryTransactionInspectionModal: React.FC<
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Inspect Category: ${category}`} className="sm:max-w-2xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Inspect Category: ${category}`}
+      className="sm:max-w-2xl"
+    >
       <div className="space-y-4" data-testid="category-inspection-modal">
         <CategoryHeaderAndMetrics category={category} periodLabel={periodLabel} isAnnualOverride={isAnnualOverride} actualCount={actualTransactions.length} amortizedCount={amortizedCommitments.length} actualVolume={actualVolume} amortizedVolume={amortizedVolume} />
-        {isTransferCategory && (
-          <div className="space-y-2">
-            <AlertBanner variant="info" title="Inter-Account Transfers & Foreign Exchange">
-              Transactions classified under Transfers represent money moving between your own accounts (such as ASB, DBS Singapore, Philippine banks, Bitcoin/crypto wallets, or Wise). They are excluded from your operational spending and weekly burn calculations.
-            </AlertBanner>
-            <div className="flex justify-end">
-              <Button variant="secondary" size="xs" loading={data.reconciling} loadingText="Pairing..." icon={<ArrowRightLeft className="w-3.5 h-3.5 text-sky-400" />} onClick={data.handleReconcileTransfers}>
-                Reconcile Transfers Now
-              </Button>
-            </div>
-          </div>
-        )}
+        {isTransferCategory && <CategoryTransferNotice reconciling={data.reconciling} onReconcile={data.handleReconcileTransfers} />}
         {Boolean(data.error) && <AlertBanner variant="error">{data.error}</AlertBanner>}
-        {Boolean(data.mutation.successNote) && (
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
-            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-            <span>{data.mutation.successNote}</span>
-          </div>
-        )}
+        {Boolean(data.mutation.successNote) && <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>}
         {data.transactions.length > 0 && (
           <SearchInput value={data.searchQuery} onChange={data.setSearchQuery} placeholder="Filter by merchant or account..." variant="amber" />
         )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Play, Plus } from 'lucide-react';
+import { Play, Plus } from 'lucide-react';
 import { AlertBanner, Button, Modal, SearchInput } from '@yggdrasil-lab/ui';
 import {
   applyAllRules,
@@ -11,11 +11,7 @@ import {
   updateRule,
 } from '../services/api';
 import { Account, CategorizationRule, CategorizationRuleCreate, LoanItem } from '../types';
-import {
-  DEFAULT_RULE_DRAFT,
-  RuleEditorForm,
-  RuleFormDraft,
-} from './rules/RuleEditorForm';
+import { DEFAULT_RULE_DRAFT, RuleEditorForm, RuleFormDraft } from './rules/RuleEditorForm';
 import { RulesList } from './rules/RulesList';
 
 interface RulesManagerModalProps {
@@ -30,31 +26,16 @@ function draftFromPrefill(prefill: Partial<CategorizationRuleCreate>): RuleFormD
     name: prefill.name || '',
     descriptionPattern: prefill.description_pattern || '',
     matchType: prefill.match_type || 'contains',
-    amountEquals:
-      prefill.amount_equals !== undefined && prefill.amount_equals !== null
-        ? String(prefill.amount_equals)
-        : '',
-    minAmount:
-      prefill.min_amount !== undefined && prefill.min_amount !== null
-        ? String(prefill.min_amount)
-        : '',
-    maxAmount:
-      prefill.max_amount !== undefined && prefill.max_amount !== null
-        ? String(prefill.max_amount)
-        : '',
+    amountEquals: prefill.amount_equals != null ? String(prefill.amount_equals) : '',
+    minAmount: prefill.min_amount != null ? String(prefill.min_amount) : '',
+    maxAmount: prefill.max_amount != null ? String(prefill.max_amount) : '',
     direction: prefill.direction || '',
     targetCategory: prefill.target_category || 'General',
     targetTags: (prefill.target_tags || []).join(', '),
     targetRecurrence: prefill.target_recurrence || '',
     renameMerchant: prefill.rename_merchant || '',
-    counterpartAccountId:
-      prefill.counterpart_account_id !== undefined && prefill.counterpart_account_id !== null
-        ? String(prefill.counterpart_account_id)
-        : '',
-    loanId:
-      prefill.loan_id !== undefined && prefill.loan_id !== null
-        ? String(prefill.loan_id)
-        : '',
+    counterpartAccountId: prefill.counterpart_account_id != null ? String(prefill.counterpart_account_id) : '',
+    loanId: prefill.loan_id != null ? String(prefill.loan_id) : '',
     priority: prefill.priority || 10,
     applyRetroactively: prefill.apply_retroactively !== false,
   };
@@ -73,24 +54,62 @@ function draftFromRule(rule: CategorizationRule): RuleFormDraft {
     targetTags: (rule.target_tags || []).join(', '),
     targetRecurrence: rule.target_recurrence || '',
     renameMerchant: rule.rename_merchant || '',
-    counterpartAccountId:
-      rule.counterpart_account_id != null ? String(rule.counterpart_account_id) : '',
+    counterpartAccountId: rule.counterpart_account_id != null ? String(rule.counterpart_account_id) : '',
     loanId: rule.loan_id != null ? String(rule.loan_id) : '',
     priority: rule.priority,
     applyRetroactively: true,
   };
 }
 
-/**
- * Modal for creating, editing, toggling, deleting, and running Outlook-style
- * categorization rules across transactions.
- */
-export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
-  isOpen,
-  onClose,
-  onRulesApplied,
-  prefillRule,
-}) => {
+function buildRulePayload(
+  draft: RuleFormDraft,
+  setError: (msg: string | null) => void
+): CategorizationRuleCreate | null {
+  if (!draft.name.trim() || !draft.descriptionPattern.trim() || !draft.targetCategory.trim()) {
+    setError('Rule name, description pattern, and target category are required.');
+    return null;
+  }
+  const num = parseFloat(draft.amountEquals.trim());
+  const minNum = draft.minAmount.trim() !== '' ? parseFloat(draft.minAmount.trim()) : NaN;
+  const maxNum = draft.maxAmount.trim() !== '' ? parseFloat(draft.maxAmount.trim()) : NaN;
+  const parsedMin = !isNaN(minNum) ? Math.abs(minNum) : null;
+  const parsedMax = !isNaN(maxNum) ? Math.abs(maxNum) : null;
+  if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax) {
+    setError('Min amount must be less than or equal to max amount.');
+    return null;
+  }
+
+  const parsedTags = draft.targetTags
+    .split(',')
+    .map((t) => t.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-'))
+    .filter(Boolean);
+  const counterpartNum = draft.counterpartAccountId.trim() !== '' ? parseInt(draft.counterpartAccountId.trim(), 10) : NaN;
+  const loanIdNum = draft.loanId.trim() !== '' ? parseInt(draft.loanId.trim(), 10) : NaN;
+
+  return {
+    name: draft.name.trim(),
+    description_pattern: draft.descriptionPattern.trim(),
+    match_type: draft.matchType,
+    amount_equals: !isNaN(num) && num > 0 ? Math.abs(num) : null,
+    min_amount: parsedMin,
+    max_amount: parsedMax,
+    direction: draft.direction || null,
+    target_category: draft.targetCategory.trim(),
+    target_tags: Array.from(new Set(parsedTags)),
+    target_recurrence: draft.targetRecurrence || null,
+    rename_merchant: draft.renameMerchant.trim() || null,
+    counterpart_account_id: !isNaN(counterpartNum) ? counterpartNum : null,
+    loan_id: !isNaN(loanIdNum) ? loanIdNum : null,
+    priority: draft.priority,
+    apply_retroactively: draft.applyRetroactively,
+  };
+}
+
+function useRulesManagerState(
+  isOpen: boolean,
+  prefillRule: Partial<CategorizationRuleCreate> | null | undefined,
+  onRulesApplied?: () => void
+) {
   const [rules, setRules] = useState<CategorizationRule[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loans, setLoans] = useState<LoanItem[]>([]);
@@ -98,7 +117,6 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
   const [draft, setDraft] = useState<RuleFormDraft>(DEFAULT_RULE_DRAFT);
@@ -127,86 +145,26 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadRules();
+      void loadRules();
       if (prefillRule) {
         setDraft(draftFromPrefill(prefillRule));
         setEditingRuleId(null);
         setIsFormOpen(true);
       }
-    } else {
-      setIsFormOpen(false);
-      setEditingRuleId(null);
-      setStatusMsg(null);
+      return;
     }
-  }, [isOpen, prefillRule]);
-
-  const handleOpenCreateForm = () => {
+    setIsFormOpen(false);
     setEditingRuleId(null);
-    setDraft(DEFAULT_RULE_DRAFT);
-    setIsFormOpen(true);
     setStatusMsg(null);
-  };
-
-  const handleOpenEditForm = (rule: CategorizationRule) => {
-    setEditingRuleId(rule.id);
-    setDraft(draftFromRule(rule));
-    setIsFormOpen(true);
-    setStatusMsg(null);
-  };
+  }, [isOpen, prefillRule]);
 
   const handleSaveRule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draft.name.trim() || !draft.descriptionPattern.trim() || !draft.targetCategory.trim()) {
-      setError('Rule name, description pattern, and target category are required.');
-      return;
-    }
-
-    const num = parseFloat(draft.amountEquals.trim());
-    const parsedAmt = !isNaN(num) && num > 0 ? Math.abs(num) : null;
-    const rawMin = draft.minAmount.trim();
-    const rawMax = draft.maxAmount.trim();
-    const minNum = rawMin !== '' ? parseFloat(rawMin) : NaN;
-    const maxNum = rawMax !== '' ? parseFloat(rawMax) : NaN;
-    const parsedMin = !isNaN(minNum) ? Math.abs(minNum) : null;
-    const parsedMax = !isNaN(maxNum) ? Math.abs(maxNum) : null;
-
-    if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax) {
-      setError('Min amount must be less than or equal to max amount.');
-      return;
-    }
-
+    const payload = buildRulePayload(draft, setError);
+    if (!payload) return;
     setIsSaving(true);
     setError(null);
     setStatusMsg(null);
-
-    const parsedTags = draft.targetTags
-      .split(',')
-      .map((t) => t.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-'))
-      .filter(Boolean);
-    const rawCounterpart = draft.counterpartAccountId.trim();
-    const counterpartNum = rawCounterpart !== '' ? parseInt(rawCounterpart, 10) : NaN;
-    const parsedCounterpart = !isNaN(counterpartNum) ? counterpartNum : null;
-    const rawLoanId = draft.loanId.trim();
-    const loanIdNum = rawLoanId !== '' ? parseInt(rawLoanId, 10) : NaN;
-    const parsedLoanId = !isNaN(loanIdNum) ? loanIdNum : null;
-    const payload: CategorizationRuleCreate = {
-      name: draft.name.trim(),
-      description_pattern: draft.descriptionPattern.trim(),
-      match_type: draft.matchType,
-      amount_equals: parsedAmt,
-      min_amount: parsedMin,
-      max_amount: parsedMax,
-      direction: draft.direction || null,
-      target_category: draft.targetCategory.trim(),
-      target_tags: Array.from(new Set(parsedTags)),
-      target_recurrence: draft.targetRecurrence || null,
-      rename_merchant: draft.renameMerchant.trim() || null,
-      counterpart_account_id: parsedCounterpart,
-      loan_id: parsedLoanId,
-      priority: draft.priority,
-      apply_retroactively: draft.applyRetroactively,
-    };
-
     try {
       if (editingRuleId) {
         await updateRule(editingRuleId, payload);
@@ -231,9 +189,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     setError(null);
     try {
       await updateRule(rule.id, { is_active: !rule.is_active });
-      setRules((prev) =>
-        prev.map((r) => (r.id === rule.id ? { ...r, is_active: !rule.is_active } : r))
-      );
+      setRules((prev) => prev.map((r) => (r.id === rule.id ? { ...r, is_active: !rule.is_active } : r)));
       setStatusMsg(`Rule "${rule.name}" is now ${!rule.is_active ? 'active' : 'inactive'}`);
       onRulesApplied?.();
     } catch (err) {
@@ -265,9 +221,7 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
         res.receipt_items_updated !== undefined
           ? ` and ${res.receipt_items_updated} of ${res.receipt_items_evaluated ?? 0} receipt items`
           : '';
-      setStatusMsg(
-        `Evaluated ${res.evaluated} transactions (${res.updated} updated)${itemNote}.`
-      );
+      setStatusMsg(`Evaluated ${res.evaluated} transactions (${res.updated} updated)${itemNote}.`);
       await loadRules();
       onRulesApplied?.();
     } catch (err) {
@@ -278,24 +232,52 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
     }
   };
 
-  const filteredRules = rules.filter((r) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
+  return {
+    rules, accounts, loans, loading, error, statusMsg, setStatusMsg,
+    searchQuery, setSearchQuery, isFormOpen, setIsFormOpen, editingRuleId, setEditingRuleId,
+    draft, setDraft, isSaving, isApplyingAll,
+    handleSaveRule, handleToggleRule, handleDeleteRule, handleApplyAll,
+  };
+}
+
+/**
+ * Modal for creating, editing, toggling, deleting, and running Outlook-style
+ * categorization rules across transactions.
+ */
+export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
+  isOpen,
+  onClose,
+  onRulesApplied,
+  prefillRule,
+}) => {
+  const s = useRulesManagerState(isOpen, prefillRule, onRulesApplied);
+  const filteredRules = s.rules.filter((r) => {
+    if (!s.searchQuery.trim()) return true;
+    const q = s.searchQuery.toLowerCase();
     return (
       r.name.toLowerCase().includes(q) ||
       r.description_pattern.toLowerCase().includes(q) ||
       r.target_category.toLowerCase().includes(q) ||
-      (r.direction && r.direction.toLowerCase().includes(q)) ||
-      (r.rename_merchant && r.rename_merchant.toLowerCase().includes(q)) ||
-      (r.counterpart_account_name && r.counterpart_account_name.toLowerCase().includes(q)) ||
-      (r.loan_name && r.loan_name.toLowerCase().includes(q))
+      Boolean(r.direction?.toLowerCase().includes(q)) ||
+      Boolean(r.rename_merchant?.toLowerCase().includes(q)) ||
+      Boolean(r.counterpart_account_name?.toLowerCase().includes(q)) ||
+      Boolean(r.loan_name?.toLowerCase().includes(q))
     );
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Outlook-Style Categorization Rules">
-      <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-        {!isFormOpen && (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Outlook-Style Categorization Rules"
+      footer={
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={onClose}>Done</Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        {!s.isFormOpen && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <p className="text-xs text-slate-300">
               Define custom pattern and amount rules to automatically categorize transactions and rename merchants.
@@ -305,20 +287,16 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
                 variant="primary"
                 size="xs"
                 icon={<Plus className="w-3.5 h-3.5" />}
-                onClick={handleOpenCreateForm}
+                onClick={() => { s.setEditingRuleId(null); s.setDraft(DEFAULT_RULE_DRAFT); s.setIsFormOpen(true); s.setStatusMsg(null); }}
               >
                 New Rule
               </Button>
               <Button
                 variant="outline"
                 size="xs"
-                icon={
-                  <Play
-                    className={`w-3.5 h-3.5 text-amber-400 ${isApplyingAll ? 'animate-spin' : ''}`}
-                  />
-                }
-                onClick={handleApplyAll}
-                disabled={isApplyingAll || rules.length === 0}
+                icon={<Play className={`w-3.5 h-3.5 text-amber-400 ${s.isApplyingAll ? 'animate-spin' : ''}`} />}
+                onClick={() => void s.handleApplyAll()}
+                disabled={s.isApplyingAll || s.rules.length === 0}
               >
                 Run Rules
               </Button>
@@ -326,56 +304,37 @@ export const RulesManagerModal: React.FC<RulesManagerModalProps> = ({
           </div>
         )}
 
-        {error && <AlertBanner variant="error">{error}</AlertBanner>}
-        {statusMsg && (
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
-            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-            <span>{statusMsg}</span>
-          </div>
-        )}
+        {s.error && <AlertBanner variant="error">{s.error}</AlertBanner>}
+        {s.statusMsg && <AlertBanner variant="success">{s.statusMsg}</AlertBanner>}
 
-        {isFormOpen && (
+        {s.isFormOpen && (
           <RuleEditorForm
-            draft={draft}
-            accounts={accounts}
-            loans={loans}
-            isEditing={Boolean(editingRuleId)}
-            saving={isSaving}
-            onChange={setDraft}
-            onSubmit={handleSaveRule}
-            onCancel={() => {
-              setIsFormOpen(false);
-              setEditingRuleId(null);
-            }}
+            draft={s.draft}
+            accounts={s.accounts}
+            loans={s.loans}
+            isEditing={Boolean(s.editingRuleId)}
+            saving={s.isSaving}
+            onChange={s.setDraft}
+            onSubmit={(e) => void s.handleSaveRule(e)}
+            onCancel={() => { s.setIsFormOpen(false); s.setEditingRuleId(null); }}
           />
         )}
 
-        {rules.length > 0 && !isFormOpen && (
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search rules by pattern, category, or merchant..."
-            variant="amber"
-          />
+        {s.rules.length > 0 && !s.isFormOpen && (
+          <SearchInput value={s.searchQuery} onChange={s.setSearchQuery} placeholder="Search rules by pattern, category, or merchant..." variant="amber" />
         )}
 
         <RulesList
           rules={filteredRules}
-          loading={loading}
-          hasRules={rules.length > 0}
-          isFormOpen={isFormOpen}
-          hasSearchQuery={Boolean(searchQuery.trim())}
-          onCreateClick={handleOpenCreateForm}
-          onEdit={handleOpenEditForm}
-          onToggle={handleToggleRule}
-          onDelete={handleDeleteRule}
+          loading={s.loading}
+          hasRules={s.rules.length > 0}
+          isFormOpen={s.isFormOpen}
+          hasSearchQuery={Boolean(s.searchQuery.trim())}
+          onCreateClick={() => { s.setEditingRuleId(null); s.setDraft(DEFAULT_RULE_DRAFT); s.setIsFormOpen(true); s.setStatusMsg(null); }}
+          onEdit={(rule) => { s.setEditingRuleId(rule.id); s.setDraft(draftFromRule(rule)); s.setIsFormOpen(true); s.setStatusMsg(null); }}
+          onToggle={s.handleToggleRule}
+          onDelete={s.handleDeleteRule}
         />
-
-        <div className="pt-2 flex justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Done
-          </Button>
-        </div>
       </div>
     </Modal>
   );

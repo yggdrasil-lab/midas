@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Modal } from '@yggdrasil-lab/ui';
+import { Button, FormField, Modal, SelectInput, TextInput } from '@yggdrasil-lab/ui';
 import { fetchAccountSnapshots, recordAccountSnapshot } from '../services/api';
 import { Account, AssetSnapshot } from '../types';
 
@@ -86,77 +86,67 @@ export const RecordSnapshotModal: React.FC<RecordSnapshotModalProps> = ({
           ? `Record Balance Valuation Snapshot: ${selectedAccount.name}`
           : 'Record Balance Valuation Snapshot'
       }
+      footer={
+        <div className="flex items-center justify-end space-x-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="record-snapshot-form" variant="amber" size="sm" loading={saving}>
+            Confirm & Save Valuation
+          </Button>
+        </div>
+      }
     >
-      <form onSubmit={handleSave} className="space-y-4 pt-2">
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">
-            Select Account
-          </label>
-          <select
-            value={accountId || ''}
+      <form id="record-snapshot-form" onSubmit={handleSave} className="space-y-4 pt-1">
+        <FormField label="Select Account">
+          <SelectInput
+            value={accountId ? String(accountId) : ''}
             onChange={(e) => {
               const nextId = parseInt(e.target.value, 10);
               setAccountId(nextId);
               setBalance(String(getAccountLatestBalance(nextId) || ''));
             }}
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+            variant="amber"
           >
             {accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
                 {acc.name} ({acc.institution} • {acc.currency})
               </option>
             ))}
-          </select>
-        </div>
+          </SelectInput>
+        </FormField>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">
-            Snapshot Date
-          </label>
-          <input
+        <FormField label="Snapshot Date">
+          <TextInput
             type="date"
             value={snapshotDate}
             onChange={(e) => setSnapshotDate(e.target.value)}
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+            variant="amber"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">
-            Closing Balance ({selectedAccount?.currency || 'NZD'})
-          </label>
-          <input
+        <FormField label={`Closing Balance (${selectedAccount?.currency || 'NZD'})`} required>
+          <TextInput
             type="number"
             step="any"
             value={balance}
             onChange={(e) => setBalance(e.target.value)}
             placeholder="0.00"
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
+            variant="amber"
+            className="font-mono"
             required
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-1">
-            Notes (Optional)
-          </label>
-          <input
+        <FormField label="Notes (Optional)">
+          <TextInput
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Monthly statement reconciliation"
-            className="w-full bg-background border border-border rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+            variant="amber"
           />
-        </div>
-
-        <div className="flex items-center justify-end space-x-2 pt-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="amber" size="sm" loading={saving}>
-            Confirm & Save Valuation
-          </Button>
-        </div>
+        </FormField>
       </form>
     </Modal>
   );

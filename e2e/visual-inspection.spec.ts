@@ -319,7 +319,7 @@ for (const { name: platform, options } of PLATFORMS) {
           if (await loanCard.isVisible()) {
             await expect(loanCard).toContainText('1/36 posted');
             await expect(loanCard).toContainText('35/36 left');
-            const paymentsToggle = page.locator('[data-testid="loan-payments-toggle-1"] >> visible=true').first();
+            const paymentsToggle = loanCard.getByRole('button', { name: /Linked Payments/i });
             await paymentsToggle.scrollIntoViewIfNeeded();
             await paymentsToggle.click();
             await expect(page.locator('[data-testid="loan-payments-list-1"] >> visible=true').first()).toContainText('Toyota Financial Services');
@@ -327,7 +327,7 @@ for (const { name: platform, options } of PLATFORMS) {
             const lentCard = page.locator('[data-testid="loan-card-2"] >> visible=true').first();
             if (await lentCard.isVisible()) {
               await expect(lentCard).toContainText('70% repaid');
-              const lentToggle = page.locator('[data-testid="loan-payments-toggle-2"] >> visible=true').first();
+              const lentToggle = lentCard.getByRole('button', { name: /Linked Repayments/i });
               await lentToggle.scrollIntoViewIfNeeded();
               await lentToggle.click();
               await expect(page.locator('[data-testid="loan-payments-list-2"] >> visible=true').first()).toContainText('$5,000.00 NZD');

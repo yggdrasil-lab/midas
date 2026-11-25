@@ -1,6 +1,6 @@
 import React from 'react';
 import { Lock, ShieldCheck, TrendingUp } from 'lucide-react';
-import { StatusBadge } from '@yggdrasil-lab/ui';
+import { SectionHeader, SelectableCard, StatusBadge } from '@yggdrasil-lab/ui';
 import { ACCOUNT_TIER_META } from '../constants/categories';
 import { Account, AssetSnapshot } from '../types';
 import {
@@ -89,37 +89,34 @@ const AccountTierCard: React.FC<AccountTierCardProps> = ({
     : latestSnap
       ? latestSnap.snapshot_date
       : 'Inspect Ledger ->';
-  const trendColor = hasDelta
-    ? delta > 0
-      ? 'text-emerald-400'
-      : 'text-rose-400'
-    : 'text-slate-400';
+  const subvalueTrend = hasDelta ? (delta > 0 ? 'positive' : 'negative') : 'neutral';
+
+  const cardProps = {
+    onClick: () => onInspect(account),
+    title: account.name,
+    badge: <StatusBadge label={meta.shortLabel} variant={meta.badgeVariant} icon={icons.badge} />,
+    value: formatMoney(balance, { minimumFractionDigits: 2, maximumFractionDigits: isCrypto ? 8 : 2 }),
+    valueSuffix: account.currency || 'NZD',
+    subtitle: formatAccountSubtitle(account),
+    subvalue,
+    subvalueTrend: subvalueTrend as 'positive' | 'negative' | 'neutral',
+    variant: meta.cardVariant,
+  };
+
+  if (!showEarned) {
+    return <SelectableCard data-testid={`account-card-${account.id}`} {...cardProps} />;
+  }
 
   return (
-    <button
-      type="button"
+    <div
       data-testid={`account-card-${account.id}`}
-      onClick={() => onInspect(account)}
-      className="text-left p-3.5 rounded-xl border transition-all duration-150 w-full bg-background/60 border-border/60 hover:border-slate-700"
+      className="rounded-xl border bg-background/60 border-border/60 hover:border-slate-700 transition-all duration-150 overflow-hidden"
     >
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <span className="text-xs font-semibold text-slate-200 truncate min-w-0">
-          {account.name}
-        </span>
-        <div className="shrink-0">
-          <StatusBadge label={meta.shortLabel} variant={meta.badgeVariant} icon={icons.badge} />
-        </div>
+      <SelectableCard {...cardProps} className="border-0 bg-transparent rounded-none" />
+      <div className="px-3.5 pb-3 -mt-1">
+        <AccountEarnedChip account={account} nativeBalance={balance} />
       </div>
-      <div className="text-lg font-bold text-slate-100 font-mono">
-        {formatMoney(balance, { minimumFractionDigits: 2, maximumFractionDigits: isCrypto ? 8 : 2 })}
-        <span className="text-xs font-normal text-slate-400 ml-1">{account.currency || 'NZD'}</span>
-      </div>
-      <div className="flex items-center justify-between gap-1.5 text-[11px] text-slate-400 mt-1">
-        <span className="truncate min-w-0">{formatAccountSubtitle(account)}</span>
-        <span className={`font-mono font-medium shrink-0 ${trendColor}`}>{subvalue}</span>
-      </div>
-      {showEarned && <AccountEarnedChip account={account} nativeBalance={balance} />}
-    </button>
+    </div>
   );
 };
 
@@ -140,20 +137,19 @@ export const AccountTierSection: React.FC<AccountTierSectionProps> = ({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 px-1">
-        <div className="flex items-center space-x-2 min-w-0">
-          <div className={`p-1 rounded border shrink-0 ${meta.iconBgClass}`}>{icons.section}</div>
-          <div className="min-w-0">
-            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-              {meta.sectionTitle}
-            </h3>
-            <p className="text-[11px] text-slate-400">{meta.sectionDescription}</p>
+      <SectionHeader
+        title={meta.sectionTitle}
+        subtitle={meta.sectionDescription}
+        icon={icons.section}
+        variant={meta.cardVariant}
+        uppercaseTitle
+        className="px-1"
+        actions={
+          <div className={`font-mono font-semibold text-xs whitespace-nowrap ${meta.totalTextColor}`}>
+            {formatMoney(totalNzd, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD
           </div>
-        </div>
-        <div className={`font-mono font-semibold text-xs whitespace-nowrap ${meta.totalTextColor}`}>
-          {formatMoney(totalNzd, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {accounts.map((acc) => (

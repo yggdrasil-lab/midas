@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, UploadCloud } from 'lucide-react';
-import { AlertBanner, Button, FileDropzone, GlassCard } from '@yggdrasil-lab/ui';
+import { AlertBanner, Button, FileDropzone, GlassCard, SectionHeader, SelectInput } from '@yggdrasil-lab/ui';
 import {
   fetchAccounts,
   fetchInstitutions,
@@ -17,7 +17,41 @@ interface StatementDropzoneProps {
  * Bank and brokerage statement dropzone with dry-run inspection,
  * institution auto-detection, and ledger anchoring.
  */
-export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess }) => {
+function resolveParsedAccountMetadata(
+  res: StatementParseResult,
+  institutionsList: InstitutionInfo[]
+) {
+  const detected = res.institution && res.institution !== 'Unknown' ? res.institution : '';
+  const match = detected
+    ? institutionsList.find((i) => i.name.toLowerCase() === detected.toLowerCase())
+    : undefined;
+  const tier: Account['tier'] = match ? match.default_tier : 'cash';
+  const accountType = match ? match.default_type : 'checking';
+  const currency =
+    res.currency?.trim().toUpperCase() || match?.currency || 'NZD';
+  const typeLabel = accountType.charAt(0).toUpperCase() + accountType.slice(1);
+  const accountName = res.account_name
+    ? detected
+      ? `${detected} ${res.account_name}`
+      : res.account_name
+    : detected
+      ? `${detected} ${typeLabel}`
+      : 'Bank Checking';
+
+  return {
+    detected,
+    tier,
+    accountType,
+    currency,
+    accountName,
+    closingBalanceInput:
+      res.closing_balance !== null && res.closing_balance !== undefined
+        ? String(res.closing_balance)
+        : '',
+  };
+}
+
+function useStatementDropzoneState(onSuccess: () => void) {
   const [file, setFile] = useState<File | null>(null);
   const [institution, setInstitution] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -59,45 +93,14 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setError(null);
     try {
       const res = await uploadStatement(file, 'auto', false);
+      const meta = resolveParsedAccountMetadata(res, institutionsList);
       setParseResult(res);
-
-      const detected = res.institution && res.institution !== 'Unknown' ? res.institution : '';
-      setInstitution(detected);
-
-      let resolvedCur = 'NZD';
-      let nextType = 'checking';
-      if (detected) {
-        const match = institutionsList.find((i) => i.name.toLowerCase() === detected.toLowerCase());
-        if (match) {
-          setTier(match.default_tier);
-          nextType = match.default_type;
-          setAccountType(match.default_type);
-          if (match.currency) resolvedCur = match.currency;
-        } else {
-          setTier('cash');
-          setAccountType('checking');
-        }
-      }
-
-      if (res.currency && res.currency.trim()) {
-        resolvedCur = res.currency.trim().toUpperCase();
-      }
-      setCurrency(resolvedCur);
-
-      setClosingBalanceInput(
-        res.closing_balance !== null && res.closing_balance !== undefined
-          ? String(res.closing_balance)
-          : ''
-      );
-
-      if (res.account_name) {
-        setAccountName(detected ? `${detected} ${res.account_name}` : res.account_name);
-      } else if (detected) {
-        const typeLabel = nextType.charAt(0).toUpperCase() + nextType.slice(1);
-        setAccountName(`${detected} ${typeLabel}`);
-      } else {
-        setAccountName('Bank Checking');
-      }
+      setInstitution(meta.detected);
+      setTier(meta.tier);
+      setAccountType(meta.accountType);
+      setCurrency(meta.currency);
+      setClosingBalanceInput(meta.closingBalanceInput);
+      setAccountName(meta.accountName);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Statement parsing failed');
@@ -115,15 +118,8 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         closingBalanceInput.trim() !== '' ? parseFloat(closingBalanceInput) : undefined;
       const targetInst = institution.trim() || parseResult?.institution || 'Unknown';
       await uploadStatement(
-        file,
-        targetInst,
-        true,
-        selectedAccountId,
-        balanceToCommit,
-        tier,
-        accountType,
-        accountName.trim() || undefined,
-        currency.trim() || undefined
+        file, targetInst, true, selectedAccountId, balanceToCommit,
+        tier, accountType, accountName.trim() || undefined, currency.trim() || undefined
       );
       setCommitted(true);
       onSuccess();
@@ -146,63 +142,73 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
     setError(null);
   };
 
+  return {
+    file, setFile, institution, accounts, institutionsList, selectedAccountId, setSelectedAccountId,
+    tier, setTier, accountType, setAccountType, accountName, setAccountName, currency, setCurrency,
+    loading, error, parseResult, closingBalanceInput, setClosingBalanceInput, committed,
+    handleInstitutionChange, handleParse, handleConfirmAndSync, handleReset,
+  };
+}
+
+/**
+ * Bank and brokerage statement dropzone with dry-run inspection,
+ * institution auto-detection, and ledger anchoring.
+ */
+export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess }) => {
+  const s = useStatementDropzoneState(onSuccess);
+
   return (
     <GlassCard className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
-            <UploadCloud className="w-4 h-4" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-slate-200">Statement Ingestion Hub</h3>
-            <p className="text-xs text-slate-400">
-              Drop bank or brokerage PDF/CSV to auto-detect and sync
-            </p>
-          </div>
-        </div>
-
-        {accounts.length > 0 && (
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedAccountId !== undefined ? selectedAccountId : ''}
+      <SectionHeader
+        title="Statement Ingestion Hub"
+        subtitle="Drop bank or brokerage PDF/CSV to auto-detect and sync"
+        icon={<UploadCloud className="w-4 h-4" />}
+        variant="emerald"
+        actions={
+          s.accounts.length > 0 ? (
+            <SelectInput
+              value={s.selectedAccountId !== undefined ? String(s.selectedAccountId) : ''}
               onChange={(e) => {
                 const val = e.target.value;
-                setSelectedAccountId(val ? Number(val) : undefined);
+                s.setSelectedAccountId(val ? Number(val) : undefined);
               }}
-              className="bg-background border border-border text-xs text-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none flex-1 sm:flex-none"
+              variant="amber"
+              containerClassName="w-auto"
+              className="min-h-[38px] py-1.5 text-xs text-slate-300"
+              aria-label="Target statement account"
             >
               <option value="">Auto-detect / Create New Account</option>
-              {accounts.map((acc) => (
+              {s.accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
                   Link to: {acc.name} ({acc.institution})
                 </option>
               ))}
-            </select>
-          </div>
-        )}
-      </div>
+            </SelectInput>
+          ) : undefined
+        }
+      />
 
-      {error && <AlertBanner variant="error">{error}</AlertBanner>}
+      {s.error && <AlertBanner variant="error">{s.error}</AlertBanner>}
 
-      {!parseResult ? (
+      {!s.parseResult ? (
         <FileDropzone
-          file={file}
-          onFileChange={setFile}
+          file={s.file}
+          onFileChange={s.setFile}
           acceptedFormats=".pdf,.csv"
           title="Drop your PDF/CSV statement here, or browse"
           description="Extracts official closing balances and deduplicated transactions with automatic institution detection"
           variant="amber"
         >
-          {file && (
+          {s.file && (
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button
                 variant="secondary"
                 size="sm"
-                loading={loading}
+                loading={s.loading}
                 loadingText="Parsing Statement..."
                 icon={<ArrowRight className="w-3.5 h-3.5" />}
                 iconPosition="right"
-                onClick={handleParse}
+                onClick={s.handleParse}
               >
                 Inspect Statement
               </Button>
@@ -211,27 +217,27 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         </FileDropzone>
       ) : (
         <StatementPreviewCard
-          fileName={file?.name}
-          parseResult={parseResult}
-          selectedAccountId={selectedAccountId}
-          institution={institution}
-          accountName={accountName}
-          accountType={accountType}
-          currency={currency}
-          tier={tier}
-          closingBalanceInput={closingBalanceInput}
-          loading={loading}
-          committed={committed}
-          institutionsList={institutionsList}
-          accounts={accounts}
-          onInstitutionChange={handleInstitutionChange}
-          onAccountNameChange={setAccountName}
-          onAccountTypeChange={setAccountType}
-          onCurrencyChange={setCurrency}
-          onTierChange={setTier}
-          onClosingBalanceChange={setClosingBalanceInput}
-          onConfirmAndSync={handleConfirmAndSync}
-          onReset={handleReset}
+          fileName={s.file?.name}
+          parseResult={s.parseResult}
+          selectedAccountId={s.selectedAccountId}
+          institution={s.institution}
+          accountName={s.accountName}
+          accountType={s.accountType}
+          currency={s.currency}
+          tier={s.tier}
+          closingBalanceInput={s.closingBalanceInput}
+          loading={s.loading}
+          committed={s.committed}
+          institutionsList={s.institutionsList}
+          accounts={s.accounts}
+          onInstitutionChange={s.handleInstitutionChange}
+          onAccountNameChange={s.setAccountName}
+          onAccountTypeChange={s.setAccountType}
+          onCurrencyChange={s.setCurrency}
+          onTierChange={s.setTier}
+          onClosingBalanceChange={s.setClosingBalanceInput}
+          onConfirmAndSync={s.handleConfirmAndSync}
+          onReset={s.handleReset}
         />
       )}
     </GlassCard>

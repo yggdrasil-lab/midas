@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChipSelector, NumericKeypadModal } from '@yggdrasil-lab/ui';
+import { ChipSelector, NumericKeypadModal, TextInput } from '@yggdrasil-lab/ui';
 import { QUICK_LOG_CATEGORIES } from '../constants/categories';
 import { quickLogExpense } from '../services/api';
 
@@ -71,12 +71,12 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({
       variant="amber"
       error={error}
     >
-      <input
+      <TextInput
         type="text"
         placeholder="Merchant / Note (e.g. Cafe, BP, Pak n Save)"
         value={merchant}
         onChange={(e) => setMerchant(e.target.value)}
-        className="w-full px-4 py-2.5 rounded-xl bg-background border border-border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+        variant="amber"
         required
       />
 

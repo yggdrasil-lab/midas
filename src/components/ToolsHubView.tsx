@@ -8,7 +8,7 @@ import {
   UploadCloud,
   Wrench,
 } from 'lucide-react';
-import { GlassCard, SectionHeader, SegmentedControl } from '@yggdrasil-lab/ui';
+import { GlassCard, SectionHeader, SegmentedControl, SelectableCard, StatusBadge } from '@yggdrasil-lab/ui';
 import { CategoryManagerModal } from './CategoryManagerModal';
 import { RulesManagerModal } from './RulesManagerModal';
 import { ScenarioSimulator } from './ScenarioSimulator';
@@ -24,6 +24,76 @@ interface ToolsHubViewProps {
   onOpenReceiptsClick: () => void;
   onOpenDataClick: () => void;
 }
+
+const ToolsActionGrid: React.FC<{
+  pendingReceiptsCount: number;
+  needsReviewReceiptsCount: number;
+  onOpenReceiptsClick: () => void;
+  onOpenRules: () => void;
+  onOpenDataClick: () => void;
+  onOpenCategories: () => void;
+}> = ({
+  pendingReceiptsCount,
+  needsReviewReceiptsCount,
+  onOpenReceiptsClick,
+  onOpenRules,
+  onOpenDataClick,
+  onOpenCategories,
+}) => {
+  const receiptsSubtitle =
+    pendingReceiptsCount > 0
+      ? `${pendingReceiptsCount} ${pendingReceiptsCount === 1 ? 'receipt' : 'receipts'} awaiting ledger match`
+      : 'Itemized bills & depletion tracking';
+
+  const receiptsBadge =
+    needsReviewReceiptsCount > 0 ? (
+      <span data-testid="receipts-needs-review-badge">
+        <StatusBadge variant="warning" size="xs" label={`${needsReviewReceiptsCount} Needs Review`} />
+      </span>
+    ) : pendingReceiptsCount > 0 ? (
+      <span data-testid="receipts-pending-badge">
+        <StatusBadge variant="idle" size="xs" showDot={false} label={`${pendingReceiptsCount} Pending`} />
+      </span>
+    ) : undefined;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <SelectableCard
+        data-testid="receipts-hub-btn"
+        onClick={onOpenReceiptsClick}
+        variant="amber"
+        icon={<ReceiptIcon className="w-4 h-4 text-amber-400" />}
+        title="Receipts & Longevity"
+        subtitle={receiptsSubtitle}
+        badge={receiptsBadge}
+      />
+      <SelectableCard
+        data-testid="rules-manager-btn"
+        onClick={onOpenRules}
+        variant="blue"
+        icon={<SlidersHorizontal className="w-4 h-4 text-sky-400" />}
+        title="Categorization Rules"
+        subtitle="Auto-tag merchants & recurrence"
+      />
+      <SelectableCard
+        data-testid="data-controls-btn"
+        onClick={onOpenDataClick}
+        variant="emerald"
+        icon={<ArrowRightLeft className="w-4 h-4 text-emerald-400" />}
+        title="Transfer & FX Reconciliation"
+        subtitle="Pair internal transfers & cross-currency legs"
+      />
+      <SelectableCard
+        data-testid="categories-manager-btn"
+        onClick={onOpenCategories}
+        variant="purple"
+        icon={<FolderTree className="w-4 h-4 text-violet-400" />}
+        title="Categories & Hierarchy"
+        subtitle="Manage classes & 52w spread"
+      />
+    </div>
+  );
+};
 
 /**
  * Dedicated workspace hub consolidating episodic financial tools
@@ -51,94 +121,14 @@ export const ToolsHubView: React.FC<ToolsHubViewProps> = ({
           variant="amber"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          <button
-            type="button"
-            data-testid="receipts-hub-btn"
-            onClick={onOpenReceiptsClick}
-            className="p-3 rounded-xl bg-background/60 border border-border/80 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors text-left flex items-start gap-3 cursor-pointer"
-          >
-            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
-              <ReceiptIcon className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-xs font-semibold text-slate-100">Receipts &amp; Longevity</div>
-                {needsReviewReceiptsCount > 0 ? (
-                  <span
-                    data-testid="receipts-needs-review-badge"
-                    className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap"
-                  >
-                    {needsReviewReceiptsCount} Needs Review
-                  </span>
-                ) : pendingReceiptsCount > 0 ? (
-                  <span
-                    data-testid="receipts-pending-badge"
-                    className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-slate-800 text-slate-300 border border-border whitespace-nowrap"
-                  >
-                    {pendingReceiptsCount} Pending
-                  </span>
-                ) : null}
-              </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                {pendingReceiptsCount > 0
-                  ? `${pendingReceiptsCount} ${pendingReceiptsCount === 1 ? 'receipt' : 'receipts'} awaiting ledger match`
-                  : 'Itemized bills & depletion tracking'}
-              </div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            data-testid="rules-manager-btn"
-            onClick={() => setIsRulesModalOpen(true)}
-            className="p-3 rounded-xl bg-background/60 border border-border/80 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors text-left flex items-start gap-3 cursor-pointer"
-          >
-            <div className="p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400 shrink-0">
-              <SlidersHorizontal className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-100">Categorization Rules</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                Auto-tag merchants &amp; recurrence
-              </div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            data-testid="data-controls-btn"
-            onClick={onOpenDataClick}
-            className="p-3 rounded-xl bg-background/60 border border-border/80 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors text-left flex items-start gap-3 cursor-pointer"
-          >
-            <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shrink-0">
-              <ArrowRightLeft className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-100">Transfer &amp; FX Reconciliation</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                Pair internal transfers &amp; cross-currency legs
-              </div>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            data-testid="categories-manager-btn"
-            onClick={() => setIsCategoriesModalOpen(true)}
-            className="p-3 rounded-xl bg-background/60 border border-border/80 hover:border-amber-500/40 hover:bg-amber-500/5 transition-colors text-left flex items-start gap-3 cursor-pointer"
-          >
-            <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0">
-              <FolderTree className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-100">Categories &amp; Hierarchy</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                Manage classes &amp; 52w spread
-              </div>
-            </div>
-          </button>
-        </div>
+        <ToolsActionGrid
+          pendingReceiptsCount={pendingReceiptsCount}
+          needsReviewReceiptsCount={needsReviewReceiptsCount}
+          onOpenReceiptsClick={onOpenReceiptsClick}
+          onOpenRules={() => setIsRulesModalOpen(true)}
+          onOpenDataClick={onOpenDataClick}
+          onOpenCategories={() => setIsCategoriesModalOpen(true)}
+        />
 
         <SegmentedControl<ToolsWorkspace>
           idPrefix="tools-workspace"

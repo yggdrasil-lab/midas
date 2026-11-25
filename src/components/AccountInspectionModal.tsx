@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Building2, Check, Landmark, Lock, PlusCircle, TrendingUp, Wallet } from 'lucide-react';
+import { Building2, Landmark, Lock, PlusCircle, TrendingUp, Wallet } from 'lucide-react';
 import {
   AlertBanner,
   Button,
   Modal,
   SearchInput,
+  SelectInput,
   StatusBadge,
   SummaryMetricGrid,
   SummaryMetricItem,
@@ -359,7 +360,7 @@ interface AccountInspectionBodyProps extends AccountInspectionModalProps {
 }
 
 const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
-  const { isOpen, onClose, account, accounts: accountsProp, period, onPeriodChange, startDate, endDate, onStartDateChange, onEndDateChange, onTransactionCategoryChanged, onRecordSnapshotClick, latestBalance, latestBalanceNzd } = props;
+  const { isOpen, account, accounts: accountsProp, period, onPeriodChange, startDate, endDate, onStartDateChange, onEndDateChange, onTransactionCategoryChanged, onRecordSnapshotClick, latestBalance, latestBalanceNzd } = props;
   const { categoryNames } = useCategories();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -401,18 +402,22 @@ const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
         {showTotalEarned && <AccountTotalEarnedTile account={account!} nativeBalance={currentBalance} />}
         {Boolean(data.error) && <AlertBanner variant="error">{data.error}</AlertBanner>}
         {Boolean(data.mutation.successNote) && (
-          <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in">
-            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-            <span>{data.mutation.successNote}</span>
-          </div>
+          <AlertBanner variant="success">{data.mutation.successNote}</AlertBanner>
         )}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
           <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search merchant or category..." variant="amber" className="flex-1" data-testid="modal-tx-search" />
           <div className="flex items-center gap-2">
-            <select value={categoryFilter || ''} onChange={(e) => setCategoryFilter(e.target.value || null)} className="bg-background border border-border rounded-xl px-2.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" aria-label="Filter transactions by category" data-testid="modal-tx-category-filter">
+            <SelectInput
+              value={categoryFilter || ''}
+              onChange={(e) => setCategoryFilter(e.target.value || null)}
+              containerClassName="w-auto"
+              className="min-h-[40px] py-1.5 text-xs"
+              aria-label="Filter transactions by category"
+              data-testid="modal-tx-category-filter"
+            >
               <option value="">All Categories</option>
               {availableCategories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            </SelectInput>
             <div className="text-[11px] text-slate-400 shrink-0">{filteredTransactions.length} of {collapsed.length}</div>
           </div>
         </div>
@@ -424,9 +429,6 @@ const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
           getRowTestId={(tx) => `account-modal-tx-row-${tx.id}`} getSelectTestId={(tx) => `modal-select-category-${tx.id}`} getRuleBtnTestId={(tx) => `modal-rule-btn-${tx.id}`}
           {...handlers}
         />
-        <div className="pt-2 flex justify-end">
-          <Button variant="outline" size="sm" onClick={onClose} data-testid="modal-close-done-btn">Done</Button>
-        </div>
       </div>
       <RulesManagerModal
         isOpen={data.mutation.isRulesModalOpen} onClose={data.mutation.closeRulesModal} prefillRule={data.mutation.rulePrefill}
@@ -449,7 +451,17 @@ export const AccountInspectionModal: React.FC<AccountInspectionModalProps> = (pr
   const titleText = props.account ? `Inspect Account: ${props.account.name}` : 'Inspect: All Accounts';
 
   return (
-    <Modal isOpen={props.isOpen} onClose={props.onClose} title={titleText} className="sm:max-w-2xl">
+    <Modal
+      isOpen={props.isOpen}
+      onClose={props.onClose}
+      title={titleText}
+      className="sm:max-w-2xl"
+      footer={
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={props.onClose} data-testid="modal-close-done-btn">Done</Button>
+        </div>
+      }
+    >
       <AccountInspectionBody
         {...props}
         startDate={startDate}

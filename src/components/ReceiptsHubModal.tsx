@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { AlertBanner, Button, Modal, SegmentedControl } from '@yggdrasil-lab/ui';
 import {
   deleteReceipt,
@@ -12,11 +12,7 @@ import {
   uploadReceipt,
 } from '../services/api';
 import { Product, Receipt } from '../types';
-import {
-  formatReceiptAmount,
-  isReceiptPending,
-  type ReceiptFeedFilter,
-} from '../utils/receipts';
+import { formatReceiptAmount, isReceiptPending, type ReceiptFeedFilter } from '../utils/receipts';
 import { ProductsCatalogTab } from './receipts/ProductsCatalogTab';
 import { ReceiptsFeedTab } from './receipts/ReceiptsFeedTab';
 
@@ -28,14 +24,7 @@ interface ReceiptsHubModalProps {
 
 type ReceiptsTab = 'receipts' | 'products';
 
-/**
- * Receipts OCR ingestion, reconciliation, and product longevity catalog modal.
- */
-export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
-  isOpen,
-  onClose,
-  onReceiptLinked,
-}) => {
+function useReceiptsHubState(isOpen: boolean, onReceiptLinked?: () => void) {
   const [activeTab, setActiveTab] = useState<ReceiptsTab>('receipts');
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -50,7 +39,6 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [expandedReceiptId, setExpandedReceiptId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<ReceiptFeedFilter>('all');
-
   const [selectedDomain, setSelectedDomain] = useState('all');
   const [selectedTag, setSelectedTag] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,12 +70,12 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadData();
-    } else {
-      setStatusMsg(null);
-      setError(null);
-      setStatusFilter('all');
+      void loadData();
+      return;
     }
+    setStatusMsg(null);
+    setError(null);
+    setStatusFilter('all');
   }, [isOpen, selectedDomain, selectedTag, filterFavorites]);
 
   const handleUploadFile = async (file: File) => {
@@ -118,9 +106,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     setStatusMsg(null);
     try {
       await deleteReceipt(id);
-      if (expandedReceiptId === id) {
-        setExpandedReceiptId(null);
-      }
+      if (expandedReceiptId === id) setExpandedReceiptId(null);
       setStatusMsg('Receipt deleted.');
       await loadData();
       onReceiptLinked?.();
@@ -138,8 +124,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     setStatusMsg(null);
     try {
       const res = await reprocessReceipt(id);
-      const formattedTotal = formatReceiptAmount(res.total_amount, res.currency);
-      setStatusMsg(`Processed receipt from ${res.merchant} (${formattedTotal}).`);
+      setStatusMsg(`Processed receipt from ${res.merchant} (${formatReceiptAmount(res.total_amount, res.currency)}).`);
       await loadData();
       onReceiptLinked?.();
     } catch (err) {
@@ -160,11 +145,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     try {
       const updated = await updateReceiptItem(receiptId, itemId, patch);
       setReceipts((prev) =>
-        prev.map((r) =>
-          r.id === receiptId
-            ? { ...r, items: r.items.map((it) => (it.id === itemId ? updated : it)) }
-            : r
-        )
+        prev.map((r) => (r.id === receiptId ? { ...r, items: r.items.map((it) => (it.id === itemId ? updated : it)) } : r))
       );
       onReceiptLinked?.();
     } catch (err) {
@@ -177,15 +158,10 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
 
   const handleCandidateLinked = async (updated: Receipt) => {
     setReceipts((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-    setStatusMsg(
-      `Linked "${updated.merchant}" to transaction #${updated.transaction_id}.`
-    );
+    setStatusMsg(`Linked "${updated.merchant}" to transaction #${updated.transaction_id}.`);
     await loadData();
     onReceiptLinked?.();
   };
-
-  const needsReviewCount = receipts.filter((r) => r.status === 'needs_review').length;
-  const pendingCount = receipts.filter((r) => isReceiptPending(r)).length;
 
   const handleReconcile = async () => {
     setReconciling(true);
@@ -193,9 +169,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     setStatusMsg(null);
     try {
       const res = await reconcileReceipts();
-      setStatusMsg(
-        `Reconciliation complete: matched ${res.matched_count} receipts with transactions.`
-      );
+      setStatusMsg(`Reconciliation complete: matched ${res.matched_count} receipts with transactions.`);
       await loadData();
       onReceiptLinked?.();
     } catch (err) {
@@ -231,13 +205,10 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     const cleanTag = rawTag.trim().toLowerCase().replace(/^#/, '');
     const prod = products.find((p) => p.id === productId);
     if (!cleanTag || !prod || prod.tags.includes(cleanTag)) return;
-
     try {
       const updated = await updateProduct(productId, { tags: [...prod.tags, cleanTag] });
       setProducts((prev) => prev.map((item) => (item.id === productId ? updated : item)));
-      if (!allTags.includes(cleanTag)) {
-        setAllTags((prev) => [...prev, cleanTag].sort());
-      }
+      if (!allTags.includes(cleanTag)) setAllTags((prev) => [...prev, cleanTag].sort());
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to add tag');
@@ -248,9 +219,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     const prod = products.find((p) => p.id === productId);
     if (!prod) return;
     try {
-      const updated = await updateProduct(productId, {
-        tags: prod.tags.filter((t) => t !== tagToRemove),
-      });
+      const updated = await updateProduct(productId, { tags: prod.tags.filter((t) => t !== tagToRemove) });
       setProducts((prev) => prev.map((item) => (item.id === productId ? updated : item)));
     } catch (err) {
       console.error(err);
@@ -258,17 +227,50 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
     }
   };
 
+  return {
+    activeTab, setActiveTab, receipts, products, allTags, loading, uploading,
+    reconciling, deletingId, reprocessingId, updatingItemId, error, statusMsg,
+    expandedReceiptId, setExpandedReceiptId, statusFilter, setStatusFilter,
+    selectedDomain, setSelectedDomain, selectedTag, setSelectedTag,
+    searchQuery, setSearchQuery, filterFavorites, setFilterFavorites,
+    loadData, handleUploadFile, handleDeleteReceipt, handleReprocessReceipt,
+    handleUpdateReceiptItem, handleCandidateLinked, handleReconcile,
+    handleToggleFavorite, handleSaveNote, handleAddTag, handleRemoveTag,
+  };
+}
+
+/**
+ * Receipts OCR ingestion, reconciliation, and product longevity catalog modal.
+ */
+export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
+  isOpen,
+  onClose,
+  onReceiptLinked,
+}) => {
+  const s = useReceiptsHubState(isOpen, onReceiptLinked);
+  const needsReviewCount = s.receipts.filter((r) => r.status === 'needs_review').length;
+  const pendingCount = s.receipts.filter((r) => isReceiptPending(r)).length;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Receipts & Product Inventory Hub">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Receipts & Product Inventory Hub"
+      footer={
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={onClose}>Done</Button>
+        </div>
+      }
+    >
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-2 gap-2 flex-wrap">
           <SegmentedControl<ReceiptsTab>
             options={[
-              { id: 'receipts', label: 'Receipts Feed', badge: receipts.length },
-              { id: 'products', label: 'Products & Price History', badge: products.length },
+              { id: 'receipts', label: 'Receipts Feed', badge: s.receipts.length },
+              { id: 'products', label: 'Products & Price History', badge: s.products.length },
             ]}
-            value={activeTab}
-            onChange={setActiveTab}
+            value={s.activeTab}
+            onChange={s.setActiveTab}
             variant="amber"
             size="sm"
             idPrefix="receipts-hub-tab"
@@ -279,10 +281,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
               <button
                 type="button"
                 data-testid="receipts-hub-needs-review-badge"
-                onClick={() => {
-                  setActiveTab('receipts');
-                  setStatusFilter('needs_review');
-                }}
+                onClick={() => { s.setActiveTab('receipts'); s.setStatusFilter('needs_review'); }}
                 className="px-2 py-1 text-[11px] font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-colors whitespace-nowrap"
               >
                 {needsReviewCount} Needs Review
@@ -291,10 +290,7 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
               <button
                 type="button"
                 data-testid="receipts-hub-pending-badge"
-                onClick={() => {
-                  setActiveTab('receipts');
-                  setStatusFilter('pending');
-                }}
+                onClick={() => { s.setActiveTab('receipts'); s.setStatusFilter('pending'); }}
                 className="px-2 py-1 text-[11px] font-medium rounded-lg bg-slate-800/80 text-slate-300 border border-border hover:text-white transition-colors whitespace-nowrap"
               >
                 {pendingCount} Pending
@@ -304,13 +300,9 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
             <Button
               variant="outline"
               size="xs"
-              icon={
-                <RefreshCw
-                  className={`w-3 h-3 text-amber-400 ${reconciling ? 'animate-spin' : ''}`}
-                />
-              }
-              onClick={handleReconcile}
-              disabled={reconciling}
+              icon={<RefreshCw className={`w-3 h-3 text-amber-400 ${s.reconciling ? 'animate-spin' : ''}`} />}
+              onClick={() => void s.handleReconcile()}
+              disabled={s.reconciling}
               title="Auto-match unlinked receipts with bank transactions"
             >
               Reconcile
@@ -318,66 +310,51 @@ export const ReceiptsHubModal: React.FC<ReceiptsHubModalProps> = ({
           </div>
         </div>
 
-        {error && <AlertBanner variant="error">{error}</AlertBanner>}
-        {statusMsg && (
-          <div
-            data-testid="receipts-hub-status-banner"
-            className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 flex items-center space-x-2 animate-in fade-in"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-            <span>{statusMsg}</span>
+        {s.error && <AlertBanner variant="error">{s.error}</AlertBanner>}
+        {s.statusMsg && (
+          <div data-testid="receipts-hub-status-banner">
+            <AlertBanner variant="success">{s.statusMsg}</AlertBanner>
           </div>
         )}
 
-        {activeTab === 'receipts' ? (
+        {s.activeTab === 'receipts' ? (
           <ReceiptsFeedTab
-            receipts={receipts}
-            loading={loading}
-            uploading={uploading}
-            deletingId={deletingId}
-            reprocessingId={reprocessingId}
-            updatingItemId={updatingItemId}
-            expandedReceiptId={expandedReceiptId}
-            statusFilter={statusFilter}
-            onChangeStatusFilter={setStatusFilter}
-            onToggleExpand={(id) =>
-              setExpandedReceiptId((prev) => (prev === id ? null : id))
-            }
-            onUploadFile={handleUploadFile}
-            onDeleteReceipt={handleDeleteReceipt}
-            onReprocessReceipt={handleReprocessReceipt}
-            onReceiptLinked={handleCandidateLinked}
-            onUpdateReceiptItem={handleUpdateReceiptItem}
+            receipts={s.receipts}
+            loading={s.loading}
+            uploading={s.uploading}
+            deletingId={s.deletingId}
+            reprocessingId={s.reprocessingId}
+            updatingItemId={s.updatingItemId}
+            expandedReceiptId={s.expandedReceiptId}
+            statusFilter={s.statusFilter}
+            onChangeStatusFilter={s.setStatusFilter}
+            onToggleExpand={(id) => s.setExpandedReceiptId((prev) => (prev === id ? null : id))}
+            onUploadFile={s.handleUploadFile}
+            onDeleteReceipt={s.handleDeleteReceipt}
+            onReprocessReceipt={s.handleReprocessReceipt}
+            onReceiptLinked={s.handleCandidateLinked}
+            onUpdateReceiptItem={s.handleUpdateReceiptItem}
           />
         ) : (
           <ProductsCatalogTab
-            products={products}
-            allTags={allTags}
-            loading={loading}
-            selectedDomain={selectedDomain}
-            selectedTag={selectedTag}
-            searchQuery={searchQuery}
-            filterFavorites={filterFavorites}
-            onChangeDomain={setSelectedDomain}
-            onChangeTag={setSelectedTag}
-            onChangeSearch={setSearchQuery}
-            onToggleFavorites={() => setFilterFavorites((prev) => !prev)}
-            onSearchSubmit={(e) => {
-              e.preventDefault();
-              void loadData();
-            }}
-            onToggleFavorite={handleToggleFavorite}
-            onSaveNote={handleSaveNote}
-            onAddTag={handleAddTag}
-            onRemoveTag={handleRemoveTag}
+            products={s.products}
+            allTags={s.allTags}
+            loading={s.loading}
+            selectedDomain={s.selectedDomain}
+            selectedTag={s.selectedTag}
+            searchQuery={s.searchQuery}
+            filterFavorites={s.filterFavorites}
+            onChangeDomain={s.setSelectedDomain}
+            onChangeTag={s.setSelectedTag}
+            onChangeSearch={s.setSearchQuery}
+            onToggleFavorites={() => s.setFilterFavorites((prev) => !prev)}
+            onSearchSubmit={(e) => { e.preventDefault(); void s.loadData(); }}
+            onToggleFavorite={s.handleToggleFavorite}
+            onSaveNote={s.handleSaveNote}
+            onAddTag={s.handleAddTag}
+            onRemoveTag={s.handleRemoveTag}
           />
         )}
-
-        <div className="pt-2 flex justify-end">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Done
-          </Button>
-        </div>
       </div>
     </Modal>
   );

@@ -1,6 +1,13 @@
 import React from 'react';
 import { Lock, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import {
+  FormField,
+  GlassCard,
+  SegmentedControl,
+  SelectInput,
+  TextInput,
+} from '@yggdrasil-lab/ui';
+import {
   ACCOUNT_TYPE_OPTIONS,
   COMMON_CURRENCIES,
   COMMON_INSTITUTIONS,
@@ -23,30 +30,10 @@ interface StatementConfigFormProps {
   onTierChange: (tier: Account['tier']) => void;
 }
 
-const TIER_PILLS: Array<{
-  id: Account['tier'];
-  label: string;
-  icon: React.ReactNode;
-  activeClass: string;
-}> = [
-  {
-    id: 'cash',
-    label: 'Cash Floor',
-    icon: <ShieldCheck className="w-3 h-3 shrink-0" />,
-    activeClass: 'bg-sky-500/10 border-sky-500/50 text-sky-400',
-  },
-  {
-    id: 'growth',
-    label: 'Growth',
-    icon: <TrendingUp className="w-3 h-3 shrink-0" />,
-    activeClass: 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400',
-  },
-  {
-    id: 'locked',
-    label: 'Locked',
-    icon: <Lock className="w-3 h-3 shrink-0" />,
-    activeClass: 'bg-amber-500/10 border-amber-500/50 text-amber-400',
-  },
+const TIER_SEGMENT_OPTIONS = [
+  { id: 'cash' as const, label: 'Cash Floor', icon: <ShieldCheck className="w-3 h-3" /> },
+  { id: 'growth' as const, label: 'Growth', icon: <TrendingUp className="w-3 h-3" /> },
+  { id: 'locked' as const, label: 'Locked', icon: <Lock className="w-3 h-3" /> },
 ];
 
 /**
@@ -77,7 +64,7 @@ export const StatementConfigForm: React.FC<StatementConfigFormProps> = ({
   ).filter(Boolean);
 
   return (
-    <div className="p-3 bg-card/60 rounded-xl border border-border space-y-2.5">
+    <GlassCard tone="solid" padding="sm" className="bg-card/60 space-y-2.5 shadow-none">
       <div className="flex items-center justify-between text-xs text-slate-300">
         <span className="font-semibold text-slate-200">Account Configuration</span>
         <span className="text-[11px] text-emerald-400 flex items-center space-x-1 font-medium">
@@ -89,90 +76,71 @@ export const StatementConfigForm: React.FC<StatementConfigFormProps> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-        <div>
-          <label className="text-[10px] text-slate-400 block mb-1">Institution</label>
-          <input
+        <FormField label="Institution">
+          <TextInput
             type="text"
             value={institution}
             onChange={(e) => onInstitutionChange(e.target.value)}
             placeholder="e.g. ANZ, ASB, Sharesies"
             list="known-institutions"
-            className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+            variant="amber"
           />
           <datalist id="known-institutions">
             {combinedInstitutions.map((inst) => (
               <option key={inst} value={inst} />
             ))}
           </datalist>
-        </div>
+        </FormField>
 
-        <div>
-          <label className="text-[10px] text-slate-400 block mb-1">Account Display Name</label>
-          <input
+        <FormField label="Account Display Name">
+          <TextInput
             type="text"
             value={accountName}
             onChange={(e) => onAccountNameChange(e.target.value)}
             placeholder="e.g. ANZ Freedom"
-            className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+            variant="amber"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="text-[10px] text-slate-400 block mb-1">Account Type</label>
-          <select
+        <FormField label="Account Type">
+          <SelectInput
             value={accountType}
             onChange={(e) => onAccountTypeChange(e.target.value)}
-            className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-          >
-            {ACCOUNT_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            options={ACCOUNT_TYPE_OPTIONS}
+            variant="amber"
+          />
+        </FormField>
 
-        <div>
-          <label className="text-[10px] text-slate-400 block mb-1">Currency</label>
-          <input
+        <FormField label="Currency">
+          <TextInput
             type="text"
             maxLength={3}
             value={currency}
             onChange={(e) => onCurrencyChange(e.target.value.toUpperCase())}
             placeholder="NZD, SGD, USD"
             list="common-currencies"
-            className="w-full px-2.5 py-1.5 bg-background border border-border rounded text-xs text-slate-100 font-mono uppercase focus:outline-none focus:border-amber-500"
+            variant="amber"
+            className="font-mono uppercase"
           />
           <datalist id="common-currencies">
             {COMMON_CURRENCIES.map((code) => (
               <option key={code} value={code} />
             ))}
           </datalist>
-        </div>
+        </FormField>
       </div>
 
-      <div>
-        <label className="text-[10px] text-slate-400 block mb-1">
-          Asset Tier (Telemetry Placement)
-        </label>
-        <div className="grid grid-cols-3 gap-1.5">
-          {TIER_PILLS.map((pill) => (
-            <button
-              key={pill.id}
-              type="button"
-              onClick={() => onTierChange(pill.id)}
-              className={`flex items-center justify-center space-x-1 px-2 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                tier === pill.id
-                  ? pill.activeClass
-                  : 'bg-card border-border text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {pill.icon}
-              <span>{pill.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+      <FormField label="Asset Tier (Telemetry Placement)">
+        <SegmentedControl<Account['tier']>
+          idPrefix="statement-tier"
+          fullWidth
+          size="sm"
+          variant="amber"
+          value={tier}
+          onChange={onTierChange}
+          options={TIER_SEGMENT_OPTIONS}
+        />
+      </FormField>
+    </GlassCard>
   );
 };
