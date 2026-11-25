@@ -10,6 +10,7 @@ import {
   fetchRules,
   updateRule,
 } from '../transport';
+import { parseRuleTagsCsv } from '../ledger';
 import { Account, CategorizationRule, CategorizationRuleCreate, LoanItem } from '../types';
 import { DEFAULT_RULE_DRAFT, RuleEditorForm, RuleFormDraft } from './rules/RuleEditorForm';
 import { RulesList } from './rules/RulesList';
@@ -79,10 +80,6 @@ function buildRulePayload(
     return null;
   }
 
-  const parsedTags = draft.targetTags
-    .split(',')
-    .map((t) => t.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-'))
-    .filter(Boolean);
   const counterpartNum = draft.counterpartAccountId.trim() !== '' ? parseInt(draft.counterpartAccountId.trim(), 10) : NaN;
   const loanIdNum = draft.loanId.trim() !== '' ? parseInt(draft.loanId.trim(), 10) : NaN;
 
@@ -95,7 +92,7 @@ function buildRulePayload(
     max_amount: parsedMax,
     direction: draft.direction || null,
     target_category: draft.targetCategory.trim(),
-    target_tags: Array.from(new Set(parsedTags)),
+    target_tags: parseRuleTagsCsv(draft.targetTags),
     target_recurrence: draft.targetRecurrence || null,
     rename_merchant: draft.renameMerchant.trim() || null,
     counterpart_account_id: !isNaN(counterpartNum) ? counterpartNum : null,
