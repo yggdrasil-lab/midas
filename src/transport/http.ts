@@ -51,42 +51,39 @@ interface ExtractedErrorDetail {
   hasBodyDetail: boolean;
 }
 
+function formatDetailEntry(entry: unknown): string {
+  if (!entry || typeof entry !== 'object' || !('msg' in entry)) return '';
+  const msg = (entry as { msg?: unknown }).msg;
+  return typeof msg === 'string' ? msg.trim() : '';
+}
+
 function formatDetailField(rawDetail: unknown): string | null {
   if (typeof rawDetail === 'string' && rawDetail.trim()) {
     return rawDetail.trim();
   }
   if (!Array.isArray(rawDetail)) return null;
-
-  const messages = rawDetail
-    .map((entry) => {
-      if (entry && typeof entry === 'object' && 'msg' in entry) {
-        const msg = (entry as { msg?: unknown }).msg;
-        return typeof msg === 'string' ? msg.trim() : '';
-      }
-      return '';
-    })
-    .filter((msg) => msg.length > 0);
-
+  const messages = rawDetail.map(formatDetailEntry).filter((msg) => msg.length > 0);
   return messages.length > 0 ? messages.join('; ') : null;
+}
+
+function parseJsonDetail(rawText: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(rawText);
+    if (!parsed || typeof parsed !== 'object' || !('detail' in parsed)) {
+      return null;
+    }
+    return formatDetailField((parsed as { detail?: unknown }).detail);
+  } catch {
+    return null;
+  }
 }
 
 export async function extractErrorDetail(res: Response): Promise<ExtractedErrorDetail> {
   const rawText = (await res.text().catch(() => '')).trim();
   if (rawText) {
-    try {
-      const parsed: unknown = JSON.parse(rawText);
-      if (parsed && typeof parsed === 'object' && 'detail' in parsed) {
-        const formatted = formatDetailField((parsed as { detail?: unknown }).detail);
-        if (formatted) {
-          return { detail: formatted, hasBodyDetail: true };
-        }
-      }
-    } catch {
-      // Plain text error body: use raw response text directly.
-    }
-    return { detail: rawText, hasBodyDetail: true };
+    const jsonDetail = parseJsonDetail(rawText);
+    return { detail: jsonDetail ?? rawText, hasBodyDetail: true };
   }
-
   const fallback = res.statusText.trim() || `HTTP ${res.status}`;
   return { detail: fallback, hasBodyDetail: false };
 }
@@ -164,66 +161,53 @@ async function toMidasApiError(
   });
 }
 
+function buildClientUrl(baseUrl: string, path: string, query?: URLSearchParams): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const qs = query ? query.toString() : '';
+  return `${baseUrl}${normalizedPath}${qs ? `?${qs}` : ''}`;
+}
+
+async function executeRequest(
+  adapter: HttpAdapter,
+  baseUrl: string,
+  path: string,
+  init?: RequestOptions
+): Promise<Response> {
+  const { fallbackError, ...fetchInit } = init ?? {};
+  const res = await adapter.fetch(buildClientUrl(baseUrl, path), fetchInit);
+  if (!res.ok) {
+    throw await toMidasApiError(res, path, fallbackError);
+  }
+  return res;
+}
+
 export function createHttpClient(
   adapter: HttpAdapter = authHttpAdapter,
   baseUrl = '/api'
 ): HttpClient {
   const normalizedBase = baseUrl.replace(/\/+$/, '');
-
-  const buildUrl = (path: string, query?: URLSearchParams): string => {
-    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const qs = query ? query.toString() : '';
-    return `${normalizedBase}${normalizedPath}${qs ? `?${qs}` : ''}`;
+  const requestJsonWithResponse = async <T>(path: string, init?: RequestOptions) => {
+    const response = await executeRequest(adapter, normalizedBase, path, init);
+    return { data: (await response.json()) as T, response };
   };
-
-  const execute = async (path: string, init?: RequestOptions): Promise<Response> => {
-    const { fallbackError, ...fetchInit } = init ?? {};
-    const url = buildUrl(path);
-    const res = await adapter.fetch(url, fetchInit);
-    if (!res.ok) {
-      throw await toMidasApiError(res, path, fallbackError);
-    }
-    return res;
-  };
-
-  const requestJsonWithResponse = async <T>(
-    path: string,
-    init?: RequestOptions
-  ): Promise<{ data: T; response: Response }> => {
-    const response = await execute(path, init);
-    const data = (await response.json()) as T;
-    return { data, response };
-  };
-
-  const requestJson = async <T>(path: string, init?: RequestOptions): Promise<T> => {
-    const { data } = await requestJsonWithResponse<T>(path, init);
-    return data;
-  };
-
-  const requestVoid = async (path: string, init?: RequestOptions): Promise<void> => {
-    await execute(path, init);
-  };
-
-  const requestFormData = async <T>(
-    path: string,
-    formData: FormData,
-    init?: FormDataRequestOptions
-  ): Promise<T> => {
-    const { method = 'POST', fallbackError, ...rest } = init ?? {};
-    return requestJson<T>(path, {
-      ...rest,
-      method,
-      body: formData,
-      fallbackError,
-    });
-  };
-
   return {
     baseUrl: normalizedBase,
-    buildUrl,
-    requestJson,
+    buildUrl: (path, query) => buildClientUrl(normalizedBase, path, query),
     requestJsonWithResponse,
-    requestVoid,
-    requestFormData,
+    requestJson: async <T>(path: string, init?: RequestOptions) =>
+      (await requestJsonWithResponse<T>(path, init)).data,
+    requestVoid: async (path, init) => {
+      await executeRequest(adapter, normalizedBase, path, init);
+    },
+    requestFormData: async <T>(
+      path: string,
+      formData: FormData,
+      init?: FormDataRequestOptions
+    ) => {
+      const { method = 'POST', fallbackError, ...rest } = init ?? {};
+      return (
+        await requestJsonWithResponse<T>(path, { ...rest, method, body: formData, fallbackError })
+      ).data;
+    },
   };
 }

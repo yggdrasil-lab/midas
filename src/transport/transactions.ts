@@ -92,31 +92,90 @@ function resolveTotalCount(response: Response, transactions: Transaction[]): num
   return transactions.filter((t) => !t.is_amortized_commitment).length;
 }
 
-export function createTransactionsTransport(client: HttpClient) {
-  const patchTransaction = (
-    transactionId: number,
-    payload: TransactionUpdatePayload,
-    fallbackError: string
-  ): Promise<Transaction> =>
-    client.requestJson<Transaction>(
-      `/transactions/${transactionId}`,
-      jsonRequestInit('PATCH', payload, fallbackError)
-    );
+function patchTransaction(
+  client: HttpClient,
+  transactionId: number,
+  payload: TransactionUpdatePayload,
+  fallbackError: string
+): Promise<Transaction> {
+  return client.requestJson<Transaction>(
+    `/transactions/${transactionId}`,
+    jsonRequestInit('PATCH', payload, fallbackError)
+  );
+}
 
+function uploadStatementRequest(
+  client: HttpClient,
+  file: File,
+  institution = 'auto',
+  commit = false,
+  accountId?: number,
+  closingBalance?: number,
+  tier?: string,
+  accountType?: string,
+  accountName?: string,
+  currency?: string
+): Promise<StatementParseResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const query = buildStatementQuery({
+    institution,
+    commit,
+    accountId,
+    closingBalance,
+    tier,
+    accountType,
+    accountName,
+    currency,
+  });
+  return client.requestFormData<StatementParseResult>(
+    `/integrations/statement?${query.toString()}`,
+    formData,
+    { fallbackError: 'Statement upload failed' }
+  );
+}
+
+async function fetchFlowTransactionsRequest(
+  client: HttpClient,
+  params: FetchFlowTransactionsParams
+): Promise<CashflowTransactionsPage> {
+  const query = buildTransactionsQuery({ ...params, limit: params.limit ?? 200 });
+  const { data, response } = await client.requestJsonWithResponse<Transaction[]>(
+    `/transactions?${query.toString()}`,
+    { fallbackError: `Failed to fetch ${params.flow} transactions` }
+  );
   return {
-    quickLogExpense(payload: {
+    transactions: data,
+    totalCount: resolveTotalCount(response, data),
+  };
+}
+
+function updateTransactionLoanRequest(
+  client: HttpClient,
+  transactionId: number,
+  loanId: number | null,
+  loanPaymentAmount?: number | null
+): Promise<Transaction> {
+  const payload: TransactionUpdatePayload = { loan_id: loanId };
+  if (loanPaymentAmount !== undefined) {
+    payload.loan_payment_amount = loanPaymentAmount;
+  }
+  return patchTransaction(client, transactionId, payload, 'Failed to update transaction loan');
+}
+
+export function createTransactionsTransport(client: HttpClient) {
+  return {
+    quickLogExpense: (payload: {
       amount: number;
       merchant: string;
       category?: string;
       notes?: string;
-    }): Promise<Transaction> {
-      return client.requestJson<Transaction>(
+    }) =>
+      client.requestJson<Transaction>(
         '/integrations/quick-log',
         jsonRequestInit('POST', payload, 'Quick-log failed')
-      );
-    },
-
-    uploadStatement(
+      ),
+    uploadStatement: (
       file: File,
       institution = 'auto',
       commit = false,
@@ -126,10 +185,10 @@ export function createTransactionsTransport(client: HttpClient) {
       accountType?: string,
       accountName?: string,
       currency?: string
-    ): Promise<StatementParseResult> {
-      const formData = new FormData();
-      formData.append('file', file);
-      const query = buildStatementQuery({
+    ) =>
+      uploadStatementRequest(
+        client,
+        file,
         institution,
         commit,
         accountId,
@@ -137,16 +196,9 @@ export function createTransactionsTransport(client: HttpClient) {
         tier,
         accountType,
         accountName,
-        currency,
-      });
-      return client.requestFormData<StatementParseResult>(
-        `/integrations/statement?${query.toString()}`,
-        formData,
-        { fallbackError: 'Statement upload failed' }
-      );
-    },
-
-    fetchAccountTransactions(params?: {
+        currency
+      ),
+    fetchAccountTransactions: (params?: {
       accountId?: number;
       period?: PeriodType;
       startDate?: string;
@@ -154,21 +206,20 @@ export function createTransactionsTransport(client: HttpClient) {
       category?: string;
       tag?: string;
       limit?: number;
-    }): Promise<Transaction[]> {
+    }) => {
       const query = buildTransactionsQuery({ ...params, limit: params?.limit ?? 500 });
       return client.requestJson<Transaction[]>(`/transactions?${query.toString()}`, {
         fallbackError: 'Failed to fetch account transactions',
       });
     },
-
-    fetchCategoryTransactions(
+    fetchCategoryTransactions: (
       category: string,
       period?: PeriodType,
       startDate?: string,
       endDate?: string,
       includeSubclasses = false,
       includeAmortized = false
-    ): Promise<Transaction[]> {
+    ) => {
       const query = buildTransactionsQuery({
         category: category || undefined,
         period,
@@ -182,28 +233,15 @@ export function createTransactionsTransport(client: HttpClient) {
         fallbackError: 'Failed to fetch transactions',
       });
     },
-
-    async fetchFlowTransactions(
-      params: FetchFlowTransactionsParams
-    ): Promise<CashflowTransactionsPage> {
-      const query = buildTransactionsQuery({ ...params, limit: params.limit ?? 200 });
-      const { data, response } = await client.requestJsonWithResponse<Transaction[]>(
-        `/transactions?${query.toString()}`,
-        { fallbackError: `Failed to fetch ${params.flow} transactions` }
-      );
-      return {
-        transactions: data,
-        totalCount: resolveTotalCount(response, data),
-      };
-    },
-
-    fetchTagTransactions(
+    fetchFlowTransactions: (params: FetchFlowTransactionsParams) =>
+      fetchFlowTransactionsRequest(client, params),
+    fetchTagTransactions: (
       tag: string,
       period: PeriodType = 'all',
       startDate?: string,
       endDate?: string,
       category?: string
-    ): Promise<Transaction[]> {
+    ) => {
       const query = buildTransactionsQuery({
         tag: tag || undefined,
         category: category || undefined,
@@ -216,60 +254,33 @@ export function createTransactionsTransport(client: HttpClient) {
         fallbackError: 'Failed to fetch tagged transactions',
       });
     },
-
-    updateTransactionCategory(id: number, category: string): Promise<Transaction> {
-      return patchTransaction(id, { category }, 'Failed to update transaction category');
-    },
-
-    updateTransactionTags(id: number, tags: string[]): Promise<Transaction> {
-      return patchTransaction(id, { tags }, 'Failed to update transaction tags');
-    },
-
-    updateTransactionRecurrence(
-      id: number,
-      recurrence: RecurrenceType | null
-    ): Promise<Transaction> {
-      return patchTransaction(id, { recurrence }, 'Failed to update transaction recurrence');
-    },
-
-    updateTransactionLoan(
+    updateTransactionCategory: (id: number, category: string) =>
+      patchTransaction(client, id, { category }, 'Failed to update transaction category'),
+    updateTransactionTags: (id: number, tags: string[]) =>
+      patchTransaction(client, id, { tags }, 'Failed to update transaction tags'),
+    updateTransactionRecurrence: (id: number, recurrence: RecurrenceType | null) =>
+      patchTransaction(client, id, { recurrence }, 'Failed to update transaction recurrence'),
+    updateTransactionLoan: (
       transactionId: number,
       loanId: number | null,
       loanPaymentAmount?: number | null
-    ): Promise<Transaction> {
-      const payload: TransactionUpdatePayload = { loan_id: loanId };
-      if (loanPaymentAmount !== undefined) {
-        payload.loan_payment_amount = loanPaymentAmount;
-      }
-      return patchTransaction(transactionId, payload, 'Failed to update transaction loan');
-    },
-
-    updateTransactionCounterpart(
-      transactionId: number,
-      counterpartAccountId: number | null
-    ): Promise<Transaction> {
-      return patchTransaction(
+    ) => updateTransactionLoanRequest(client, transactionId, loanId, loanPaymentAmount),
+    updateTransactionCounterpart: (transactionId: number, counterpartAccountId: number | null) =>
+      patchTransaction(
+        client,
         transactionId,
         { counterpart_account_id: counterpartAccountId },
         'Failed to update counterpart account'
-      );
-    },
-
-    updateTransactionSplits(
-      transactionId: number,
-      splits: TransactionSplitInput[]
-    ): Promise<Transaction> {
-      return client.requestJson<Transaction>(
+      ),
+    updateTransactionSplits: (transactionId: number, splits: TransactionSplitInput[]) =>
+      client.requestJson<Transaction>(
         `/transactions/${transactionId}/splits`,
         jsonRequestInit('PUT', { splits }, 'Failed to update transaction splits')
-      );
-    },
-
-    triggerReconcileTransfers(): Promise<{ status: string; matched_transfers: number }> {
-      return client.requestJson<{ status: string; matched_transfers: number }>(
+      ),
+    triggerReconcileTransfers: () =>
+      client.requestJson<{ status: string; matched_transfers: number }>(
         '/transactions/reconcile-transfers',
         { method: 'POST', fallbackError: 'Failed to reconcile transfers' }
-      );
-    },
+      ),
   };
 }
