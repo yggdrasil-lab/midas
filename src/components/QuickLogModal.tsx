@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChipSelector, NumericKeypadModal, TextInput } from '@yggdrasil-lab/ui';
 import { QUICK_LOG_CATEGORIES } from '../constants/categories';
-import { quickLogExpense } from '../services/api';
+import { quickLogExpense } from '../transport';
 
 interface QuickLogModalProps {
   isOpen: boolean;

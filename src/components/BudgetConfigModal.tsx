@@ -19,7 +19,7 @@ import {
   initDefaultBudgets,
   syncBudgetsFromBurn,
   upsertBudgetRule,
-} from '../services/api';
+} from '../transport';
 import { AverageBurnReportResponse, BudgetPeriod, BudgetRule } from '../types';
 import { formatMoney } from '../utils/format';
 

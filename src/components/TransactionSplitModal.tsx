@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Plus, Split, Trash2 } from 'lucide-react';
 import { AlertBanner, Button, Modal } from '@yggdrasil-lab/ui';
-import { updateTransactionSplits } from '../services/api';
+import { updateTransactionSplits } from '../transport';
 import { LoanItem, Transaction, TransactionSplitInput } from '../types';
 import {
   formatMoney,

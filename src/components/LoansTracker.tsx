@@ -13,7 +13,7 @@ import {
   StatusBadge,
   TextInput,
 } from '@yggdrasil-lab/ui';
-import { createLoan, deleteLoan } from '../services/api';
+import { createLoan, deleteLoan } from '../transport';
 import { LoanCreatePayload, LoanItem, LoansSummaryResponse, LoanType } from '../types';
 import { formatMoney } from '../utils/format';
 

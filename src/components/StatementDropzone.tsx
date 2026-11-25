@@ -5,7 +5,7 @@ import {
   fetchAccounts,
   fetchInstitutions,
   uploadStatement,
-} from '../services/api';
+} from '../transport';
 import { Account, InstitutionInfo, StatementParseResult } from '../types';
 import { StatementPreviewCard } from './statements/StatementPreviewCard';
 
@@ -151,7 +151,10 @@ function useStatementDropzoneState(onSuccess: () => void) {
         setAccounts(accs);
         setInstitutionsList(insts);
       })
-      .catch((err) => console.warn('Could not load accounts or institutions:', err));
+      .catch((err) => {
+        console.warn('Could not load accounts or institutions:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load accounts or institutions');
+      });
   }, []);
 
   const actions = useStatementDropzoneActions({

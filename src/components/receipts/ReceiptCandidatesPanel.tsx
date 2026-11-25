@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link2 } from 'lucide-react';
 import { AlertBanner, Button, LoadingState, StatusBadge } from '@yggdrasil-lab/ui';
-import { getReceiptCandidates, linkReceipt } from '../../services/api';
+import { getReceiptCandidates, linkReceipt } from '../../transport';
 import { Receipt, ReceiptTransactionCandidate } from '../../types';
 import {
   formatCandidateLedgerAmount,

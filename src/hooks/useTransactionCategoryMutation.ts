@@ -5,7 +5,7 @@ import {
   updateTransactionLoan,
   updateTransactionRecurrence,
   updateTransactionTags,
-} from '../services/api';
+} from '../transport';
 import {
   Account,
   CategorizationRuleCreate,

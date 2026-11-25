@@ -12,7 +12,7 @@ import {
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
 import { formatPeriodLabel } from '../constants/categories';
-import { fetchTagSpendingSummary } from '../services/api';
+import { fetchTagSpendingSummary } from '../transport';
 import {
   PeriodType,
   TagSpendingSummaryItem,

@@ -4,7 +4,7 @@ import { AlertBanner, Button, Modal, SearchInput, SummaryMetricGrid } from '@ygg
 import { formatPeriodLabel, isTransferCategory as checkTransferCategory } from '../constants/categories';
 import { useCategories } from '../hooks/useCategories';
 import { useTransactionCategoryMutation } from '../hooks/useTransactionCategoryMutation';
-import { fetchAccounts, fetchLoans, fetchTagTransactions } from '../services/api';
+import { fetchAccounts, fetchLoans, fetchTagTransactions } from '../transport';
 import { Account, LoanItem, PeriodType, TagCategoryBreakdownItem, TagSpendingSummaryItem, Transaction } from '../types';
 import { formatMoney, getTransactionNzdAmount } from '../utils/format';
 import { collapsePairedTransfers } from '../utils/transfers';

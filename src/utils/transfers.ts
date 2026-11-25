@@ -53,3 +53,19 @@ export function collapsePairedTransfers(transactions: Transaction[]): Transactio
 
   return collapsed;
 }
+
+/**
+ * Filters account ledger rows to keep transactions owned by the target account
+ * plus unlinked counterpart legs attributed to it.
+ */
+export function filterCounterpartAccountTransactions(
+  transactions: Transaction[],
+  accountId?: number
+): Transaction[] {
+  if (accountId === undefined) return transactions;
+  return transactions.filter(
+    (tx) =>
+      tx.account_id === accountId ||
+      (tx.counterpart_account_id === accountId && tx.linked_transaction_id == null)
+  );
+}

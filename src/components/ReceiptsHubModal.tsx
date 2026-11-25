@@ -10,7 +10,7 @@ import {
   updateProduct,
   updateReceiptItem,
   uploadReceipt,
-} from '../services/api';
+} from '../transport';
 import { Product, Receipt } from '../types';
 import { formatReceiptAmount, isReceiptPending, type ReceiptFeedFilter } from '../utils/receipts';
 import { ProductsCatalogTab } from './receipts/ProductsCatalogTab';

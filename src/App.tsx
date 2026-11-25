@@ -31,7 +31,7 @@ import { RunwayClock } from './components/RunwayClock';
 import { TagSpendingBreakdown } from './components/TagSpendingBreakdown';
 import { ToolsHubView } from './components/ToolsHubView';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
-import { fetchReceipts, fetchRunway } from './services/api';
+import { fetchReceipts, fetchRunway } from './transport';
 import { useCategories } from './hooks/useCategories';
 import { Receipt, RunwayData } from './types';
 import { isReceiptPending } from './utils/receipts';

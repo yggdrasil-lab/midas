@@ -5,7 +5,7 @@ import {
   fetchAccountSnapshots,
   fetchLoans,
   syncAllIntegrations,
-} from '../services/api';
+} from '../transport';
 import { Account, AssetSnapshot, LoansSummaryResponse, PeriodType, SyncResult } from '../types';
 import { AccountInspectionModal } from './AccountInspectionModal';
 import { AccountTierSection } from './AccountTierSection';
