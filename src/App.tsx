@@ -202,23 +202,27 @@ const MidasStatusBanners: React.FC<{
   </>
 );
 
+function useMidasSwUpdate() {
+  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const { needRefresh: [swNeedRefresh, setSwNeedRefresh], updateServiceWorker } = useRegisterSW({
+    onRegisteredSW(_swUrl, registration) { if (registration) setSwRegistration(registration); },
+    onRegisterError(err) { console.error('Service worker registration error:', err); },
+  });
+  return usePwaUpdate({
+    externalNeedRefresh: swNeedRefresh,
+    onExternalNeedRefreshChange: setSwNeedRefresh,
+    updateServiceWorker,
+    registration: swRegistration,
+  });
+}
+
 /**
  * Root Midas application shell orchestrating runway telemetry, unified responsive
  * tab views, PWA update prompts, and global action modals.
  */
 export const App: React.FC = () => {
   const s = useMidasAppState();
-  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
-  const { needRefresh: [swNeedRefresh, setSwNeedRefresh], updateServiceWorker } = useRegisterSW({
-    onRegisteredSW(_swUrl, registration) { if (registration) setSwRegistration(registration); },
-    onRegisterError(err) { console.error('Service worker registration error:', err); },
-  });
-  const { needRefresh, applyUpdate, dismissUpdate } = usePwaUpdate({
-    externalNeedRefresh: swNeedRefresh,
-    onExternalNeedRefreshChange: setSwNeedRefresh,
-    updateServiceWorker,
-    registration: swRegistration,
-  });
+  const { needRefresh, applyUpdate, dismissUpdate } = useMidasSwUpdate();
 
   return (
     <AppShell
