@@ -22,7 +22,6 @@ import {
   usePwaUpdate,
 } from '@yggdrasil-lab/ui';
 import { AccountView } from './components/AccountView';
-import { MidasTab } from './components/BottomNav';
 import { CategorySpendingBreakdown } from './components/CategorySpendingBreakdown';
 import { DataManagementModal } from './components/DataManagementModal';
 import { QuickLogModal } from './components/QuickLogModal';
@@ -31,10 +30,12 @@ import { RunwayClock } from './components/RunwayClock';
 import { TagSpendingBreakdown } from './components/TagSpendingBreakdown';
 import { ToolsHubView } from './components/ToolsHubView';
 import { WeeklyBurnTracker } from './components/WeeklyBurnTracker';
+import { useCategories } from './taxonomy';
 import { fetchReceipts, fetchRunway } from './transport';
-import { useCategories } from './hooks/useCategories';
 import { Receipt, RunwayData } from './types';
 import { isReceiptPending } from './utils/receipts';
+
+export type MidasTab = 'overview' | 'accounts' | 'budgets' | 'tools';
 
 const DESKTOP_TABS = [
   { id: 'overview', label: 'Full Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },
@@ -286,7 +287,7 @@ export const App: React.FC = () => {
           />
         </>
       )}
-      <QuickLogModal isOpen={s.isQuickLogOpen} onClose={() => s.setIsQuickLogOpen(false)} onSuccess={() => void s.loadData()} categories={s.data?.categories} />
+      <QuickLogModal isOpen={s.isQuickLogOpen} onClose={() => s.setIsQuickLogOpen(false)} onSuccess={() => void s.loadData()} />
       <DataManagementModal isOpen={s.isDataModalOpen} onClose={() => s.setIsDataModalOpen(false)} onSuccess={() => void s.loadData()} />
       <ReceiptsHubModal isOpen={s.isReceiptsModalOpen} onClose={() => s.setIsReceiptsModalOpen(false)} onReceiptLinked={() => void s.loadData()} />
     </AppShell>

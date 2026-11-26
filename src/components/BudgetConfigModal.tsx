@@ -11,7 +11,7 @@ import {
   StatusBadge,
   TextInput,
 } from '@yggdrasil-lab/ui';
-import { useCategories } from '../hooks/useCategories';
+import { toTaxonomySlug, useCategories } from '../taxonomy';
 import {
   deleteBudgetRule,
   fetchAverageBurn,
@@ -330,7 +330,7 @@ const ConfiguredBudgetRulesList: React.FC<{
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
-                  data-testid={`rule-toggle-annual-${r.category.toLowerCase().replace(/\s+/g, '-')}`}
+                  data-testid={`rule-toggle-annual-${toTaxonomySlug(r.category)}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     void onToggleRulePeriod(r);

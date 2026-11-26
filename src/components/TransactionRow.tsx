@@ -11,7 +11,7 @@ import {
   Split,
 } from 'lucide-react';
 import { StatusBadge, TagPillList } from '@yggdrasil-lab/ui';
-import { RECURRENCE_OPTIONS } from '../constants/categories';
+import { RECURRENCE_OPTIONS } from '../taxonomy';
 import {
   buildAmortizedOriginSummary,
   buildCategoryOptions,

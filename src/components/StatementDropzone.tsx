@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, UploadCloud } from 'lucide-react';
 import { AlertBanner, Button, FileDropzone, GlassCard, SectionHeader, SelectInput } from '@yggdrasil-lab/ui';
 import {
@@ -129,11 +129,36 @@ function useStatementDropzoneActions(opts: {
   };
 }
 
-function useStatementDropzoneState(onSuccess: () => void) {
-  const [file, setFile] = useState<File | null>(null);
-  const [institution, setInstitution] = useState('');
+function useStatementMetadata() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [institutionsList, setInstitutionsList] = useState<InstitutionInfo[]>([]);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
+
+  const loadMetadata = useCallback(async () => {
+    setMetadataError(null);
+    try {
+      const [accs, insts] = await Promise.all([fetchAccounts(), fetchInstitutions()]);
+      setAccounts(accs);
+      setInstitutionsList(insts);
+    } catch (err) {
+      console.error('Failed to load accounts or institutions:', err);
+      setAccounts([]);
+      setInstitutionsList([]);
+      setMetadataError(err instanceof Error ? err.message : 'Failed to load accounts or institutions');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMetadata();
+  }, [loadMetadata]);
+
+  return { accounts, institutionsList, metadataError, retryMetadata: loadMetadata };
+}
+
+function useStatementDropzoneState(onSuccess: () => void) {
+  const meta = useStatementMetadata();
+  const [file, setFile] = useState<File | null>(null);
+  const [institution, setInstitution] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined);
   const [tier, setTier] = useState<Account['tier']>('cash');
   const [accountType, setAccountType] = useState<string>('checking');
@@ -145,21 +170,9 @@ function useStatementDropzoneState(onSuccess: () => void) {
   const [closingBalanceInput, setClosingBalanceInput] = useState<string>('');
   const [committed, setCommitted] = useState(false);
 
-  useEffect(() => {
-    Promise.all([fetchAccounts(), fetchInstitutions()])
-      .then(([accs, insts]) => {
-        setAccounts(accs);
-        setInstitutionsList(insts);
-      })
-      .catch((err) => {
-        console.warn('Could not load accounts or institutions:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load accounts or institutions');
-      });
-  }, []);
-
   const actions = useStatementDropzoneActions({
     file, institution, selectedAccountId, tier, accountType, accountName,
-    currency, closingBalanceInput, institutionsList, parseResult, onSuccess,
+    currency, closingBalanceInput, institutionsList: meta.institutionsList, parseResult, onSuccess,
     setters: {
       setInstitution, setTier, setAccountType, setAccountName, setCurrency,
       setLoading, setError, setParseResult, setClosingBalanceInput, setCommitted, setFile,
@@ -167,7 +180,7 @@ function useStatementDropzoneState(onSuccess: () => void) {
   });
 
   return {
-    file, setFile, institution, accounts, institutionsList, selectedAccountId, setSelectedAccountId,
+    ...meta, file, setFile, institution, selectedAccountId, setSelectedAccountId,
     tier, setTier, accountType, setAccountType, accountName, setAccountName, currency, setCurrency,
     loading, error, parseResult, closingBalanceInput, setClosingBalanceInput, committed, ...actions,
   };
@@ -198,6 +211,61 @@ const StatementTargetAccountSelect: React.FC<{
   );
 };
 
+const StatementErrorBanners: React.FC<{
+  metadataError: string | null;
+  error: string | null;
+  onRetryMetadata: () => void;
+}> = ({ metadataError, error, onRetryMetadata }) => (
+  <>
+    {metadataError && (
+      <AlertBanner
+        variant="error"
+        title="Failed to load accounts or institutions"
+        action={
+          <Button variant="rose" size="xs" onClick={onRetryMetadata} data-testid="statement-retry-metadata-btn">
+            Retry
+          </Button>
+        }
+      >
+        {metadataError}
+      </AlertBanner>
+    )}
+    {error && <AlertBanner variant="error">{error}</AlertBanner>}
+  </>
+);
+
+const StatementUploadDropzone: React.FC<{
+  file: File | null;
+  loading: boolean;
+  onFileChange: (file: File | null) => void;
+  onParse: () => void;
+}> = ({ file, loading, onFileChange, onParse }) => (
+  <FileDropzone
+    file={file}
+    onFileChange={onFileChange}
+    acceptedFormats=".pdf,.csv"
+    title="Drop your PDF/CSV statement here, or browse"
+    description="Extracts official closing balances and deduplicated transactions with automatic institution detection"
+    variant="brand"
+  >
+    {file && (
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={loading}
+          loadingText="Parsing Statement..."
+          icon={<ArrowRight className="w-3.5 h-3.5" />}
+          iconPosition="right"
+          onClick={onParse}
+        >
+          Inspect Statement
+        </Button>
+      </div>
+    )}
+  </FileDropzone>
+);
+
 /**
  * Bank and brokerage statement dropzone with dry-run inspection,
  * institution auto-detection, and ledger anchoring.
@@ -212,64 +280,21 @@ export const StatementDropzone: React.FC<StatementDropzoneProps> = ({ onSuccess 
         subtitle="Drop bank or brokerage PDF/CSV to auto-detect and sync"
         icon={<UploadCloud className="w-4 h-4" />}
         variant="emerald"
-        actions={
-          <StatementTargetAccountSelect
-            accounts={s.accounts}
-            selectedAccountId={s.selectedAccountId}
-            onChange={s.setSelectedAccountId}
-          />
-        }
+        actions={<StatementTargetAccountSelect accounts={s.accounts} selectedAccountId={s.selectedAccountId} onChange={s.setSelectedAccountId} />}
       />
-
-      {s.error && <AlertBanner variant="error">{s.error}</AlertBanner>}
-
+      <StatementErrorBanners metadataError={s.metadataError} error={s.error} onRetryMetadata={() => void s.retryMetadata()} />
       {!s.parseResult ? (
-        <FileDropzone
-          file={s.file}
-          onFileChange={s.setFile}
-          acceptedFormats=".pdf,.csv"
-          title="Drop your PDF/CSV statement here, or browse"
-          description="Extracts official closing balances and deduplicated transactions with automatic institution detection"
-          variant="brand"
-        >
-          {s.file && (
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={s.loading}
-                loadingText="Parsing Statement..."
-                icon={<ArrowRight className="w-3.5 h-3.5" />}
-                iconPosition="right"
-                onClick={s.handleParse}
-              >
-                Inspect Statement
-              </Button>
-            </div>
-          )}
-        </FileDropzone>
+        <StatementUploadDropzone file={s.file} loading={s.loading} onFileChange={s.setFile} onParse={s.handleParse} />
       ) : (
         <StatementPreviewCard
-          fileName={s.file?.name}
-          parseResult={s.parseResult}
-          selectedAccountId={s.selectedAccountId}
-          institution={s.institution}
-          accountName={s.accountName}
-          accountType={s.accountType}
-          currency={s.currency}
-          tier={s.tier}
-          closingBalanceInput={s.closingBalanceInput}
-          loading={s.loading}
-          committed={s.committed}
-          institutionsList={s.institutionsList}
-          accounts={s.accounts}
-          onInstitutionChange={s.handleInstitutionChange}
-          onAccountNameChange={s.setAccountName}
-          onAccountTypeChange={s.setAccountType}
-          onCurrencyChange={s.setCurrency}
-          onTierChange={s.setTier}
-          onClosingBalanceChange={s.setClosingBalanceInput}
-          onConfirmAndSync={s.handleConfirmAndSync}
+          fileName={s.file?.name} parseResult={s.parseResult} selectedAccountId={s.selectedAccountId}
+          institution={s.institution} accountName={s.accountName} accountType={s.accountType}
+          currency={s.currency} tier={s.tier} closingBalanceInput={s.closingBalanceInput}
+          loading={s.loading} committed={s.committed} institutionsList={s.institutionsList}
+          accounts={s.accounts} onInstitutionChange={s.handleInstitutionChange}
+          onAccountNameChange={s.setAccountName} onAccountTypeChange={s.setAccountType}
+          onCurrencyChange={s.setCurrency} onTierChange={s.setTier}
+          onClosingBalanceChange={s.setClosingBalanceInput} onConfirmAndSync={s.handleConfirmAndSync}
           onReset={s.handleReset}
         />
       )}

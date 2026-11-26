@@ -7,12 +7,15 @@ import {
   EmptyState,
   GlassCard,
   LoadingState,
+  PeriodFilterBar,
   SectionHeader,
   SegmentedControl,
   SummaryMetricGrid,
   SummaryMetricItem,
+  getDefaultCustomRange,
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
+import { PERIOD_OPTIONS } from '../taxonomy';
 import { fetchSpendingBreakdown } from '../transport';
 import {
   CashflowDirection,
@@ -24,7 +27,6 @@ import { formatMoney } from '../utils/format';
 import { BudgetConfigModal } from './BudgetConfigModal';
 import { CashflowTransactionInspectionModal } from './CashflowTransactionInspectionModal';
 import { CategoryTransactionInspectionModal } from './CategoryTransactionInspectionModal';
-import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 
 function formatCategoryCountLabel(cat: CategorySpendingReport): string | undefined {
   if (cat.is_transfer || cat.budget_period === 'annual') return undefined;
@@ -141,7 +143,7 @@ const BreakdownHeaderActions: React.FC<BreakdownHeaderActionsProps> = ({
   }
   return (
     <>
-      <PeriodFilterBar period={period} onPeriodChange={onPeriodChange} startDate={startDate} endDate={endDate} onStartDateChange={onStartDateChange} onEndDateChange={onEndDateChange} idPrefix="budget-period" />
+      <PeriodFilterBar period={period} onPeriodChange={onPeriodChange} startDate={startDate} endDate={endDate} onStartDateChange={onStartDateChange} onEndDateChange={onEndDateChange} options={PERIOD_OPTIONS} variant="brand" idPrefix="budget-period" />
       <Button variant="outline" size="xs" icon={<Target className="w-3 h-3 text-amber-400" />} onClick={onManageLimitsClick} className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
         <span className="hidden sm:inline">Manage Limits</span>
         <span className="sm:hidden">Limits</span>
