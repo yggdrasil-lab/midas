@@ -1,0 +1,126 @@
+import type { MockAccountRecord } from '../mock-types';
+
+export const MOCK_STATEMENT_RESPONSE = {
+  institution: 'ASB',
+  start_date: '2026-10-01',
+  end_date: '2026-10-31',
+  opening_balance: 18500.0,
+  closing_balance: 24000.0,
+  currency: 'NZD',
+  transaction_count: 14,
+  transactions: [
+    {
+      transaction_date: '2026-10-02',
+      amount: -145.5,
+      merchant: 'PAK N SAVE ALBANY',
+      raw_description: 'PAK N SAVE ALBANY',
+      category: 'Groceries',
+    },
+    {
+      transaction_date: '2026-10-05',
+      amount: -12.5,
+      merchant: 'COLUMBUS COFFEE',
+      raw_description: 'COLUMBUS COFFEE',
+      category: 'Food',
+    },
+  ],
+};
+
+export const INITIAL_ACCOUNTS: MockAccountRecord[] = [
+  {
+    id: 1,
+    name: 'ASB Everyday Checking',
+    account_type: 'checking',
+    tier: 'cash',
+    institution: 'ASB',
+    currency: 'NZD',
+    expected_annual_return: 0.0,
+    is_active: true,
+  },
+  {
+    id: 2,
+    name: 'Sharesies Growth Portfolio',
+    account_type: 'brokerage',
+    tier: 'growth',
+    institution: 'Sharesies',
+    currency: 'NZD',
+    expected_annual_return: 0.07,
+    is_active: true,
+  },
+  {
+    id: 3,
+    name: 'Simplicity KiwiSaver',
+    account_type: 'kiwisaver',
+    tier: 'locked',
+    institution: 'Simplicity',
+    currency: 'NZD',
+    expected_annual_return: 0.06,
+    is_active: true,
+  },
+  {
+    id: 5,
+    name: 'Manulife',
+    account_type: 'brokerage',
+    tier: 'growth',
+    institution: 'Manulife',
+    currency: 'SGD',
+    expected_annual_return: 0.0,
+    is_active: true,
+  },
+  {
+    id: 6,
+    name: 'DBS Multiplier',
+    account_type: 'savings',
+    tier: 'cash',
+    institution: 'DBS Bank',
+    currency: 'SGD',
+    expected_annual_return: 0.02,
+    is_active: true,
+  },
+];
+
+export const MOCK_INSTITUTIONS = [
+  { name: 'ASB', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+  { name: 'ANZ', default_tier: 'cash', default_type: 'checking', currency: 'NZD' },
+  { name: 'Sharesies', default_tier: 'growth', default_type: 'brokerage', currency: 'NZD' },
+  { name: 'Simplicity', default_tier: 'locked', default_type: 'kiwisaver', currency: 'NZD' },
+  { name: 'DBS Bank', default_tier: 'cash', default_type: 'savings', currency: 'SGD' },
+  { name: 'Manulife', default_tier: 'growth', default_type: 'brokerage', currency: 'SGD' },
+];
+
+export const MOCK_SYNC_ALL_RESPONSE = {
+  provider: 'all',
+  accounts_synced: 3,
+  transactions_created: 5,
+  transactions_skipped: 12,
+  snapshots_updated: 3,
+  accounts: [
+    {
+      account_id: 1,
+      account_name: 'ANZ Freedom',
+      institution: 'ANZ',
+      currency: 'NZD',
+      balance: 12450.0,
+      transactions_created: 3,
+      transactions_skipped: 6,
+    },
+    {
+      account_id: 2,
+      account_name: 'ANZ Low Rate Visa',
+      institution: 'ANZ',
+      currency: 'NZD',
+      balance: -840.25,
+      transactions_created: 1,
+      transactions_skipped: 4,
+    },
+    {
+      account_id: 3,
+      account_name: 'Wise Multi-Currency',
+      institution: 'Wise',
+      currency: 'SGD',
+      balance: 4200.0,
+      transactions_created: 1,
+      transactions_skipped: 2,
+    },
+  ],
+};
