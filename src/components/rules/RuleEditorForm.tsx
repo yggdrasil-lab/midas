@@ -1,8 +1,7 @@
 import React from 'react';
 import { Check, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import { Button, FormField, SelectInput, TextInput } from '@yggdrasil-lab/ui';
-import { RECURRENCE_OPTIONS } from '../../constants/categories';
-import { useCategories } from '../../hooks/useCategories';
+import { RECURRENCE_OPTIONS, useCategories } from '../../taxonomy';
 import { Account, LoanItem, RecurrenceType, RuleDirection } from '../../types';
 
 export interface RuleFormDraft {

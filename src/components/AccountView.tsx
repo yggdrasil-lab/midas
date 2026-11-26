@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EmptyState, LoadingState } from '@yggdrasil-lab/ui';
+import { EmptyState, getDefaultCustomRange, LoadingState } from '@yggdrasil-lab/ui';
+import { TIER_ORDER } from '../taxonomy';
 import {
   fetchAccounts,
   fetchAccountSnapshots,
@@ -12,15 +13,12 @@ import { AccountTierSection } from './AccountTierSection';
 import { BalanceValuationHistoryCard } from './accounts/BalanceValuationHistoryCard';
 import { PortfolioNetWorthHero } from './accounts/PortfolioNetWorthHero';
 import { LoansTracker } from './LoansTracker';
-import { getDefaultCustomRange } from './PeriodFilterBar';
 import { RecordSnapshotModal } from './RecordSnapshotModal';
 
 interface AccountViewProps {
   onRefreshRunway?: () => void;
   initialAccountId?: number | null;
 }
-
-const TIER_ORDER: Account['tier'][] = ['cash', 'growth', 'locked'];
 
 async function fetchSnapshotMap(accs: Account[]): Promise<Record<number, AssetSnapshot[]>> {
   const entries = await Promise.all(

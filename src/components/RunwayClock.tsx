@@ -1,6 +1,7 @@
 import React from 'react';
 import { Clock, Lock, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { MetricHero, MetricHeroBadge, StatCard } from '@yggdrasil-lab/ui';
+import { ACCOUNT_TIER_META } from '../taxonomy';
 import { RunwayData } from '../types';
 import { formatMoney } from '../utils/format';
 
@@ -22,9 +23,9 @@ function resolveHorizonBadge(isPerpetual: boolean, primaryRunwayWeeks: number): 
 }
 
 const RunwayTierCards: React.FC<{ breakdown: RunwayData['breakdown'] }> = ({ breakdown }) => {
-  const cashLabel = breakdown.tier_labels?.cash || 'Cash';
-  const growthLabel = breakdown.tier_labels?.growth || 'Growth';
-  const lockedLabel = breakdown.tier_labels?.locked || 'Locked';
+  const cashLabel = breakdown.tier_labels?.cash || ACCOUNT_TIER_META.cash.shortLabel;
+  const growthLabel = breakdown.tier_labels?.growth || ACCOUNT_TIER_META.growth.shortLabel;
+  const lockedLabel = breakdown.tier_labels?.locked || ACCOUNT_TIER_META.locked.shortLabel;
   const growthValue = breakdown.is_perpetual
     ? 'Perpetual'
     : breakdown.growth_weeks
@@ -41,21 +42,21 @@ const RunwayTierCards: React.FC<{ breakdown: RunwayData['breakdown'] }> = ({ bre
         value={`${breakdown.emergency_weeks} w`}
         subtitle={`${formatMoney(breakdown.cash_balance, moneyOpts)} NZD`}
         icon={<ShieldCheck className="w-3.5 h-3.5" />}
-        variant="sky"
+        variant={ACCOUNT_TIER_META.cash.statCardVariant}
       />
       <StatCard
         title={growthLabel}
         value={growthValue}
         subtitle={`${formatMoney(breakdown.growth_balance, moneyOpts)} NZD`}
         icon={<TrendingUp className="w-3.5 h-3.5" />}
-        variant="emerald"
+        variant={ACCOUNT_TIER_META.growth.statCardVariant}
       />
       <StatCard
         title={lockedLabel}
         value={lockedValue}
         subtitle={`${formatMoney(breakdown.locked_balance, moneyOpts)} NZD`}
         icon={<Lock className="w-3.5 h-3.5" />}
-        variant="amber"
+        variant={ACCOUNT_TIER_META.locked.statCardVariant}
       />
     </div>
   );

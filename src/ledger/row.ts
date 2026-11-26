@@ -1,4 +1,4 @@
-import { isTransferCategory } from '../constants/categories';
+import { isTransferCategory } from '../taxonomy';
 import { Account, LoanItem, LoanType, Transaction, TransactionSplitItem } from '../types';
 import { formatMoney, getTransactionNzdAmount } from '../utils/format';
 import {

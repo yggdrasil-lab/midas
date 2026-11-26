@@ -4,7 +4,7 @@ import { initGlobalErrorReporter } from '@yggdrasil-lab/ui';
 import '@yggdrasil-lab/ui/style.css';
 import './index.css';
 import { App } from './App';
-import { CategoryProvider } from './hooks/useCategories';
+import { CategoryProvider } from './taxonomy';
 
 initGlobalErrorReporter();
 

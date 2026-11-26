@@ -1,5 +1,5 @@
 import { formatCurrency } from '@yggdrasil-lab/ui';
-import { formatAccountTypeLabel } from '../constants/categories';
+import { formatAccountTypeLabel } from '../taxonomy';
 import { Account } from '../types';
 
 /**

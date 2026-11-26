@@ -1,7 +1,13 @@
 import React from 'react';
 import { Lock, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { FormField, GlassCard, SegmentedControl, SelectInput, TextInput } from '@yggdrasil-lab/ui';
-import { ACCOUNT_TYPE_OPTIONS, COMMON_CURRENCIES, COMMON_INSTITUTIONS } from '../../constants/categories';
+import {
+  ACCOUNT_TIER_META,
+  ACCOUNT_TYPE_OPTIONS,
+  COMMON_CURRENCIES,
+  TIER_ORDER,
+  buildInstitutionOptions,
+} from '../../taxonomy';
 import { Account, InstitutionInfo } from '../../types';
 
 interface StatementConfigFormProps {
@@ -20,11 +26,17 @@ interface StatementConfigFormProps {
   onTierChange: (tier: Account['tier']) => void;
 }
 
-const TIER_SEGMENT_OPTIONS = [
-  { id: 'cash' as const, label: 'Cash Floor', icon: <ShieldCheck className="w-3 h-3" /> },
-  { id: 'growth' as const, label: 'Growth', icon: <TrendingUp className="w-3 h-3" /> },
-  { id: 'locked' as const, label: 'Locked', icon: <Lock className="w-3 h-3" /> },
-];
+const TIER_ICONS: Record<Account['tier'], React.ReactNode> = {
+  cash: <ShieldCheck className="w-3 h-3" />,
+  growth: <TrendingUp className="w-3 h-3" />,
+  locked: <Lock className="w-3 h-3" />,
+};
+
+const TIER_SEGMENT_OPTIONS = TIER_ORDER.map((id) => ({
+  id,
+  label: ACCOUNT_TIER_META[id].shortLabel,
+  icon: TIER_ICONS[id],
+}));
 
 const StatementConfigFields: React.FC<{
   institution: string;
@@ -71,9 +83,7 @@ export const StatementConfigForm: React.FC<StatementConfigFormProps> = ({
   institutionsList, accounts, onInstitutionChange, onAccountNameChange,
   onAccountTypeChange, onCurrencyChange, onTierChange,
 }) => {
-  const combinedInstitutions = Array.from(
-    new Set([...institutionsList.map((i) => i.name), ...accounts.map((a) => a.institution), ...COMMON_INSTITUTIONS])
-  ).filter(Boolean);
+  const combinedInstitutions = buildInstitutionOptions(institutionsList, accounts);
 
   return (
     <GlassCard tone="solid" padding="sm" className="bg-card/60 space-y-2.5 shadow-none">

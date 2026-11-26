@@ -1,7 +1,7 @@
 import React from 'react';
 import { Lock, ShieldCheck, TrendingUp } from 'lucide-react';
 import { SectionHeader, SelectableCard, StatusBadge } from '@yggdrasil-lab/ui';
-import { ACCOUNT_TIER_META } from '../constants/categories';
+import { ACCOUNT_TIER_META } from '../taxonomy';
 import { Account, AssetSnapshot } from '../types';
 import {
   formatAccountSubtitle,

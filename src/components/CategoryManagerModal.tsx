@@ -15,7 +15,7 @@ import {
   TextInput,
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
-import { useCategories } from '../hooks/useCategories';
+import { toTaxonomySlug, useCategories } from '../taxonomy';
 import { createCategory, deleteCategory, fetchCategories, updateCategory } from '../transport';
 import { AmortizePeriod, CategoryItem } from '../types';
 
@@ -26,10 +26,6 @@ interface CategoryManagerModalProps {
 }
 
 type AmortizeSelection = 'none' | 'annual';
-
-function toSlug(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
 
 const CategoryDeleteConfirmBox: React.FC<{
   cat: CategoryItem;
@@ -137,7 +133,7 @@ const CategoryRowCard: React.FC<{
   reassignTarget, onReassignChange, onToggleAmortize, onEdit,
   onStartDelete, onConfirmDelete, onCancelDelete,
 }) => {
-  const slug = toSlug(cat.name);
+  const slug = toTaxonomySlug(cat.name);
   const isAnnual = cat.amortize_period === 'annual';
   return (
     <div
@@ -295,7 +291,7 @@ const SystemCategoriesSection: React.FC<{ systemCats: CategoryItem[] }> = ({ sys
         {systemCats.map((sys) => (
           <div
             key={sys.id}
-            data-testid={`category-row-${toSlug(sys.name)}`}
+            data-testid={`category-row-${toTaxonomySlug(sys.name)}`}
             className="p-2 rounded-lg bg-background/50 border border-border/60 flex items-center justify-between gap-2"
           >
             <div className="flex items-center gap-2 min-w-0">

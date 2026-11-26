@@ -5,13 +5,14 @@ import {
   Button,
   GlassCard,
   MultiSegmentBar,
+  PeriodFilterBar,
   SectionHeader,
   SelectableCard,
   StatusBadge,
 } from '@yggdrasil-lab/ui';
-import { PeriodType, SyncResult } from '../../types';
+import { ACCOUNT_TIER_META, PERIOD_OPTIONS, TIER_ORDER } from '../../taxonomy';
+import { Account, PeriodType, SyncResult } from '../../types';
 import { formatMoney } from '../../utils/format';
-import { PeriodFilterBar } from '../PeriodFilterBar';
 
 interface PortfolioNetWorthHeroProps {
   accountCount: number;
@@ -33,29 +34,40 @@ interface PortfolioNetWorthHeroProps {
   onInspectAllAccounts: () => void;
 }
 
+const TIER_BAR_STYLES: Record<
+  Account['tier'],
+  { tierNumber: number; barColor: string; dotColor: string; textColor: string }
+> = {
+  cash: { tierNumber: 1, barColor: 'bg-sky-500', dotColor: 'bg-sky-400', textColor: 'text-sky-300' },
+  growth: { tierNumber: 2, barColor: 'bg-emerald-500', dotColor: 'bg-emerald-400', textColor: 'text-emerald-300' },
+  locked: { tierNumber: 3, barColor: 'bg-amber-500', dotColor: 'bg-amber-400', textColor: 'text-amber-300' },
+};
+
 function buildTierSegments(tierTotals: { cash: number; growth: number; locked: number }, totalPortfolioBalance: number) {
   const pctOf = (val: number) => (totalPortfolioBalance > 0 ? Math.round((val / totalPortfolioBalance) * 100) : 0);
   const cashPct = pctOf(tierTotals.cash);
   const growthPct = pctOf(tierTotals.growth);
-  const lockedPct = totalPortfolioBalance > 0 ? Math.max(0, 100 - cashPct - growthPct) : 0;
+  const pctByTier: Record<Account['tier'], number> = {
+    cash: cashPct,
+    growth: growthPct,
+    locked: totalPortfolioBalance > 0 ? Math.max(0, 100 - cashPct - growthPct) : 0,
+  };
 
-  return [
-    {
-      id: 'cash', label: 'Tier 1 (Cash Floor)', value: tierTotals.cash,
-      barColor: 'bg-sky-500', dotColor: 'bg-sky-400', textColor: 'text-sky-300',
-      valueLabel: `${formatMoney(tierTotals.cash)} NZD (${cashPct}%)`, minVisiblePct: 0,
-    },
-    {
-      id: 'growth', label: 'Tier 2 (Growth)', value: tierTotals.growth,
-      barColor: 'bg-emerald-500', dotColor: 'bg-emerald-400', textColor: 'text-emerald-300',
-      valueLabel: `${formatMoney(tierTotals.growth)} NZD (${growthPct}%)`, minVisiblePct: 0,
-    },
-    {
-      id: 'locked', label: 'Tier 3 (Locked)', value: tierTotals.locked,
-      barColor: 'bg-amber-500', dotColor: 'bg-amber-400', textColor: 'text-amber-300',
-      valueLabel: `${formatMoney(tierTotals.locked)} NZD (${lockedPct}%)`, minVisiblePct: 0,
-    },
-  ];
+  return TIER_ORDER.map((tier) => {
+    const style = TIER_BAR_STYLES[tier];
+    const meta = ACCOUNT_TIER_META[tier];
+    const value = tierTotals[tier];
+    return {
+      id: tier,
+      label: `Tier ${style.tierNumber} (${meta.shortLabel})`,
+      value,
+      barColor: style.barColor,
+      dotColor: style.dotColor,
+      textColor: style.textColor,
+      valueLabel: `${formatMoney(value)} NZD (${pctByTier[tier]}%)`,
+      minVisiblePct: 0,
+    };
+  });
 }
 
 const PortfolioSummaryCard: React.FC<{
@@ -134,6 +146,8 @@ export const PortfolioNetWorthHero: React.FC<PortfolioNetWorthHeroProps> = ({
             endDate={endDate}
             onStartDateChange={onStartDateChange}
             onEndDateChange={onEndDateChange}
+            options={PERIOD_OPTIONS}
+            variant="brand"
             idPrefix="account-period"
           />
           <Button variant="secondary" size="xs" loading={syncing} loadingText="Syncing..." icon={<RefreshCw className="w-3.5 h-3.5" />} onClick={onSyncNow} data-testid="sync-now-btn">

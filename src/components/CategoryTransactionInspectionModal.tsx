@@ -12,8 +12,8 @@ import {
 import {
   formatPeriodLabel,
   isTransferCategory as checkTransferCategory,
-} from '../constants/categories';
-import { useCategories } from '../hooks/useCategories';
+  useCategories,
+} from '../taxonomy';
 import {
   buildInspectionListProps,
   InspectionContextErrorBanner,

@@ -14,7 +14,6 @@
   "dependencies": {
     "@yggdrasil-lab/ui": "github:yggdrasil-lab/ui",
     "clsx": "^2.1.1",
-    "dexie": "^4.0.10",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

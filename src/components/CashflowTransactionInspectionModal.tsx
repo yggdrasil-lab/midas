@@ -14,9 +14,8 @@ import {
   SummaryMetricGrid,
   SummaryMetricItem,
 } from '@yggdrasil-lab/ui';
-import { formatPeriodLabel } from '../constants/categories';
 import { getCategoryIcon } from '../constants/categoryIcons';
-import { useCategories } from '../hooks/useCategories';
+import { formatPeriodLabel, toTaxonomySlug, useCategories } from '../taxonomy';
 import {
   buildInspectionListProps,
   CashflowSummaryMetrics,
@@ -60,10 +59,6 @@ export interface CashflowTransactionInspectionModalProps {
 }
 
 const MONEY_OPTS = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-
-function toCategorySlug(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-}
 
 interface CashflowHeaderBannerProps {
   activeFlow: CashflowDirection;
@@ -140,7 +135,7 @@ const CashflowCategoryChips: React.FC<CashflowCategoryChipsProps> = ({
     ...categories.map((cat) => ({
       id: cat,
       label: cat,
-      testId: `cashflow-chip-${toCategorySlug(cat)}`,
+      testId: `cashflow-chip-${toTaxonomySlug(cat)}`,
     })),
   ];
 
@@ -169,7 +164,7 @@ const AnnualizedCategoryCard: React.FC<AnnualizedCategoryCardProps> = ({
   const cadenceUnit = isWeekly ? 'wk' : 'mo';
   const share = getAnnualizedPeriodShare(cat.total_spend, isWeekly);
   return (
-    <div data-testid={`cashflow-annual-card-${toCategorySlug(cat.category)}`} className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/25 flex items-center justify-between gap-3">
+    <div data-testid={`cashflow-annual-card-${toTaxonomySlug(cat.category)}`} className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/25 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         <span className="p-1.5 rounded-lg bg-background border border-border/70 shrink-0">{getCategoryIcon(cat.category)}</span>
         <div className="min-w-0">
@@ -183,7 +178,7 @@ const AnnualizedCategoryCard: React.FC<AnnualizedCategoryCardProps> = ({
         </div>
       </div>
       {Boolean(onInspectCategory) && (
-        <Button variant="outline" size="xs" onClick={() => onInspectCategory?.(cat.category)} data-testid={`cashflow-annual-inspect-${toCategorySlug(cat.category)}`} className="shrink-0 border-amber-500/30 text-amber-300 hover:bg-amber-500/10">
+        <Button variant="outline" size="xs" onClick={() => onInspectCategory?.(cat.category)} data-testid={`cashflow-annual-inspect-${toTaxonomySlug(cat.category)}`} className="shrink-0 border-amber-500/30 text-amber-300 hover:bg-amber-500/10">
           Inspect 52w
         </Button>
       )}

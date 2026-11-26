@@ -4,13 +4,14 @@ import {
   AlertBanner,
   Button,
   Modal,
+  PeriodFilterBar,
   SearchInput,
   SelectInput,
   StatusBadge,
   SummaryMetricGrid,
   SummaryMetricItem,
+  getDefaultCustomRange,
 } from '@yggdrasil-lab/ui';
-import { useCategories } from '../hooks/useCategories';
 import {
   buildInspectionListProps,
   computeAccountCashflow,
@@ -20,6 +21,7 @@ import {
   useInspectionScope,
   useTransactionMutation,
 } from '../inspection';
+import { ACCOUNT_TIER_META, PERIOD_OPTIONS, useCategories } from '../taxonomy';
 import { Account, PeriodType } from '../types';
 import {
   formatAccountSubtitle,
@@ -28,7 +30,6 @@ import {
   formatPrincipalRecoveredPct,
   formatSignedTransactionAmount,
 } from '../utils/format';
-import { getDefaultCustomRange, PeriodFilterBar } from './PeriodFilterBar';
 import { RulesManagerModal } from './RulesManagerModal';
 import { TransactionList } from './TransactionList';
 
@@ -49,13 +50,10 @@ interface AccountInspectionModalProps {
   latestBalanceNzd?: number;
 }
 
-const TIER_BADGE_MAP: Record<
-  Account['tier'],
-  { label: string; variant: 'success' | 'warning' | 'info'; icon: React.ReactNode }
-> = {
-  cash: { label: 'Cash Floor', variant: 'success', icon: <Wallet className="w-3 h-3" /> },
-  growth: { label: 'Growth', variant: 'warning', icon: <TrendingUp className="w-3 h-3" /> },
-  locked: { label: 'Locked', variant: 'info', icon: <Lock className="w-3 h-3" /> },
+const TIER_ICONS: Record<Account['tier'], React.ReactNode> = {
+  cash: <Wallet className="w-3 h-3" />,
+  growth: <TrendingUp className="w-3 h-3" />,
+  locked: <Lock className="w-3 h-3" />,
 };
 
 function buildAccountSummaryItems(params: {
@@ -112,7 +110,8 @@ interface AccountModalHeaderProps {
 const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
   account, period, startDate, endDate, onPeriodChange, onStartDateChange, onEndDateChange, onRecordSnapshotClick,
 }) => {
-  const tierInfo = account ? TIER_BADGE_MAP[account.tier] : null;
+  const tierMeta = account ? ACCOUNT_TIER_META[account.tier] : null;
+  const tierIcon = account ? TIER_ICONS[account.tier] : null;
   const subtitleText = account
     ? formatAccountSubtitle(account)
     : 'Aggregated view across all connected institutions';
@@ -127,8 +126,8 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
             <span className="text-sm font-bold text-slate-100">
               {account ? account.name : 'All Portfolio Accounts'}
             </span>
-            {Boolean(tierInfo) && (
-              <StatusBadge label={tierInfo!.label} variant={tierInfo!.variant} icon={tierInfo!.icon} />
+            {Boolean(tierMeta) && (
+              <StatusBadge label={tierMeta!.shortLabel} variant={tierMeta!.badgeVariant} icon={tierIcon} />
             )}
           </div>
           <p className="text-xs text-slate-400">{subtitleText}</p>
@@ -143,6 +142,8 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
             endDate={endDate}
             onStartDateChange={onStartDateChange}
             onEndDateChange={onEndDateChange}
+            options={PERIOD_OPTIONS}
+            variant="brand"
             idPrefix="modal-period"
           />
         )}

@@ -1,4 +1,4 @@
-import { isTransferCategory } from '../constants/categories';
+import { isTransferCategory } from '../taxonomy';
 import {
   Account,
   CashflowDirection,

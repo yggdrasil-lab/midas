@@ -11,7 +11,7 @@ import {
   SegmentedControlOption,
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
-import { formatPeriodLabel } from '../constants/categories';
+import { formatPeriodLabel } from '../taxonomy';
 import { fetchTagSpendingSummary } from '../transport';
 import {
   PeriodType,

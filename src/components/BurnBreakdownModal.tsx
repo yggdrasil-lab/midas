@@ -14,6 +14,7 @@ import {
   SummaryMetricGrid,
 } from '@yggdrasil-lab/ui';
 import { getCategoryIcon } from '../constants/categoryIcons';
+import { toTaxonomySlug } from '../taxonomy';
 import { fetchAverageBurn, fetchLoans, upsertBudgetRule } from '../transport';
 import {
   AverageBurnReportResponse,
@@ -74,7 +75,7 @@ function toSegmentItems(
     const palette = SEGMENT_PALETTE[idx % SEGMENT_PALETTE.length];
     const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0';
     return {
-      id: `${idPrefix}-${item.label.toLowerCase().replace(/\s+/g, '-')}`,
+      id: `${idPrefix}-${toTaxonomySlug(item.label)}`,
       label: item.label,
       value: item.value,
       barColor: palette.bar,
@@ -314,7 +315,7 @@ const VariableCategoryRow: React.FC<VariableCategoryRowProps> = ({
         <button
           type="button"
           disabled={isToggling}
-          data-testid={`toggle-annual-${cat.category.toLowerCase().replace(/\s+/g, '-')}`}
+          data-testid={`toggle-annual-${toTaxonomySlug(cat.category)}`}
           onClick={() => onTogglePeriod(cat)}
           className={`px-2 py-0.5 rounded border text-[10px] font-medium transition-colors shrink-0 cursor-pointer disabled:opacity-50 ${
             isAnnual

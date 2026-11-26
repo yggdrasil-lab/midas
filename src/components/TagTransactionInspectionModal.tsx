@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Tag } from 'lucide-react';
 import { AlertBanner, Button, Modal, SearchInput, SummaryMetricGrid } from '@yggdrasil-lab/ui';
-import { formatPeriodLabel, isTransferCategory as checkTransferCategory } from '../constants/categories';
-import { useCategories } from '../hooks/useCategories';
+import {
+  formatPeriodLabel,
+  isTransferCategory as checkTransferCategory,
+  useCategories,
+} from '../taxonomy';
 import {
   buildInspectionListProps,
   computeTagStats,
