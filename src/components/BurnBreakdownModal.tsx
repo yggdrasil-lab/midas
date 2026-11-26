@@ -24,6 +24,11 @@ import {
   RecurringCommitmentItem,
 } from '../types';
 import { formatMoney } from '../utils/format';
+import {
+  EnrichedRecurringCommitment,
+  filterActiveBorrowedLoans,
+  reconcileFixedBurn,
+} from '../utils/burnAnatomy';
 
 export type BurnBreakdownTab = 'recurring' | 'variable';
 type LookbackOption = '4' | '12' | '26';
@@ -128,7 +133,10 @@ const RecurringLoanRow: React.FC<{ loan: LoanItem }> = ({ loan }) => (
   </div>
 );
 
-const RecurringCommitmentRow: React.FC<{ item: RecurringCommitmentItem }> = ({ item }) => {
+const RecurringCommitmentRow: React.FC<{
+  item: RecurringCommitmentItem;
+  linkedLoan?: LoanItem | null;
+}> = ({ item, linkedLoan }) => {
   const isForeign = item.currency !== 'NZD';
   return (
     <div
@@ -155,6 +163,19 @@ const RecurringCommitmentRow: React.FC<{ item: RecurringCommitmentItem }> = ({ i
                 {item.last_charged_date}
               </span>
             </div>
+            {linkedLoan && (
+              <div
+                data-testid="commitment-loan-badge"
+                className="mt-1 inline-flex items-center gap-1 max-w-full px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 text-[10px] text-amber-300"
+              >
+                <Landmark className="w-2.5 h-2.5 shrink-0" />
+                <span className="truncate">{linkedLoan.name}</span>
+                <span className="text-amber-200/70 shrink-0">|</span>
+                <span className="font-mono shrink-0">
+                  {linkedLoan.payments_remaining}/{linkedLoan.term_months} left
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -184,13 +205,16 @@ const RecurringCommitmentRow: React.FC<{ item: RecurringCommitmentItem }> = ({ i
 };
 
 const RecurringCommitmentsSection: React.FC<{
-  commitments: RecurringCommitmentItem[];
-  loans: LoanItem[];
-}> = ({ commitments, loans }) => {
+  commitments: EnrichedRecurringCommitment[];
+  pendingLoans: LoanItem[];
+}> = ({ commitments, pendingLoans }) => {
   const segments = useMemo(() => {
     const byCategory = new Map<string, number>();
-    for (const item of commitments) {
-      byCategory.set(item.category, (byCategory.get(item.category) ?? 0) + item.weekly_nzd);
+    for (const entry of commitments) {
+      byCategory.set(
+        entry.commitment.category,
+        (byCategory.get(entry.commitment.category) ?? 0) + entry.commitment.weekly_nzd
+      );
     }
     return toSegmentItems(
       Array.from(byCategory.entries()).map(([label, value]) => ({ label, value })),
@@ -198,7 +222,7 @@ const RecurringCommitmentsSection: React.FC<{
     );
   }, [commitments]);
 
-  if (commitments.length === 0 && loans.length === 0) {
+  if (commitments.length === 0 && pendingLoans.length === 0) {
     return (
       <EmptyState
         title="No active recurring commitments found"
@@ -221,20 +245,27 @@ const RecurringCommitmentsSection: React.FC<{
       )}
 
       <div className="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
-        {loans.length > 0 && (
+        {pendingLoans.length > 0 && (
           <div className="space-y-1.5 pb-1">
             <div className="text-[10px] uppercase tracking-wider text-slate-400 font-medium px-1 flex items-center gap-1">
               <Landmark className="w-3 h-3 text-amber-400" />
-              <span>Structured Loans &amp; Financing ({loans.length})</span>
+              <span>Pending Loans &amp; Financing ({pendingLoans.length})</span>
+              <span className="ml-auto text-[10px] normal-case tracking-normal text-slate-500">
+                Not yet in fixed total
+              </span>
             </div>
-            {loans.map((loan) => (
+            {pendingLoans.map((loan) => (
               <RecurringLoanRow key={`loan-${loan.id}`} loan={loan} />
             ))}
           </div>
         )}
 
-        {commitments.map((item) => (
-          <RecurringCommitmentRow key={`${item.transaction_id}-${item.merchant}`} item={item} />
+        {commitments.map(({ commitment, linkedLoan }) => (
+          <RecurringCommitmentRow
+            key={`${commitment.transaction_id}-${commitment.category}-${commitment.merchant}`}
+            item={commitment}
+            linkedLoan={linkedLoan}
+          />
         ))}
       </div>
     </div>
@@ -436,11 +467,7 @@ function useBurnBreakdownState(
         fetchLoans().catch(() => null),
       ]);
       setReport(res);
-      setLoans(
-        (loansRes?.loans ?? []).filter(
-          (loan) => loan.is_active && loan.loan_type !== 'lent' && loan.monthly_payment > 0
-        )
-      );
+      setLoans(filterActiveBorrowedLoans(loansRes?.loans ?? []));
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load burn breakdown');
@@ -487,16 +514,25 @@ const BurnBreakdownContent: React.FC<{
   report: AverageBurnReportResponse | null;
   loading: boolean;
   activeTab: BurnBreakdownTab;
-  loans: LoanItem[];
+  commitments: EnrichedRecurringCommitment[];
+  pendingLoans: LoanItem[];
   togglingCategory: string | null;
   onTogglePeriod: (cat: CategoryBurnEstimate) => void;
-}> = ({ report, loading, activeTab, loans, togglingCategory, onTogglePeriod }) => {
+}> = ({
+  report,
+  loading,
+  activeTab,
+  commitments,
+  pendingLoans,
+  togglingCategory,
+  onTogglePeriod,
+}) => {
   if (loading && !report) {
     return <LoadingState label="Calculating burn anatomy..." variant="brand" className="py-10" />;
   }
   if (!report) return null;
   if (activeTab === 'recurring') {
-    return <RecurringCommitmentsSection commitments={report.recurring_commitments ?? []} loans={loans} />;
+    return <RecurringCommitmentsSection commitments={commitments} pendingLoans={pendingLoans} />;
   }
   return (
     <VariableCategorySection
@@ -522,6 +558,10 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
 }) => {
   const state = useBurnBreakdownState(isOpen, initialTab, onBudgetChanged);
   const { report, lookback, loans } = state;
+  const reconciled = useMemo(
+    () => reconcileFixedBurn(report?.recurring_commitments ?? [], loans),
+    [report, loans]
+  );
   const totalWeekly = report?.effective_weekly_burn ?? 0;
   const recurringWeekly = report?.recurring_weekly_burn ?? 0;
   const variableWeekly = report?.variable_weekly_burn ?? 0;
@@ -569,7 +609,7 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
           value={state.activeTab}
           onChange={state.setActiveTab}
           options={[
-            { id: 'recurring', label: 'Fixed', icon: <Repeat className="w-3.5 h-3.5" />, badge: report !== null ? (report.recurring_commitments?.length ?? 0) + loans.length : undefined },
+            { id: 'recurring', label: 'Fixed', icon: <Repeat className="w-3.5 h-3.5" />, badge: report !== null ? reconciled.totalItemCount : undefined },
             { id: 'variable', label: 'Variable %', icon: <Percent className="w-3.5 h-3.5" />, badge: report?.categories.filter((c) => c.variable_weekly_burn > 0).length },
           ]}
         />
@@ -578,7 +618,8 @@ export const BurnBreakdownModal: React.FC<BurnBreakdownModalProps> = ({
           report={report}
           loading={state.loading}
           activeTab={state.activeTab}
-          loans={loans}
+          commitments={reconciled.commitments}
+          pendingLoans={reconciled.pendingLoans}
           togglingCategory={state.togglingCategory}
           onTogglePeriod={(cat) => void state.handleToggleCategoryPeriod(cat)}
         />
