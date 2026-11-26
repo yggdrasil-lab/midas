@@ -277,6 +277,147 @@ test.describe('Midas App Shell & Navigation', () => {
     await expect(toggleGroceriesBtn).toContainText('Spread 52w On');
   });
 
+  test('deduplicates loan rows in BurnBreakdownModal when linked repayment exists', async ({ page }) => {
+    await page.route('**/api/budgets/average-burn**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          lookback_weeks: 12,
+          as_of_date: '2026-11-26',
+          variable_weekly_burn: 200.0,
+          recurring_weekly_burn: 550.0,
+          effective_weekly_burn: 750.0,
+          categories: [
+            {
+              category: 'Housing',
+              variable_weekly_burn: 0.0,
+              recurring_weekly_burn: 400.0,
+              average_weekly_burn: 400.0,
+              suggested_monthly_limit: 1733.33,
+              suggested_annual_limit: 20800.0,
+              budget_period: 'monthly',
+              variable_percentage: 0.0,
+              total_percentage: 53.3,
+            },
+            {
+              category: 'Debt & Loans',
+              variable_weekly_burn: 0.0,
+              recurring_weekly_burn: 150.0,
+              average_weekly_burn: 150.0,
+              suggested_monthly_limit: 650.0,
+              suggested_annual_limit: 7800.0,
+              budget_period: 'monthly',
+              variable_percentage: 0.0,
+              total_percentage: 20.0,
+            },
+            {
+              category: 'Groceries',
+              variable_weekly_burn: 200.0,
+              recurring_weekly_burn: 0.0,
+              average_weekly_burn: 200.0,
+              suggested_monthly_limit: 866.67,
+              suggested_annual_limit: 10400.0,
+              budget_period: 'monthly',
+              variable_percentage: 100.0,
+              total_percentage: 26.7,
+            },
+          ],
+          recurring_commitments: [
+            {
+              transaction_id: 201,
+              merchant: 'Harbour Rentals',
+              category: 'Housing',
+              recurrence: 'weekly',
+              last_charged_date: '2026-11-22',
+              original_amount: 400.0,
+              currency: 'NZD',
+              amount_nzd: 400.0,
+              weekly_nzd: 400.0,
+              monthly_nzd: 1733.33,
+              percentage_of_recurring: 72.7,
+            },
+            {
+              transaction_id: 901,
+              merchant: 'Alex Auto Finance',
+              category: 'Debt & Loans',
+              recurrence: 'monthly',
+              last_charged_date: '2026-11-20',
+              original_amount: 650.0,
+              currency: 'NZD',
+              amount_nzd: 650.0,
+              weekly_nzd: 150.0,
+              monthly_nzd: 650.0,
+              percentage_of_recurring: 27.3,
+            },
+          ],
+        }),
+      })
+    );
+
+    await page.route('**/api/loans**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          loans: [
+            {
+              id: 11,
+              name: 'Compact SUV Financing',
+              lender: 'Metro Finance',
+              loan_type: 'borrowed',
+              principal_amount: 20000,
+              annual_interest_rate: 0.089,
+              term_months: 36,
+              monthly_payment: 650,
+              start_date: '2026-10-20',
+              currency: 'NZD',
+              is_active: true,
+              payments_made: 1,
+              payments_remaining: 35,
+              remaining_principal: 19400,
+              principal_paid: 600,
+              remaining_interest: 2500,
+              weekly_payment_equivalent: 150,
+              net_worth_impact: -19400,
+              linked_payments: [
+                {
+                  id: 901,
+                  transaction_date: '2026-11-20',
+                  amount: -650,
+                  currency: 'NZD',
+                  amount_nzd: 650,
+                  split_id: null,
+                  entry_type: 'repayment',
+                  merchant: 'Alex Auto Finance',
+                  account_id: 1001,
+                  category: 'Debt & Loans',
+                },
+              ],
+            },
+          ],
+          total_liabilities: 19400,
+          total_receivables: 0,
+          total_asset_value: 25000,
+        }),
+      })
+    );
+
+    const recurringBtn = page.getByTestId('inspect-recurring-burn-btn').locator('visible=true').first();
+    await recurringBtn.scrollIntoViewIfNeeded();
+    await recurringBtn.click();
+
+    await expect(page.getByRole('heading', { name: 'Weekly Burn Anatomy' })).toBeVisible();
+    await expect(page.getByTestId('recurring-loan-row')).toHaveCount(0);
+    await expect(page.getByTestId('recurring-commitment-row')).toHaveCount(2);
+
+    const loanBadge = page.getByTestId('commitment-loan-badge');
+    await expect(loanBadge).toBeVisible();
+    await expect(loanBadge).toContainText('Compact SUV Financing');
+    await expect(loanBadge).toContainText('35/36 left');
+    await expect(page.getByTestId('burn-tab-recurring')).toContainText('2');
+  });
+
   test('overrides period filter for annual categories and inspects cross-category tag spending', async ({ page }) => {
     const budgetTab = page
       .locator('header nav button:has-text("Spending & Budgets"), nav button:has-text("Budgets")')
