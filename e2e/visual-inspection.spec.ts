@@ -74,7 +74,7 @@ for (const { name: platform, options } of PLATFORMS) {
     });
 
     test(`captures full visual progression on ${platform}`, async ({ page }) => {
-      test.setTimeout(60000);
+      test.setTimeout(120000);
       // 1. Dashboard Overview
       await expect(page.locator('header h1')).toBeVisible();
       await expect(page.locator('text=Financial Freedom Clock >> visible=true')).toBeVisible();

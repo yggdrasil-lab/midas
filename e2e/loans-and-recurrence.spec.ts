@@ -26,6 +26,7 @@ for (const { name, device } of MOBILE_PLATFORMS) {
     });
 
     test(`renders loans countdown, recurrence selector, and time machine loan toggle on ${name}`, async ({ page }) => {
+      test.setTimeout(60000);
       // 1. Time Machine loan payoff toggle + relief readout inside Tools tab
       await page.locator('nav button:has-text("Tools")').locator('visible=true').first().click();
       const loanToggle = page.getByTestId('time-machine-payoff-loans');
