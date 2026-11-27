@@ -1,5 +1,6 @@
 import {
   Account,
+  AccountUpdatePayload,
   AssetSnapshot,
   AssetSnapshotCreatePayload,
   InstitutionInfo,
@@ -20,6 +21,17 @@ function fetchAccounts(client: HttpClient): Promise<Account[]> {
   return client.requestJson<Account[]>('/accounts', {
     fallbackError: 'Failed to fetch accounts',
   });
+}
+
+function updateAccount(
+  client: HttpClient,
+  accountId: number,
+  payload: AccountUpdatePayload
+): Promise<Account> {
+  return client.requestJson<Account>(
+    `/accounts/${accountId}`,
+    jsonRequestInit('PATCH', payload, `Failed to update account ${accountId}`)
+  );
 }
 
 function fetchAccountSnapshots(
@@ -75,6 +87,8 @@ export function createAccountsTransport(client: HttpClient) {
   return {
     fetchInstitutions: () => fetchInstitutions(client),
     fetchAccounts: () => fetchAccounts(client),
+    updateAccount: (accountId: number, payload: AccountUpdatePayload) =>
+      updateAccount(client, accountId, payload),
     fetchAccountSnapshots: (accountId: number, limit = 30) =>
       fetchAccountSnapshots(client, accountId, limit),
     recordAccountSnapshot: (accountId: number, payload: AssetSnapshotCreatePayload) =>

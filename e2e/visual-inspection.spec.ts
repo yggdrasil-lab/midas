@@ -74,7 +74,7 @@ for (const { name: platform, options } of PLATFORMS) {
     });
 
     test(`captures full visual progression on ${platform}`, async ({ page }) => {
-      test.setTimeout(60000);
+      test.setTimeout(120000);
       // 1. Dashboard Overview
       await expect(page.locator('header h1')).toBeVisible();
       await expect(page.locator('text=Financial Freedom Clock >> visible=true')).toBeVisible();
@@ -214,6 +214,25 @@ for (const { name: platform, options } of PLATFORMS) {
         await page.screenshot({
           path: `screenshots/${platform}/05b-per-account-view.png`,
         });
+
+        const backstopSection = page.getByTestId('credit-backstop-section');
+        await backstopSection.scrollIntoViewIfNeeded();
+        await expect(backstopSection).toBeVisible();
+        await expect(backstopSection).toContainText('SG Synthetic Cashline');
+        await expect(backstopSection).toContainText('No grace period');
+        await page.waitForTimeout(250);
+        await page.screenshot({
+          path: `screenshots/${platform}/05c-credit-backstop-section.png`,
+        });
+
+        await page.getByTestId('edit-account-btn-8').click();
+        await expect(page.getByTestId('edit-account-modal')).toBeVisible();
+        await page.waitForTimeout(250);
+        await page.screenshot({
+          path: `screenshots/${platform}/05e-edit-account-modal.png`,
+        });
+        await page.getByTestId('edit-account-cancel-btn').click();
+        await expect(page.getByTestId('edit-account-modal')).toBeHidden();
 
         // 5b-ii. Open Account Inspection Modal Popup by clicking an account card (consistent with Budgets UI)
         const asbCard = page.locator('[data-testid="account-card-1"] >> visible=true').first();

@@ -56,6 +56,7 @@ export const plutusTransport = createPlutusTransport();
 export const {
   fetchInstitutions,
   fetchAccounts,
+  updateAccount,
   fetchAccountSnapshots,
   recordAccountSnapshot,
   fetchLoans,

@@ -23,6 +23,7 @@ import {
 } from '@yggdrasil-lab/ui';
 import { AccountView } from './components/AccountView';
 import { CategorySpendingBreakdown } from './components/CategorySpendingBreakdown';
+import { CreditBackstopPill } from './components/CreditBackstopPill';
 import { DataManagementModal } from './components/DataManagementModal';
 import { QuickLogModal } from './components/QuickLogModal';
 import { ReceiptsHubModal } from './components/ReceiptsHubModal';
@@ -134,6 +135,12 @@ const MidasTabContent: React.FC<{
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start max-w-lg lg:max-w-7xl mx-auto pb-24 lg:pb-0">
           <div className="lg:col-span-5 space-y-4 lg:space-y-6">
             <RunwayClock data={runway} />
+            {Boolean(runway.breakdown.credit_backstop && runway.breakdown.credit_backstop.account_count > 0) && (
+              <CreditBackstopPill
+                summary={runway.breakdown.credit_backstop!}
+                onClick={() => onSelectTab('accounts')}
+              />
+            )}
             <WeeklyBurnTracker data={runway} onQuickLogClick={onOpenQuickLog} onBudgetChanged={onRefresh} />
           </div>
           <div className="lg:col-span-7 space-y-4 lg:space-y-6">

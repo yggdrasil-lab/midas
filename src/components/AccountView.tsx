@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, getDefaultCustomRange, LoadingState } from '@yggdrasil-lab/ui';
-import { TIER_ORDER } from '../taxonomy';
+import { TIER_ORDER, isRevolvingCreditAccount } from '../taxonomy';
 import {
   fetchAccounts,
   fetchAccountSnapshots,
@@ -8,9 +8,12 @@ import {
   syncAllIntegrations,
 } from '../transport';
 import { Account, AssetSnapshot, LoansSummaryResponse, PeriodType, SyncResult } from '../types';
+import { buildCreditBackstopSummary } from '../utils/creditBackstop';
 import { AccountInspectionModal } from './AccountInspectionModal';
 import { AccountTierSection } from './AccountTierSection';
 import { BalanceValuationHistoryCard } from './accounts/BalanceValuationHistoryCard';
+import { CreditBackstopSection } from './accounts/CreditBackstopSection';
+import { EditAccountModal } from './accounts/EditAccountModal';
 import { PortfolioNetWorthHero } from './accounts/PortfolioNetWorthHero';
 import { LoansTracker } from './LoansTracker';
 import { RecordSnapshotModal } from './RecordSnapshotModal';
@@ -141,6 +144,8 @@ function useAccountModalSelection(opts: {
   const [inspectingAccount, setInspectingAccount] = useState<Account | null>(null);
   const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
   const [snapshotInitialAccountId, setSnapshotInitialAccountId] = useState<number | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
   useEffect(() => {
     if (initialMatch) {
@@ -151,6 +156,9 @@ function useAccountModalSelection(opts: {
 
   const resolvedInspectingAccount = inspectingAccount
     ? accounts.find((a) => a.id === inspectingAccount.id) ?? inspectingAccount
+    : null;
+  const resolvedEditingAccount = editingAccount
+    ? accounts.find((a) => a.id === editingAccount.id) ?? editingAccount
     : null;
 
   const getNativeBalance = useCallback(
@@ -173,6 +181,12 @@ function useAccountModalSelection(opts: {
     setIsSnapshotModalOpen(true);
   };
 
+  const handleOpenEditAccount = (account: Account) => {
+    setError(null);
+    setEditingAccount(account);
+    setIsEditModalOpen(true);
+  };
+
   const handleSnapshotSaved = (accountId: number, updatedSnaps: AssetSnapshot[], accountName: string) => {
     setSnapshotsByAccount((prev) => ({ ...prev, [accountId]: updatedSnaps }));
     setSyncSummary(null);
@@ -185,9 +199,63 @@ function useAccountModalSelection(opts: {
     successNote, setSuccessNote, syncSummary, setSyncSummary,
     isAccountModalOpen, setIsAccountModalOpen, resolvedInspectingAccount,
     isSnapshotModalOpen, setIsSnapshotModalOpen, snapshotInitialAccountId,
-    getNativeBalance, handleInspectAccount, handleOpenRecordSnapshot, handleSnapshotSaved,
+    isEditModalOpen, setIsEditModalOpen, resolvedEditingAccount,
+    getNativeBalance, handleInspectAccount, handleOpenRecordSnapshot, handleOpenEditAccount, handleSnapshotSaved,
   };
 }
+
+interface AccountViewModalsProps {
+  accounts: Account[];
+  totalPortfolioBalance: number;
+  period: PeriodType;
+  setPeriod: (p: PeriodType) => void;
+  startDate: string;
+  setStartDate: (d: string) => void;
+  endDate: string;
+  setEndDate: (d: string) => void;
+  sel: ReturnType<typeof useAccountModalSelection>;
+  onReload: () => Promise<void>;
+  onError: (msg: string | null) => void;
+  onRefreshRunway?: () => void;
+}
+
+const AccountViewModals: React.FC<AccountViewModalsProps> = ({
+  accounts, totalPortfolioBalance, period, setPeriod, startDate, setStartDate, endDate, setEndDate,
+  sel, onReload, onError, onRefreshRunway,
+}) => (
+  <>
+    <AccountInspectionModal
+      isOpen={sel.isAccountModalOpen} onClose={() => sel.setIsAccountModalOpen(false)}
+      account={sel.resolvedInspectingAccount} accounts={accounts}
+      period={period} onPeriodChange={setPeriod} startDate={startDate} endDate={endDate}
+      onStartDateChange={setStartDate} onEndDateChange={setEndDate} onTransactionCategoryChanged={onReload}
+      onRecordSnapshotClick={() => {
+        sel.setIsAccountModalOpen(false);
+        if (sel.resolvedInspectingAccount) sel.handleOpenRecordSnapshot(sel.resolvedInspectingAccount);
+      }}
+      onEditAccountClick={() => {
+        sel.setIsAccountModalOpen(false);
+        if (sel.resolvedInspectingAccount) sel.handleOpenEditAccount(sel.resolvedInspectingAccount);
+      }}
+      latestBalance={sel.resolvedInspectingAccount ? sel.getNativeBalance(sel.resolvedInspectingAccount.id) : totalPortfolioBalance}
+    />
+    <RecordSnapshotModal
+      isOpen={sel.isSnapshotModalOpen} onClose={() => sel.setIsSnapshotModalOpen(false)}
+      accounts={accounts} initialAccountId={sel.snapshotInitialAccountId}
+      getAccountLatestBalance={sel.getNativeBalance} onSnapshotSaved={sel.handleSnapshotSaved} onError={onError}
+    />
+    <EditAccountModal
+      isOpen={sel.isEditModalOpen} onClose={() => sel.setIsEditModalOpen(false)}
+      account={sel.resolvedEditingAccount}
+      onSaved={async (updated) => {
+        await onReload();
+        sel.setSuccessNote(`Updated account settings for ${updated.name}`);
+        setTimeout(() => sel.setSuccessNote(null), 4000);
+        onRefreshRunway?.();
+      }}
+    />
+  </>
+);
 
 /**
  * Portfolio allocation overview, tier-grouped account cards, valuation
@@ -204,6 +272,10 @@ export const AccountView: React.FC<AccountViewProps> = ({
   const data = useAccountPortfolioData(initialAccountId);
   const { byTier, tierTotals, totalPortfolioBalance } = useMemo(
     () => computeTierBalances(data.accounts, data.snapshotsByAccount),
+    [data.accounts, data.snapshotsByAccount]
+  );
+  const creditBackstopSummary = useMemo(
+    () => buildCreditBackstopSummary(data.accounts, data.snapshotsByAccount),
     [data.accounts, data.snapshotsByAccount]
   );
   const sel = useAccountModalSelection({
@@ -232,27 +304,22 @@ export const AccountView: React.FC<AccountViewProps> = ({
       ) : (
         <div className="space-y-6" data-testid="account-selector-grid">
           {TIER_ORDER.map((tier) => (
-            <AccountTierSection key={tier} tier={tier} accounts={byTier[tier]} totalNzd={tierTotals[tier]} snapshotsByAccount={data.snapshotsByAccount} onInspectAccount={sel.handleInspectAccount} />
+            <AccountTierSection
+              key={tier} tier={tier} accounts={byTier[tier].filter((a) => !isRevolvingCreditAccount(a.account_type))}
+              totalNzd={tierTotals[tier]} creditOwedNzd={tier === 'cash' ? creditBackstopSummary.totalOwedNzd : 0}
+              snapshotsByAccount={data.snapshotsByAccount} onInspectAccount={sel.handleInspectAccount}
+            />
           ))}
+          <CreditBackstopSection summary={creditBackstopSummary} onInspectAccount={sel.handleInspectAccount} onEditAccount={sel.handleOpenEditAccount} />
         </div>
       )}
       <LoansTracker summary={data.loansSummary} onChanged={() => { void data.reload(); onRefreshRunway?.(); }} />
       <BalanceValuationHistoryCard accounts={data.accounts} snapshotsByAccount={data.snapshotsByAccount} onInspectAccount={sel.handleInspectAccount} onRecordSnapshot={() => sel.handleOpenRecordSnapshot()} />
-      <AccountInspectionModal
-        isOpen={sel.isAccountModalOpen} onClose={() => sel.setIsAccountModalOpen(false)}
-        account={sel.resolvedInspectingAccount} accounts={data.accounts}
-        period={period} onPeriodChange={setPeriod} startDate={startDate} endDate={endDate}
-        onStartDateChange={setStartDate} onEndDateChange={setEndDate} onTransactionCategoryChanged={data.reload}
-        onRecordSnapshotClick={() => {
-          sel.setIsAccountModalOpen(false);
-          if (sel.resolvedInspectingAccount) sel.handleOpenRecordSnapshot(sel.resolvedInspectingAccount);
-        }}
-        latestBalance={sel.resolvedInspectingAccount ? sel.getNativeBalance(sel.resolvedInspectingAccount.id) : totalPortfolioBalance}
-      />
-      <RecordSnapshotModal
-        isOpen={sel.isSnapshotModalOpen} onClose={() => sel.setIsSnapshotModalOpen(false)}
-        accounts={data.accounts} initialAccountId={sel.snapshotInitialAccountId}
-        getAccountLatestBalance={sel.getNativeBalance} onSnapshotSaved={sel.handleSnapshotSaved} onError={data.setError}
+      <AccountViewModals
+        accounts={data.accounts} totalPortfolioBalance={totalPortfolioBalance}
+        period={period} setPeriod={setPeriod} startDate={startDate} setStartDate={setStartDate}
+        endDate={endDate} setEndDate={setEndDate} sel={sel}
+        onReload={data.reload} onError={data.setError} onRefreshRunway={onRefreshRunway}
       />
     </div>
   );

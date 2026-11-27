@@ -4,11 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { Account, CategoryItem, InstitutionInfo } from '../types';
 import {
   ACCOUNT_TIER_META,
+  ACCOUNT_TYPE_OPTIONS,
   TIER_ORDER,
   buildInstitutionOptions,
   deriveCategoryTaxonomy,
   formatAccountTypeLabel,
   formatPeriodLabel,
+  isRevolvingCreditAccount,
   isTransferCategory,
   loadCategoryRows,
   toTaxonomySlug,
@@ -202,7 +204,17 @@ describe('Midas taxonomy deep module', () => {
       expect(formatAccountTypeLabel('  ')).toBe('Account');
       expect(formatAccountTypeLabel('kiwisaver')).toBe('KiwiSaver');
       expect(formatAccountTypeLabel('private_note')).toBe('Private Note');
+      expect(formatAccountTypeLabel('credit_line')).toBe('Credit Line');
       expect(formatAccountTypeLabel('term_deposit')).toBe('Term Deposit');
+      expect(ACCOUNT_TYPE_OPTIONS.some((o) => o.value === 'credit_line')).toBe(true);
+    });
+
+    it('detects revolving credit account types', () => {
+      expect(isRevolvingCreditAccount('credit_card')).toBe(true);
+      expect(isRevolvingCreditAccount('credit_line')).toBe(true);
+      expect(isRevolvingCreditAccount(' CREDIT_LINE ')).toBe(true);
+      expect(isRevolvingCreditAccount('checking')).toBe(false);
+      expect(isRevolvingCreditAccount(null)).toBe(false);
     });
 
     it('detects transfer categories and linked transfer transactions', () => {
