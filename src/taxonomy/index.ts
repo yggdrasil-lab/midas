@@ -6,6 +6,7 @@ export {
   RECURRENCE_OPTIONS,
   formatAccountTypeLabel,
   formatPeriodLabel,
+  isRevolvingCreditAccount,
   isTransferCategory,
 } from './reference';
 export { toTaxonomySlug } from './slug';

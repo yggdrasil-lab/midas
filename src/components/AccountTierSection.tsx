@@ -14,6 +14,7 @@ interface AccountTierSectionProps {
   tier: Account['tier'];
   accounts: Account[];
   totalNzd: number;
+  creditOwedNzd?: number;
   snapshotsByAccount: Record<number, AssetSnapshot[]>;
   onInspectAccount: (account: Account) => void;
 }
@@ -127,6 +128,7 @@ export const AccountTierSection: React.FC<AccountTierSectionProps> = ({
   tier,
   accounts,
   totalNzd,
+  creditOwedNzd = 0,
   snapshotsByAccount,
   onInspectAccount,
 }) => {
@@ -145,8 +147,15 @@ export const AccountTierSection: React.FC<AccountTierSectionProps> = ({
         uppercaseTitle
         className="px-1"
         actions={
-          <div className={`font-mono font-semibold text-xs whitespace-nowrap ${meta.totalTextColor}`}>
-            {formatMoney(totalNzd, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD
+          <div className="text-right">
+            <div className={`font-mono font-semibold text-xs whitespace-nowrap ${meta.totalTextColor}`}>
+              {formatMoney(totalNzd, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD
+            </div>
+            {tier === 'cash' && creditOwedNzd > 0 && (
+              <div data-testid="cash-floor-net-credit-note" className="text-[10px] text-slate-400 whitespace-nowrap">
+                Net of credit owed ({formatMoney(creditOwedNzd, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} NZD)
+              </div>
+            )}
           </div>
         }
       />

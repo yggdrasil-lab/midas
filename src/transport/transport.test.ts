@@ -271,6 +271,43 @@ describe('Plutus HTTP transport seam', () => {
       });
     });
 
+    it('updates account metadata and credit_limit via PATCH /accounts/{id}', async () => {
+      const updatedAccount = {
+        id: 8,
+        name: 'NZ Synthetic Visa',
+        account_type: 'credit_card' as const,
+        tier: 'cash' as const,
+        institution: 'North Bank',
+        currency: 'NZD',
+        expected_annual_return: 0,
+        credit_limit: 12000,
+        is_active: true,
+      };
+      const adapter = new FakeHttpAdapter().enqueueJson(updatedAccount).enqueueJson({
+        ...updatedAccount,
+        credit_limit: null,
+      });
+      const transport = createPlutusTransport(adapter);
+
+      const saved = await transport.updateAccount(8, {
+        account_type: 'credit_line',
+        credit_limit: 12000,
+      });
+      const cleared = await transport.updateAccount(8, { credit_limit: null });
+
+      expect(saved.credit_limit).toBe(12000);
+      expect(cleared.credit_limit).toBeNull();
+      expect(adapter.calls[0].input).toBe('/api/accounts/8');
+      expect(adapter.calls[0].init?.method).toBe('PATCH');
+      expect(JSON.parse(String(adapter.calls[0].init?.body))).toEqual({
+        account_type: 'credit_line',
+        credit_limit: 12000,
+      });
+      expect(JSON.parse(String(adapter.calls[1].init?.body))).toEqual({
+        credit_limit: null,
+      });
+    });
+
     it('handles 204 No Content void responses on DELETE requests', async () => {
       const adapter = new FakeHttpAdapter()
         .enqueueEmpty(204)

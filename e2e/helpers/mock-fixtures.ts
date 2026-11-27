@@ -19,6 +19,16 @@ export const MOCK_RUNWAY_DATA = {
     variable_weekly_burn: 490.0,
     recurring_weekly_burn: 510.0,
     this_week_variable_spend: 240.0,
+    credit_backstop: {
+      total_credit_limit_nzd: 22900.0,
+      total_credit_owed_nzd: 7305.0,
+      total_available_credit_nzd: 15595.0,
+      credit_utilization_pct: 31.9,
+      backstop_weeks: 15.6,
+      credit_card_available_nzd: 8500.0,
+      credit_line_available_nzd: 7095.0,
+      account_count: 2,
+    },
   },
 };
 

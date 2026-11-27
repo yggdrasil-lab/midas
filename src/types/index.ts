@@ -5,6 +5,7 @@ export type AccountType =
   | 'kiwisaver'
   | 'crypto'
   | 'credit_card'
+  | 'credit_line'
   | 'private_note';
 
 export interface Account {
@@ -16,11 +17,28 @@ export interface Account {
   currency: string;
   expected_annual_return: number;
   is_active: boolean;
+  credit_limit?: number | null;
+  credit_limit_nzd?: number | null;
+  credit_owed_native?: number | null;
+  credit_owed_nzd?: number | null;
+  available_credit_native?: number | null;
+  available_credit_nzd?: number | null;
+  credit_utilization_pct?: number | null;
   payout_total_native?: number;
   payout_total_nzd?: number;
   payout_count?: number;
   first_payout_date?: string | null;
   last_payout_date?: string | null;
+}
+
+export interface AccountUpdatePayload {
+  name?: string;
+  account_type?: AccountType;
+  tier?: 'cash' | 'growth' | 'locked';
+  institution?: string;
+  expected_annual_return?: number;
+  credit_limit?: number | null;
+  is_active?: boolean;
 }
 
 export interface AssetSnapshot {
@@ -46,6 +64,17 @@ export interface AssetSnapshotCreatePayload {
   notes?: string | null;
 }
 
+export interface CreditBackstopSummary {
+  total_credit_limit_nzd: number;
+  total_credit_owed_nzd: number;
+  total_available_credit_nzd: number;
+  credit_utilization_pct: number;
+  backstop_weeks: number;
+  credit_card_available_nzd: number;
+  credit_line_available_nzd: number;
+  account_count: number;
+}
+
 export interface RunwayTierBreakdown {
   cash_balance: number;
   growth_balance: number;
@@ -63,6 +92,7 @@ export interface RunwayTierBreakdown {
   recurring_weekly_burn?: number;
   this_week_variable_spend?: number;
   tier_labels?: Record<string, string>;
+  credit_backstop?: CreditBackstopSummary;
 }
 
 export interface RunwayData {

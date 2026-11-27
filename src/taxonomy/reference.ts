@@ -47,6 +47,7 @@ export const ACCOUNT_TYPE_OPTIONS: Array<{ value: AccountType; label: string }> 
   { value: 'private_note', label: 'Private Note' },
   { value: 'crypto', label: 'Crypto' },
   { value: 'credit_card', label: 'Credit Card' },
+  { value: 'credit_line', label: 'Credit Line (Revolving / No Grace Period)' },
 ];
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -57,7 +58,14 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   private_note: 'Private Note',
   crypto: 'Crypto',
   credit_card: 'Credit Card',
+  credit_line: 'Credit Line',
 };
+
+/** Returns true if an account_type represents a revolving credit facility. */
+export function isRevolvingCreditAccount(accountType?: string | null): boolean {
+  const normalized = (accountType || '').trim().toLowerCase();
+  return normalized === 'credit_card' || normalized === 'credit_line';
+}
 
 /** Formats an account_type enum (including snake_case values) for display. */
 export function formatAccountTypeLabel(accountType?: string | null): string {

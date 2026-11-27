@@ -26,6 +26,13 @@ export interface MockAccountRecord {
   currency: string;
   expected_annual_return: number;
   is_active: boolean;
+  credit_limit?: number | null;
+  credit_limit_nzd?: number | null;
+  credit_owed_native?: number | null;
+  credit_owed_nzd?: number | null;
+  available_credit_native?: number | null;
+  available_credit_nzd?: number | null;
+  credit_utilization_pct?: number | null;
 }
 
 export interface MockBudgetRuleRecord {

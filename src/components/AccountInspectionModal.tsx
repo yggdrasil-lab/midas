@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, Landmark, Lock, PlusCircle, TrendingUp, Wallet } from 'lucide-react';
+import { Building2, Landmark, Lock, Pencil, PlusCircle, TrendingUp, Wallet } from 'lucide-react';
 import {
   AlertBanner,
   Button,
@@ -46,6 +46,7 @@ interface AccountInspectionModalProps {
   onEndDateChange?: (date: string) => void;
   onTransactionCategoryChanged: () => Promise<void> | void;
   onRecordSnapshotClick?: () => void;
+  onEditAccountClick?: () => void;
   latestBalance?: number;
   latestBalanceNzd?: number;
 }
@@ -105,10 +106,11 @@ interface AccountModalHeaderProps {
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   onRecordSnapshotClick?: () => void;
+  onEditAccountClick?: () => void;
 }
 
 const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
-  account, period, startDate, endDate, onPeriodChange, onStartDateChange, onEndDateChange, onRecordSnapshotClick,
+  account, period, startDate, endDate, onPeriodChange, onStartDateChange, onEndDateChange, onRecordSnapshotClick, onEditAccountClick,
 }) => {
   const tierMeta = account ? ACCOUNT_TIER_META[account.tier] : null;
   const tierIcon = account ? TIER_ICONS[account.tier] : null;
@@ -156,6 +158,17 @@ const AccountModalHeader: React.FC<AccountModalHeaderProps> = ({
             data-testid="modal-record-snapshot-btn"
           >
             Record Valuation
+          </Button>
+        )}
+        {Boolean(account && onEditAccountClick) && (
+          <Button
+            variant="outline"
+            size="xs"
+            icon={<Pencil className="w-3 h-3" />}
+            onClick={onEditAccountClick}
+            data-testid="modal-edit-account-btn"
+          >
+            Edit Account
           </Button>
         )}
       </div>
@@ -314,7 +327,7 @@ function useAccountModalViewState(props: AccountInspectionBodyProps) {
 }
 
 const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
-  const { account, period, onPeriodChange, startDate, endDate, onStartDateChange, onEndDateChange, onRecordSnapshotClick } = props;
+  const { account, period, onPeriodChange, startDate, endDate, onStartDateChange, onEndDateChange, onRecordSnapshotClick, onEditAccountClick } = props;
   const v = useAccountModalViewState(props);
 
   return (
@@ -324,6 +337,7 @@ const AccountInspectionBody: React.FC<AccountInspectionBodyProps> = (props) => {
           account={account} period={period} startDate={startDate} endDate={endDate}
           onPeriodChange={onPeriodChange} onStartDateChange={onStartDateChange}
           onEndDateChange={onEndDateChange} onRecordSnapshotClick={onRecordSnapshotClick}
+          onEditAccountClick={onEditAccountClick}
         />
         <SummaryMetricGrid items={v.summaryItems} columns={v.currentBalance !== undefined ? 4 : 3} />
         {v.showTotalEarned && (
