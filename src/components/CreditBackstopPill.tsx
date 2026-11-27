@@ -47,7 +47,7 @@ export const CreditBackstopPill: React.FC<CreditBackstopPillProps> = ({ summary,
                 showDot={false}
               />
             </div>
-            <div className="text-[11px] text-slate-400 truncate">
+            <div className="text-[11px] text-slate-400">
               Separate from Freedom Runway
             </div>
           </div>

@@ -149,7 +149,11 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = (props) => {
       }
     >
       <form id="edit-account-form" onSubmit={(e) => void f.handleSubmit(e)} className="space-y-4 pt-1" data-testid="edit-account-modal">
-        {Boolean(f.error) && <AlertBanner variant="error" data-testid="edit-account-error">{f.error}</AlertBanner>}
+        {Boolean(f.error) && (
+          <div data-testid="edit-account-error">
+            <AlertBanner variant="error">{f.error}</AlertBanner>
+          </div>
+        )}
         <EditAccountFields form={f} currency={account?.currency || 'NZD'} />
       </form>
     </Modal>
